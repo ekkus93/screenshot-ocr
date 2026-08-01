@@ -32,6 +32,23 @@ jobs:
         run: |
           set -euo pipefail
 
+          cat <<'CHECKSUMS' | sha256sum --check --strict
+          e1336fed06301e19700612a947ef8ab2c77eba6b45ee4ee2fbae897437a8c45b  .bootstrap/scaffold.part.00
+          776462a86dbb06cd0c054e4f6ce11e7ca49b4bfa7a3210c38787dacb4c8c55ae  .bootstrap/scaffold.part.01
+          0a4d7e3dd05f3e955924286f28a3c2e9348e9ea58f1b290f1e81274565467ab0  .bootstrap/scaffold.part.02
+          59353eeef55da6f04a4e54d09a11472d92396a82a0ff7096d9e6458eb8775f94  .bootstrap/scaffold.part.03a
+          f1f6d0151a530414fd9e251d7e944f304fd21185604a1c233a904b4599d3ec53  .bootstrap/scaffold.part.03b
+          1ea6b8d8575f8dc5878422d455b502fb2f32d5b3f79ec1fa8cb9a1bb95c0a1bc  .bootstrap/scaffold.part.03c
+          fda7266acb4f1cd8bfc3fa382780aa4cef541cb22e7d8720490970dd5d4a09d1  .bootstrap/scaffold.part.03d
+          42f8d35660455ae6076146b7b3b2b91c444175f2d8fd6536a0b579c1f584c01c  .bootstrap/scaffold.part.04a
+          5c5e9ec925cedc2bad5196def8310dd8a5ddd682a98a93f26fd149785d3cfdaa  .bootstrap/scaffold.part.04b
+          1eaafd683d7bcfd6613551510a40ef4aaeeb6ea58f6bf074ab5589f87be571ec  .bootstrap/scaffold.part.04c
+          357d261edb5d89aeac5c56b82d2b97b1571f908d157f9964ac75fb6670e5a98a  .bootstrap/scaffold.part.04d
+          10200dfdc78984689d31c1e4703037f4637878299d5e39356d0dbeb25421829e  .bootstrap/scaffold.part.05a
+          c90683c2867c9fb22a0b3e6632367995e6df36c489978b276841fe4303999023  .bootstrap/scaffold.part.05b
+          cfc7515453be69fc4bf9ed16d09f86f3846c4ba28bf9397a28a4ca964319e720  .bootstrap/scaffold.part.05c
+          CHECKSUMS
+
           cat \
             .bootstrap/scaffold.part.00 \
             .bootstrap/scaffold.part.01 \
@@ -77,14 +94,7 @@ jobs:
           print(f"Validated {len(members)} reviewed archive entries.")
           PY
 
-          tar \
-            --extract \
-            --gzip \
-            --file "${RUNNER_TEMP}/scaffold.tar.gz" \
-            --directory . \
-            --no-same-owner \
-            --no-same-permissions
-
+          tar --extract --gzip --file "${RUNNER_TEMP}/scaffold.tar.gz" --directory . --no-same-owner --no-same-permissions
           rm -rf .bootstrap
           rm -f .github/workflows/extract-scaffold.yml
 
