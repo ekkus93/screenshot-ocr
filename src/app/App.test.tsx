@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { expect, test, vi } from "vitest";
 import { App } from "./App";
 
@@ -43,9 +44,13 @@ test("renders the primary capture workflow", async () => {
   expect(await screen.findByText("Ready to capture")).toBeVisible();
 });
 
-test("shows honest no-history copy", () => {
+test("shows honest no-history copy", async () => {
+  const user = userEvent.setup();
   render(<App />);
-  screen.getByRole("button", { name: "History" }).click();
-  expect(screen.getByText("History is off")).toBeVisible();
+  await screen.findByText("Ready to capture");
+
+  await user.click(screen.getByRole("button", { name: /history/i }));
+
+  expect(await screen.findByText("History is off")).toBeVisible();
   expect(screen.getByText(/no hidden history database/i)).toBeVisible();
 });
