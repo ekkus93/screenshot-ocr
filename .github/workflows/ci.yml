@@ -90,6 +90,19 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
+      - name: Generate exact formatter result for eslint.config.js
+        run: npm exec prettier -- --write eslint.config.js
+
+      - name: Upload exact formatter result
+        uses: actions/upload-artifact@v7
+        with:
+          name: formatted-eslint-config
+          path: eslint.config.js
+          if-no-files-found: error
+
+      - name: Require committed formatter result
+        run: git diff --exit-code -- eslint.config.js
+
       - name: Check formatting
         run: npm run format:check
 
@@ -140,7 +153,32 @@ jobs:
         run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
 
       - name: Run Clippy with warnings denied
-        run: cargo clippy --manifest-path src-tauri/Cargo.toml --workspace --all-targets --all-features --locked -- -D warnings
+        id: clippy
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo clippy \
+            --manifest-path src-tauri/Cargo.toml \
+            --workspace \
+            --all-targets \
+            --all-features \
+            --locked \
+            -- \
+            -D warnings \
+            2>&1 | tee clippy-diagnostics.txt
+
+      - name: Upload Clippy diagnostics
+        if: ${{ steps.clippy.outcome == 'failure' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: clippy-diagnostics
+          path: clippy-diagnostics.txt
+          if-no-files-found: error
+
+      - name: Enforce Clippy result
+        if: ${{ steps.clippy.outcome == 'failure' }}
+        run: exit 1
 
       - name: Run Rust tests
         run: cargo test --manifest-path src-tauri/Cargo.toml --workspace --all-features --locked
