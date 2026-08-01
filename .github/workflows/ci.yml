@@ -1,3 +1,4 @@
+# Authoritative hosted quality and packaging gates for master.
 name: CI
 
 on:
