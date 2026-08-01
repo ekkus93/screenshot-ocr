@@ -9,6 +9,10 @@ export async function cancelCapture(jobId: string): Promise<void> {
   await invoke<null>("cancel_capture", { jobId });
 }
 
+export function takeStartupCapture(): Promise<boolean> {
+  return invoke<boolean>("take_startup_capture");
+}
+
 export async function copyText(text: string): Promise<void> {
   await invoke<null>("copy_text", { text });
 }
