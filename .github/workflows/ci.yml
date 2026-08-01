@@ -95,10 +95,14 @@ jobs:
           PY
 
           tar --extract --gzip --file "${RUNNER_TEMP}/scaffold.tar.gz" --directory . --no-same-owner --no-same-permissions
-          rm -rf .bootstrap
-          rm -f .github/workflows/extract-scaffold.yml
 
-      - name: Commit reviewed scaffold to master
+          # The workflow token may write source but cannot create or update workflow files.
+          # Restore the existing workflows; the GitHub connector will install the reviewed
+          # CI workflow and remove the one-shot extractor after this source commit lands.
+          git checkout HEAD -- .github/workflows/ci.yml .github/workflows/extract-scaffold.yml
+          rm -rf .bootstrap
+
+      - name: Commit reviewed scaffold source to master
         shell: bash
         run: |
           set -euo pipefail
