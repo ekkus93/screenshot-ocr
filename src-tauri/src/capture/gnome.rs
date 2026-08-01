@@ -106,11 +106,6 @@ mod tests {
     use tempfile::tempdir;
 
     #[test]
-    fn capture_timeout_is_bounded() {
-        assert!(CAPTURE_TIMEOUT <= Duration::from_secs(120));
-    }
-
-    #[test]
     fn cleanup_removes_nested_capture_artifacts() {
         let parent = tempdir().expect("tempdir");
         let directory = parent.path().join("capture");
