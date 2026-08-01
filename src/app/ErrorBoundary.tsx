@@ -1,4 +1,4 @@
-import type { ErrorInfo, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Component } from "react";
 
 interface Props {
@@ -16,7 +16,7 @@ export class ErrorBoundary extends Component<Props, State> {
     return { failed: true };
   }
 
-  public componentDidCatch(_error: Error, _info: ErrorInfo): void {
+  public componentDidCatch(): void {
     // Captured content and command payloads must never be logged here.
   }
 
