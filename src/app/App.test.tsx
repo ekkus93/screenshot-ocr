@@ -31,6 +31,7 @@ vi.mock("../lib/tauri", () => ({
     lastErrorCode: null,
     cleanupFailureCount: 0,
   }),
+  takeStartupCapture: vi.fn().mockResolvedValue(false),
   startCapture: vi.fn(),
   copyText: vi.fn(),
   updateSettings: vi.fn(),
