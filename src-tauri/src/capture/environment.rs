@@ -21,7 +21,8 @@ impl EnvironmentProbe {
             return Err(AppError::UnsupportedEnvironment);
         }
         let os_release = read_os_release();
-        let desktop_environment = env::var("XDG_CURRENT_DESKTOP").unwrap_or_else(|_| "unknown".into());
+        let desktop_environment =
+            env::var("XDG_CURRENT_DESKTOP").unwrap_or_else(|_| "unknown".into());
         let session_type = env::var("XDG_SESSION_TYPE").unwrap_or_else(|_| "unknown".into());
         let gnome_screenshot = find_executable("gnome-screenshot");
         let tesseract = find_executable("tesseract");
@@ -30,15 +31,30 @@ impl EnvironmentProbe {
         } else {
             "session bus unavailable".into()
         };
-        Ok(EnvironmentInfo { os_release, desktop_environment, session_type, gnome_screenshot, tesseract, portal_summary })
+        Ok(EnvironmentInfo {
+            os_release,
+            desktop_environment,
+            session_type,
+            gnome_screenshot,
+            tesseract,
+            portal_summary,
+        })
     }
 }
 
 fn read_os_release() -> String {
     fs::read_to_string("/etc/os-release")
         .ok()
-        .and_then(|text| text.lines().find(|line| line.starts_with("PRETTY_NAME=")).map(str::to_owned))
-        .map(|line| line.trim_start_matches("PRETTY_NAME=").trim_matches('"').to_owned())
+        .and_then(|text| {
+            text.lines()
+                .find(|line| line.starts_with("PRETTY_NAME="))
+                .map(str::to_owned)
+        })
+        .map(|line| {
+            line.trim_start_matches("PRETTY_NAME=")
+                .trim_matches('"')
+                .to_owned()
+        })
         .unwrap_or_else(|| "Linux (release unknown)".into())
 }
 

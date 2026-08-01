@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { copyText, getDiagnostics, getSettings, resetSettings, startCapture, updateSettings } from "../lib/tauri";
+import {
+  copyText,
+  getDiagnostics,
+  getSettings,
+  resetSettings,
+  startCapture,
+  updateSettings,
+} from "../lib/tauri";
 import type { AppSettings, CaptureStatus, Diagnostics, OcrResult, PublicError } from "../lib/types";
 
 const DEFAULT_SETTINGS: AppSettings = {

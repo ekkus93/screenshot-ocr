@@ -97,7 +97,12 @@ impl From<AppError> for PublicError {
             AppError::UnsupportedEnvironment => (ErrorCode::UnsupportedEnvironment, "This desktop environment is not supported.", "Use Ubuntu GNOME on Wayland or X11.", false),
             AppError::Internal => (ErrorCode::InternalError, "An internal operation failed.", "Restart the application and inspect safe diagnostics.", true),
         };
-        Self { code, message: message.into(), guidance: guidance.into(), retryable }
+        Self {
+            code,
+            message: message.into(),
+            guidance: guidance.into(),
+            retryable,
+        }
     }
 }
 

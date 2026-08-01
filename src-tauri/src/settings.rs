@@ -85,11 +85,24 @@ impl SettingsStore {
         set_directory_permissions(&self.directory)?;
         let destination = self.directory.join(SETTINGS_FILE);
         let temporary = self.directory.join("settings.json.tmp");
-        let serialized = serde_json::to_vec_pretty(settings).map_err(|_| AppError::SettingsWriteFailed)?;
-        let mut file = OpenOptions::new().create(true).truncate(true).write(true).open(&temporary).map_err(|_| AppError::SettingsWriteFailed)?;
+        let serialized =
+            serde_json::to_vec_pretty(settings).map_err(|_| AppError::SettingsWriteFailed)?;
+        let mut file = OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .write(true)
+            .open(&temporary)
+            .map_err(|_| AppError::SettingsWriteFailed)?;
         set_file_permissions(&temporary)?;
-        file.write_all(&serialized).and_then(|_| file.write_all(b"
-")).and_then(|_| file.sync_all()).map_err(|_| AppError::SettingsWriteFailed)?;
+        file.write_all(&serialized)
+            .and_then(|_| {
+                file.write_all(
+                    b"
+",
+                )
+            })
+            .and_then(|_| file.sync_all())
+            .map_err(|_| AppError::SettingsWriteFailed)?;
         fs::rename(&temporary, &destination).map_err(|_| AppError::SettingsWriteFailed)?;
         Ok(())
     }
@@ -109,20 +122,26 @@ impl SettingsStore {
 #[cfg(unix)]
 fn set_directory_permissions(path: &Path) -> Result<(), AppError> {
     use std::os::unix::fs::PermissionsExt;
-    fs::set_permissions(path, fs::Permissions::from_mode(0o700)).map_err(|_| AppError::SettingsWriteFailed)
+    fs::set_permissions(path, fs::Permissions::from_mode(0o700))
+        .map_err(|_| AppError::SettingsWriteFailed)
 }
 
 #[cfg(not(unix))]
-fn set_directory_permissions(_path: &Path) -> Result<(), AppError> { Ok(()) }
+fn set_directory_permissions(_path: &Path) -> Result<(), AppError> {
+    Ok(())
+}
 
 #[cfg(unix)]
 fn set_file_permissions(path: &Path) -> Result<(), AppError> {
     use std::os::unix::fs::PermissionsExt;
-    fs::set_permissions(path, fs::Permissions::from_mode(0o600)).map_err(|_| AppError::SettingsWriteFailed)
+    fs::set_permissions(path, fs::Permissions::from_mode(0o600))
+        .map_err(|_| AppError::SettingsWriteFailed)
 }
 
 #[cfg(not(unix))]
-fn set_file_permissions(_path: &Path) -> Result<(), AppError> { Ok(()) }
+fn set_file_permissions(_path: &Path) -> Result<(), AppError> {
+    Ok(())
+}
 
 #[cfg(test)]
 mod tests {

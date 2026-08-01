@@ -18,7 +18,10 @@ pub struct AppServices {
 
 impl AppServices {
     pub fn new(config_dir: PathBuf) -> Self {
-        Self { state: Arc::new(Mutex::new(CaptureStateMachine::default())), settings: Arc::new(SettingsStore::new(config_dir)) }
+        Self {
+            state: Arc::new(Mutex::new(CaptureStateMachine::default())),
+            settings: Arc::new(SettingsStore::new(config_dir)),
+        }
     }
 
     pub async fn capture(&self, request: CaptureRequest) -> Result<OcrResult, AppError> {
@@ -31,11 +34,20 @@ impl AppServices {
         result
     }
 
-    async fn capture_inner(&self, job_id: crate::models::CaptureJobId, request: CaptureRequest) -> Result<OcrResult, AppError> {
+    async fn capture_inner(
+        &self,
+        job_id: crate::models::CaptureJobId,
+        request: CaptureRequest,
+    ) -> Result<OcrResult, AppError> {
         let started = Instant::now();
         let environment = EnvironmentProbe::probe()?;
-        let executable = environment.gnome_screenshot.clone().ok_or(AppError::CaptureBackendUnavailable)?;
-        let captured = GnomeScreenshotBackend::new(executable).capture_region().await?;
+        let executable = environment
+            .gnome_screenshot
+            .clone()
+            .ok_or(AppError::CaptureBackendUnavailable)?;
+        let captured = GnomeScreenshotBackend::new(executable)
+            .capture_region()
+            .await?;
         let engine = TesseractEngine::from_environment(&environment)?;
         engine.probe_english()?;
         let variants = prepare_variants(&captured.image);
@@ -46,7 +58,10 @@ impl AppServices {
                 Err(AppError::OcrTimedOut) => return Err(AppError::OcrTimedOut),
                 Err(_) => continue,
             }
-            if candidates.last().is_some_and(|candidate| candidate.score > 200) {
+            if candidates
+                .last()
+                .is_some_and(|candidate| candidate.score > 200)
+            {
                 break;
             }
         }

@@ -14,9 +14,9 @@ The issue is a discovery and indexing bridge. GitHub Actions jobs, logs, check r
 
 ## Monitored target
 
-| Workflow | Workflow file | Branch | Status issue |
-|---|---|---|---|
-| `CI` | `.github/workflows/ci.yml` | `master` | `#1` |
+| Workflow | Workflow file              | Branch   | Status issue |
+| -------- | -------------------------- | -------- | ------------ |
+| `CI`     | `.github/workflows/ci.yml` | `master` | `#1`         |
 
 Runs for unrelated branches cannot overwrite issue #1. Pull-request CI still runs normally, but its source branch is not accepted by the `master` status publisher.
 

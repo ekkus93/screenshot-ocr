@@ -40,7 +40,11 @@ impl Diagnostics {
 }
 
 fn availability(available: bool) -> String {
-    if available { "available".into() } else { "unavailable".into() }
+    if available {
+        "available".into()
+    } else {
+        "unavailable".into()
+    }
 }
 
 #[cfg(test)]
@@ -50,8 +54,19 @@ mod tests {
 
     #[test]
     fn diagnostics_never_include_executable_paths() {
-        let environment = EnvironmentInfo { os_release: "Ubuntu".into(), desktop_environment: "GNOME".into(), session_type: "wayland".into(), gnome_screenshot: Some(PathBuf::from("/sensitive/path")), tesseract: None, portal_summary: "safe".into() };
-        let json = serde_json::to_string(&Diagnostics::from_environment(&environment, vec!["eng".into()])).expect("serialize");
+        let environment = EnvironmentInfo {
+            os_release: "Ubuntu".into(),
+            desktop_environment: "GNOME".into(),
+            session_type: "wayland".into(),
+            gnome_screenshot: Some(PathBuf::from("/sensitive/path")),
+            tesseract: None,
+            portal_summary: "safe".into(),
+        };
+        let json = serde_json::to_string(&Diagnostics::from_environment(
+            &environment,
+            vec!["eng".into()],
+        ))
+        .expect("serialize");
         assert!(!json.contains("/sensitive/path"));
     }
 }

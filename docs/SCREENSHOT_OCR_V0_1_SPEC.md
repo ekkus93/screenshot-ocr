@@ -110,12 +110,12 @@ A Linux developer who works in terminal applications and needs to copy visible t
 
 ## 7. Supported platform matrix
 
-| Platform | Session | Required v0.1 support | Preferred capture path | Required fallback |
-|---|---|---:|---|---|
-| Ubuntu 22.04 GNOME | Wayland | Yes | Screenshot portal when capable | `gnome-screenshot --area --file=...` |
-| Ubuntu 22.04 GNOME | X11 | Yes | Portal or GNOME helper | `gnome-screenshot --area --file=...` |
-| Ubuntu 24.04 GNOME | Wayland | Yes | Screenshot portal area target when advertised | GNOME helper |
-| Ubuntu 24.04 GNOME | X11 | Yes | Portal or GNOME helper | GNOME helper |
+| Platform           | Session | Required v0.1 support | Preferred capture path                        | Required fallback                    |
+| ------------------ | ------- | --------------------: | --------------------------------------------- | ------------------------------------ |
+| Ubuntu 22.04 GNOME | Wayland |                   Yes | Screenshot portal when capable                | `gnome-screenshot --area --file=...` |
+| Ubuntu 22.04 GNOME | X11     |                   Yes | Portal or GNOME helper                        | `gnome-screenshot --area --file=...` |
+| Ubuntu 24.04 GNOME | Wayland |                   Yes | Screenshot portal area target when advertised | GNOME helper                         |
+| Ubuntu 24.04 GNOME | X11     |                   Yes | Portal or GNOME helper                        | GNOME helper                         |
 
 ### 7.1 Support interpretation
 
