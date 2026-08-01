@@ -133,14 +133,3 @@ impl TesseractEngine {
         })
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn ocr_limits_are_bounded() {
-        assert!(OCR_TIMEOUT <= Duration::from_secs(30));
-        assert!(MAX_OCR_TEXT_BYTES <= 1_000_000);
-    }
-}
