@@ -5,8 +5,7 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 const typedFiles = ["**/*.{ts,tsx}"];
-const scopeToTypedFiles = (configs) =>
-  configs.map((config) => ({ ...config, files: typedFiles }));
+const scopeToTypedFiles = (configs) => configs.map((config) => ({ ...config, files: typedFiles }));
 
 export default tseslint.config(
   { ignores: ["dist", "node_modules", "src-tauri/target"] },
