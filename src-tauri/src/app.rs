@@ -118,7 +118,9 @@ mod tests {
 
     #[test]
     fn automatic_selection_requires_available_gnome_backend() {
-        assert!(select_capture_backend(CaptureBackendPreference::Auto, &environment(None)).is_err());
+        assert!(
+            select_capture_backend(CaptureBackendPreference::Auto, &environment(None)).is_err()
+        );
         assert!(select_capture_backend(
             CaptureBackendPreference::Auto,
             &environment(Some(PathBuf::from("/usr/bin/gnome-screenshot")))

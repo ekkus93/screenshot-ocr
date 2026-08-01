@@ -66,10 +66,7 @@ impl CaptureBackend for GnomeScreenshotBackend {
 
 fn validate_capture_output(path: &Path) -> Result<(), AppError> {
     let metadata = fs::symlink_metadata(path).map_err(|_| AppError::CaptureResultMissing)?;
-    if metadata.file_type().is_file()
-        && !metadata.file_type().is_symlink()
-        && metadata.len() > 0
-    {
+    if metadata.file_type().is_file() && !metadata.file_type().is_symlink() && metadata.len() > 0 {
         Ok(())
     } else {
         Err(AppError::CaptureImageInvalid)

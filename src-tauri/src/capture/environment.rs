@@ -3,7 +3,8 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-const TRUSTED_EXECUTABLE_DIRECTORIES: [&str; 4] = ["/usr/bin", "/bin", "/usr/local/bin", "/snap/bin"];
+const TRUSTED_EXECUTABLE_DIRECTORIES: [&str; 4] =
+    ["/usr/bin", "/bin", "/usr/local/bin", "/snap/bin"];
 
 #[derive(Clone, Debug)]
 pub struct EnvironmentInfo {
