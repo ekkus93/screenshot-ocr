@@ -4,13 +4,17 @@ import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
+const typedFiles = ["**/*.{ts,tsx}"];
+const scopeToTypedFiles = (configs) =>
+  configs.map((config) => ({ ...config, files: typedFiles }));
+
 export default tseslint.config(
   { ignores: ["dist", "node_modules", "src-tauri/target"] },
   eslint.configs.recommended,
-  ...tseslint.configs.strictTypeChecked,
-  ...tseslint.configs.stylisticTypeChecked,
+  ...scopeToTypedFiles(tseslint.configs.strictTypeChecked),
+  ...scopeToTypedFiles(tseslint.configs.stylisticTypeChecked),
   {
-    files: ["**/*.{ts,tsx}"],
+    files: typedFiles,
     languageOptions: {
       ecmaVersion: 2022,
       globals: globals.browser,
