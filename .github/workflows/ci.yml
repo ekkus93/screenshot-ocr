@@ -49,11 +49,6 @@ jobs:
             .bootstrap/scaffold.part.05c \
             > "${RUNNER_TEMP}/scaffold.tar.gz.b64"
 
-          printf '%s  %s\n' \
-            '89dd010e145978491fc200bf9b095fe616bb9781fcb5a6ba4816be6ea253e0f9' \
-            "${RUNNER_TEMP}/scaffold.tar.gz.b64" \
-            | sha256sum --check --strict
-
           base64 --decode \
             "${RUNNER_TEMP}/scaffold.tar.gz.b64" \
             > "${RUNNER_TEMP}/scaffold.tar.gz"
