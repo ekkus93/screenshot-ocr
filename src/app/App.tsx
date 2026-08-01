@@ -27,7 +27,9 @@ export function App() {
                     ? "bg-indigo-100 font-medium text-indigo-900 dark:bg-indigo-950 dark:text-indigo-100"
                     : "hover:bg-slate-100 dark:hover:bg-slate-800"
                 }`}
-                onClick={() => setTab(item)}
+                onClick={() => {
+                  setTab(item);
+                }}
               >
                 {item}
               </button>
