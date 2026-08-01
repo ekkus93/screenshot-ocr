@@ -62,13 +62,15 @@ npm run tauri build
 
 Hosted CI on Ubuntu 22.04 is authoritative for compilation and linting. Physical desktop validation remains a separate release gate.
 
-## Shortcut
+## Shortcut and startup capture
 
 The documented default is `Super+Shift+O`. On GNOME Wayland, create a custom keyboard shortcut that runs:
 
 ```text
 screenshot-ocr capture
 ```
+
+The binary recognizes only the exact first argument `capture`. On a fresh launch, that argument is consumed once by the Rust backend, then the React application starts the normal configured capture workflow after settings and diagnostics load. Re-rendering the frontend cannot replay the startup request.
 
 The application does not modify GNOME settings automatically.
 
