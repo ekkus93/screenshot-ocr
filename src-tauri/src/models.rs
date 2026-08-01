@@ -68,10 +68,7 @@ impl CaptureRequest {
 #[derive(Debug)]
 pub struct CapturedImage {
     pub image: DynamicImage,
-    pub width: u32,
-    pub height: u32,
     pub backend: CaptureBackendId,
-    pub cleanup_succeeded: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
