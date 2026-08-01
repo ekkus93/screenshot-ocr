@@ -5,6 +5,7 @@ import {
   getSettings,
   resetSettings,
   startCapture,
+  takeStartupCapture,
   updateSettings,
 } from "../lib/tauri";
 import type { AppSettings, CaptureStatus, Diagnostics, OcrResult, PublicError } from "../lib/types";
@@ -48,6 +49,7 @@ export function useAppController() {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [settingsDirty, setSettingsDirty] = useState(false);
   const [diagnostics, setDiagnostics] = useState<Diagnostics | null>(null);
+  const [startupCapturePending, setStartupCapturePending] = useState(false);
   const activeRequest = useRef(0);
 
   const refreshSettings = useCallback(async () => {
@@ -69,8 +71,20 @@ export function useAppController() {
   }, []);
 
   useEffect(() => {
-    void refreshSettings();
-    void refreshDiagnostics();
+    let active = true;
+    void (async () => {
+      await refreshSettings();
+      await refreshDiagnostics();
+      try {
+        const requested = await takeStartupCapture();
+        if (active && requested) setStartupCapturePending(true);
+      } catch (value) {
+        if (active) setError(normalizeError(value));
+      }
+    })();
+    return () => {
+      active = false;
+    };
   }, [refreshDiagnostics, refreshSettings]);
 
   const capture = useCallback(async () => {
@@ -101,6 +115,12 @@ export function useAppController() {
       }
     }
   }, [settings]);
+
+  useEffect(() => {
+    if (!startupCapturePending) return;
+    setStartupCapturePending(false);
+    void capture();
+  }, [capture, startupCapturePending]);
 
   const copy = useCallback(async () => {
     if (editorText.trim().length === 0) {
