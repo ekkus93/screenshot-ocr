@@ -42,6 +42,11 @@ pub async fn cancel_capture(
 }
 
 #[tauri::command]
+pub fn take_startup_capture(state: State<'_, AppServices>) -> bool {
+    state.take_startup_capture()
+}
+
+#[tauri::command]
 pub fn copy_text(app: AppHandle, text: String) -> Result<(), PublicError> {
     write_clipboard(&app, &text).map_err(PublicError::from)
 }
