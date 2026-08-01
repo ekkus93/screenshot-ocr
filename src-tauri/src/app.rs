@@ -1,7 +1,9 @@
-use crate::capture::{EnvironmentProbe, GnomeScreenshotBackend};
+use crate::capture::{CaptureBackend, EnvironmentInfo, EnvironmentProbe, GnomeScreenshotBackend};
 use crate::error::AppError;
 use crate::image_pipeline::prepare_variants;
-use crate::models::{CaptureRequest, OcrEngineId, OcrResult};
+use crate::models::{
+    CaptureBackendPreference, CaptureJobId, CaptureRequest, OcrEngineId, OcrResult,
+};
 use crate::ocr::{select_best_candidate, TesseractEngine};
 use crate::settings::SettingsStore;
 use crate::state::CaptureStateMachine;
@@ -36,18 +38,14 @@ impl AppServices {
 
     async fn capture_inner(
         &self,
-        job_id: crate::models::CaptureJobId,
+        job_id: CaptureJobId,
         request: CaptureRequest,
     ) -> Result<OcrResult, AppError> {
         let started = Instant::now();
+        let settings = self.settings.load()?;
         let environment = EnvironmentProbe::probe()?;
-        let executable = environment
-            .gnome_screenshot
-            .clone()
-            .ok_or(AppError::CaptureBackendUnavailable)?;
-        let captured = GnomeScreenshotBackend::new(executable)
-            .capture_region()
-            .await?;
+        let backend = select_capture_backend(settings.capture_backend, &environment)?;
+        let captured = backend.capture_region().await?;
         let engine = TesseractEngine::from_environment(&environment)?;
         engine.probe_english()?;
         let variants = prepare_variants(&captured.image);
@@ -77,5 +75,54 @@ impl AppServices {
             copied: false,
             elapsed_ms: started.elapsed().as_millis().try_into().unwrap_or(u64::MAX),
         })
+    }
+}
+
+fn select_capture_backend(
+    preference: CaptureBackendPreference,
+    environment: &EnvironmentInfo,
+) -> Result<Box<dyn CaptureBackend>, AppError> {
+    match preference {
+        CaptureBackendPreference::Auto | CaptureBackendPreference::Gnome => environment
+            .gnome_screenshot
+            .clone()
+            .map(GnomeScreenshotBackend::new)
+            .map(|backend| Box::new(backend) as Box<dyn CaptureBackend>)
+            .ok_or(AppError::CaptureBackendUnavailable),
+        CaptureBackendPreference::Portal => Err(AppError::CaptureBackendUnavailable),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn environment(gnome_screenshot: Option<PathBuf>) -> EnvironmentInfo {
+        EnvironmentInfo {
+            os_release: "Ubuntu".into(),
+            desktop_environment: "GNOME".into(),
+            session_type: "wayland".into(),
+            gnome_screenshot,
+            tesseract: None,
+            portal_summary: "not proven".into(),
+        }
+    }
+
+    #[test]
+    fn explicit_portal_selection_fails_closed_until_supported() {
+        assert!(matches!(
+            select_capture_backend(CaptureBackendPreference::Portal, &environment(None)),
+            Err(AppError::CaptureBackendUnavailable)
+        ));
+    }
+
+    #[test]
+    fn automatic_selection_requires_available_gnome_backend() {
+        assert!(select_capture_backend(CaptureBackendPreference::Auto, &environment(None)).is_err());
+        assert!(select_capture_backend(
+            CaptureBackendPreference::Auto,
+            &environment(Some(PathBuf::from("/usr/bin/gnome-screenshot")))
+        )
+        .is_ok());
     }
 }
