@@ -31,7 +31,9 @@ export function CapturePanel({ controller }: Props) {
           type="button"
           disabled={busy}
           className="w-full rounded-xl bg-indigo-600 px-5 py-4 font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
-          onClick={() => void controller.capture()}
+          onClick={() => {
+            void controller.capture();
+          }}
         >
           {busy ? "Capture in progress…" : "Capture text from screen"}
         </button>
@@ -63,7 +65,7 @@ export function CapturePanel({ controller }: Props) {
           <span className="text-sm text-slate-500">
             {controller.result?.meanConfidence == null
               ? "Confidence unavailable"
-              : `${Math.round(controller.result.meanConfidence)}% confidence`}
+              : `${Math.round(controller.result.meanConfidence).toString()}% confidence`}
           </span>
         </div>
         {controller.result?.warnings.map((warning) => (
@@ -81,7 +83,9 @@ export function CapturePanel({ controller }: Props) {
           id="ocr-output"
           rows={14}
           value={controller.editorText}
-          onChange={(event) => controller.setEditorText(event.target.value)}
+          onChange={(event) => {
+            controller.setEditorText(event.target.value);
+          }}
           placeholder="Captured text will appear here."
           className="mt-4 w-full resize-y rounded-xl border border-slate-300 bg-transparent p-3 font-mono text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500 dark:border-slate-700"
         />
@@ -96,14 +100,18 @@ export function CapturePanel({ controller }: Props) {
           <button
             type="button"
             className="rounded-xl border border-slate-300 px-4 py-2 dark:border-slate-700"
-            onClick={() => void controller.capture()}
+            onClick={() => {
+              void controller.capture();
+            }}
           >
             Capture again
           </button>
           <button
             type="button"
             className="rounded-xl bg-indigo-600 px-4 py-2 font-medium text-white"
-            onClick={() => void controller.copy()}
+            onClick={() => {
+              void controller.copy();
+            }}
           >
             Copy text
           </button>
