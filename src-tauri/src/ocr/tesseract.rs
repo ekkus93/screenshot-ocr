@@ -102,12 +102,7 @@ impl TesseractEngine {
         };
         let wait_for_output = async {
             let (status, bytes) = tokio::try_join!(
-                async {
-                    child
-                        .wait()
-                        .await
-                        .map_err(|_| AppError::OcrFailed)
-                },
+                async { child.wait().await.map_err(|_| AppError::OcrFailed) },
                 read_stdout
             )?;
             Ok::<_, AppError>((status, bytes))
@@ -144,7 +139,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn OCR_limits_are_bounded() {
+    fn ocr_limits_are_bounded() {
         assert!(OCR_TIMEOUT <= Duration::from_secs(30));
         assert!(MAX_OCR_TEXT_BYTES <= 1_000_000);
     }
