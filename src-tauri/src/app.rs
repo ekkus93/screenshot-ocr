@@ -8,6 +8,7 @@ use crate::ocr::{select_best_candidate, TesseractEngine};
 use crate::settings::SettingsStore;
 use crate::state::CaptureStateMachine;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::Mutex;
@@ -16,14 +17,20 @@ use tokio::sync::Mutex;
 pub struct AppServices {
     pub state: Arc<Mutex<CaptureStateMachine>>,
     pub settings: Arc<SettingsStore>,
+    startup_capture: Arc<AtomicBool>,
 }
 
 impl AppServices {
-    pub fn new(config_dir: PathBuf) -> Self {
+    pub fn new(config_dir: PathBuf, startup_capture: bool) -> Self {
         Self {
             state: Arc::new(Mutex::new(CaptureStateMachine::default())),
             settings: Arc::new(SettingsStore::new(config_dir)),
+            startup_capture: Arc::new(AtomicBool::new(startup_capture)),
         }
+    }
+
+    pub fn take_startup_capture(&self) -> bool {
+        self.startup_capture.swap(false, Ordering::AcqRel)
     }
 
     pub async fn capture(&self, request: CaptureRequest) -> Result<OcrResult, AppError> {
@@ -96,6 +103,7 @@ fn select_capture_backend(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::tempdir;
 
     fn environment(gnome_screenshot: Option<PathBuf>) -> EnvironmentInfo {
         EnvironmentInfo {
@@ -106,6 +114,14 @@ mod tests {
             tesseract: None,
             portal_summary: "not proven".into(),
         }
+    }
+
+    #[test]
+    fn startup_capture_is_consumed_once() {
+        let directory = tempdir().expect("tempdir");
+        let services = AppServices::new(directory.path().to_path_buf(), true);
+        assert!(services.take_startup_capture());
+        assert!(!services.take_startup_capture());
     }
 
     #[test]
