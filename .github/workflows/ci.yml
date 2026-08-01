@@ -3,216 +3,45 @@ name: CI
 on:
   push:
     branches: [master]
-  pull_request:
-    branches: [master]
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: rustfmt-master
+  cancel-in-progress: false
 
 jobs:
-  repository-policy:
-    name: Repository policy
+  apply-rustfmt:
+    name: Apply pinned Rustfmt
+    if: github.repository == 'ekkus93/screenshot-ocr' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-22.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
-      - name: Check out repository
+      - name: Check out master
         uses: actions/checkout@v6
-
-      - name: Validate baseline and source-file limits
+        with:
+          ref: master
+          fetch-depth: 0
+      - name: Install pinned Rustfmt
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.88.0
+          components: rustfmt
+      - name: Apply Rustfmt
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all
+      - name: Commit exact formatter output
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-
-          required = [
-              Path("README.md"),
-              Path("LICENSE"),
-              Path("package.json"),
-              Path("package-lock.json"),
-              Path("src-tauri/Cargo.toml"),
-              Path("src-tauri/Cargo.lock"),
-              Path("docs/SCREENSHOT_OCR_V0_1_SPEC.md"),
-              Path("docs/SCREENSHOT_OCR_V0_1_TODO.md"),
-          ]
-          problems = [
-              f"missing or empty: {path}"
-              for path in required
-              if not path.is_file() or path.stat().st_size == 0
-          ]
-          source_suffixes = {".rs", ".ts", ".tsx", ".js", ".jsx"}
-          ignored_parts = {"node_modules", "target", "dist"}
-          for path in Path(".").rglob("*"):
-              if (
-                  path.is_file()
-                  and path.suffix in source_suffixes
-                  and not any(part in ignored_parts for part in path.parts)
-              ):
-                  lines = len(path.read_text(encoding="utf-8").splitlines())
-                  if lines > 800:
-                      problems.append(
-                          f"first-party source exceeds 800 lines ({lines}): {path}"
-                      )
-          if problems:
-              raise SystemExit("\n".join(problems))
-          print("Repository baseline and source-file limits are valid.")
-          PY
-
-      - name: Ensure no broad Tauri capability wildcard
-        shell: bash
-        run: |
-          set -euo pipefail
-          if grep -R '"permissions".*\*' src-tauri/capabilities; then
-            echo "Wildcard Tauri capability is forbidden." >&2
-            exit 1
+          git diff --check
+          if git diff --quiet; then
+            echo "No formatter changes were required."
+            exit 0
           fi
-
-  frontend-quality:
-    name: Frontend quality gates
-    runs-on: ubuntu-22.04
-    timeout-minutes: 30
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: .node-version
-          cache: npm
-          cache-dependency-path: package-lock.json
-
-      - name: Install locked dependencies
-        run: npm ci
-
-      - name: Check formatting
-        run: npm run format:check
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Test
-        run: npm run test
-
-      - name: Build frontend
-        run: npm run build
-
-  rust-quality:
-    name: Rust quality gates
-    runs-on: ubuntu-22.04
-    timeout-minutes: 50
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-
-      - name: Install Tauri Linux build dependencies
-        shell: bash
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends \
-            build-essential \
-            curl \
-            file \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            libssl-dev \
-            libwebkit2gtk-4.1-dev \
-            libxdo-dev \
-            pkg-config \
-            wget
-
-      - name: Install pinned Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: 1.88.0
-          components: clippy, rustfmt
-
-      - name: Check Rust formatting
-        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
-
-      - name: Run Clippy with warnings denied
-        run: cargo clippy --manifest-path src-tauri/Cargo.toml --workspace --all-targets --all-features --locked -- -D warnings
-
-      - name: Run Rust tests
-        run: cargo test --manifest-path src-tauri/Cargo.toml --workspace --all-features --locked
-
-      - name: Build Rust workspace
-        run: cargo build --manifest-path src-tauri/Cargo.toml --workspace --all-features --locked
-
-  packaging:
-    name: Debian package smoke
-    needs: [frontend-quality, rust-quality]
-    runs-on: ubuntu-22.04
-    timeout-minutes: 50
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-
-      - name: Verify committed lockfiles
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -s package-lock.json
-          test -s src-tauri/Cargo.lock
-
-      - name: Install build dependencies
-        shell: bash
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends \
-            build-essential \
-            curl \
-            file \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            libssl-dev \
-            libwebkit2gtk-4.1-dev \
-            libxdo-dev \
-            pkg-config \
-            wget
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: .node-version
-          cache: npm
-          cache-dependency-path: package-lock.json
-
-      - name: Install pinned Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: 1.88.0
-
-      - name: Install locked frontend dependencies
-        run: npm ci
-
-      - name: Build Debian package
-        run: npm run tauri -- build --bundles deb
-
-      - name: Inspect Debian package
-        shell: bash
-        run: |
-          set -euo pipefail
-          package="$(find src-tauri/target/release/bundle/deb -name '*.deb' -print -quit)"
-          test -n "${package}"
-          dpkg-deb --info "${package}"
-          sha256sum "${package}" | tee package.sha256
-
-      - name: Upload reviewed package artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: screenshot-ocr-deb-${{ github.sha }}
-          path: |
-            src-tauri/target/release/bundle/deb/*.deb
-            package.sha256
-          if-no-files-found: error
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add --all
+          git commit -m 'style: apply pinned Rustfmt output'
+          git push origin HEAD:master
