@@ -23,7 +23,9 @@ export function SettingsPanel({ controller }: Props) {
           <span className="font-medium">OCR language</span>
           <select
             value={controller.settings.language}
-            onChange={(event) => patch("language", event.target.value as "eng")}
+            onChange={(event) => {
+              patch("language", event.target.value as "eng");
+            }}
             className="w-full rounded-xl border border-slate-300 bg-transparent px-3 py-2 dark:border-slate-700"
           >
             <option value="eng">English</option>
@@ -33,7 +35,9 @@ export function SettingsPanel({ controller }: Props) {
           <span className="font-medium">Text mode</span>
           <select
             value={controller.settings.textMode}
-            onChange={(event) => patch("textMode", event.target.value as AppSettings["textMode"])}
+            onChange={(event) => {
+              patch("textMode", event.target.value as AppSettings["textMode"]);
+            }}
             className="w-full rounded-xl border border-slate-300 bg-transparent px-3 py-2 dark:border-slate-700"
           >
             <option value="terminal">Terminal and source code</option>
@@ -45,7 +49,9 @@ export function SettingsPanel({ controller }: Props) {
           <input
             type="checkbox"
             checked={controller.settings.previewBeforeCopy}
-            onChange={(event) => patch("previewBeforeCopy", event.target.checked)}
+            onChange={(event) => {
+              patch("previewBeforeCopy", event.target.checked);
+            }}
           />{" "}
           Preview before copying
         </label>
@@ -53,7 +59,9 @@ export function SettingsPanel({ controller }: Props) {
           <input
             type="checkbox"
             checked={controller.settings.preserveWhitespace}
-            onChange={(event) => patch("preserveWhitespace", event.target.checked)}
+            onChange={(event) => {
+              patch("preserveWhitespace", event.target.checked);
+            }}
           />{" "}
           Preserve indentation and blank lines
         </label>
@@ -61,7 +69,9 @@ export function SettingsPanel({ controller }: Props) {
           <input
             type="checkbox"
             checked={controller.settings.notifyAfterCopy}
-            onChange={(event) => patch("notifyAfterCopy", event.target.checked)}
+            onChange={(event) => {
+              patch("notifyAfterCopy", event.target.checked);
+            }}
           />{" "}
           Notify after copy
         </label>
@@ -69,7 +79,9 @@ export function SettingsPanel({ controller }: Props) {
           <input
             type="checkbox"
             checked={controller.settings.startAtLogin}
-            onChange={(event) => patch("startAtLogin", event.target.checked)}
+            onChange={(event) => {
+              patch("startAtLogin", event.target.checked);
+            }}
           />{" "}
           Start at login
         </label>
@@ -77,7 +89,9 @@ export function SettingsPanel({ controller }: Props) {
           <input
             type="checkbox"
             checked={controller.settings.closeToTray}
-            onChange={(event) => patch("closeToTray", event.target.checked)}
+            onChange={(event) => {
+              patch("closeToTray", event.target.checked);
+            }}
           />{" "}
           Keep running when window closes
         </label>
@@ -85,9 +99,9 @@ export function SettingsPanel({ controller }: Props) {
           <span className="font-medium">Capture backend</span>
           <select
             value={controller.settings.captureBackend}
-            onChange={(event) =>
-              patch("captureBackend", event.target.value as AppSettings["captureBackend"])
-            }
+            onChange={(event) => {
+              patch("captureBackend", event.target.value as AppSettings["captureBackend"]);
+            }}
             className="w-full rounded-xl border border-slate-300 bg-transparent px-3 py-2 dark:border-slate-700"
           >
             <option value="auto">Auto</option>
@@ -107,7 +121,9 @@ export function SettingsPanel({ controller }: Props) {
         <button
           type="button"
           className="rounded-xl border border-slate-300 px-4 py-2 dark:border-slate-700"
-          onClick={() => void controller.restoreSettings()}
+          onClick={() => {
+            void controller.restoreSettings();
+          }}
         >
           Reset settings
         </button>
@@ -115,7 +131,9 @@ export function SettingsPanel({ controller }: Props) {
           type="button"
           disabled={!controller.settingsDirty}
           className="rounded-xl bg-indigo-600 px-4 py-2 font-medium text-white disabled:opacity-50"
-          onClick={() => void controller.saveSettings()}
+          onClick={() => {
+            void controller.saveSettings();
+          }}
         >
           Save settings
         </button>
