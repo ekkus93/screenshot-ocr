@@ -1,0 +1,150 @@
+use crate::error::AppError;
+use crate::models::{CaptureBackendPreference, TextMode};
+use serde::{Deserialize, Serialize};
+use std::fs::{self, OpenOptions};
+use std::io::Write;
+use std::path::{Path, PathBuf};
+
+const SETTINGS_FILE: &str = "settings.json";
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AppSettings {
+    pub schema_version: u32,
+    pub language: String,
+    pub text_mode: TextMode,
+    pub preview_before_copy: bool,
+    pub preserve_whitespace: bool,
+    pub notify_after_copy: bool,
+    pub start_at_login: bool,
+    pub close_to_tray: bool,
+    pub capture_backend: CaptureBackendPreference,
+    pub shortcut: String,
+}
+
+impl Default for AppSettings {
+    fn default() -> Self {
+        Self {
+            schema_version: 1,
+            language: "eng".into(),
+            text_mode: TextMode::Terminal,
+            preview_before_copy: true,
+            preserve_whitespace: true,
+            notify_after_copy: true,
+            start_at_login: false,
+            close_to_tray: true,
+            capture_backend: CaptureBackendPreference::Auto,
+            shortcut: "Super+Shift+O".into(),
+        }
+    }
+}
+
+impl AppSettings {
+    pub fn validate(&self) -> Result<(), AppError> {
+        if self.schema_version != 1 || self.language != "eng" || self.shortcut != "Super+Shift+O" {
+            return Err(AppError::SettingsInvalid);
+        }
+        if self.text_mode == TextMode::Terminal && !self.preserve_whitespace {
+            return Err(AppError::SettingsInvalid);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub struct SettingsStore {
+    directory: PathBuf,
+}
+
+impl SettingsStore {
+    pub fn new(directory: PathBuf) -> Self {
+        Self { directory }
+    }
+
+    pub fn load(&self) -> Result<AppSettings, AppError> {
+        let path = self.directory.join(SETTINGS_FILE);
+        if !path.exists() {
+            return Ok(AppSettings::default());
+        }
+        let bytes = fs::read(&path).map_err(|_| AppError::SettingsInvalid)?;
+        match serde_json::from_slice::<AppSettings>(&bytes) {
+            Ok(settings) => {
+                settings.validate()?;
+                Ok(settings)
+            }
+            Err(_) => {
+                self.quarantine(&path)?;
+                Err(AppError::SettingsInvalid)
+            }
+        }
+    }
+
+    pub fn save(&self, settings: &AppSettings) -> Result<(), AppError> {
+        settings.validate()?;
+        fs::create_dir_all(&self.directory).map_err(|_| AppError::SettingsWriteFailed)?;
+        set_directory_permissions(&self.directory)?;
+        let destination = self.directory.join(SETTINGS_FILE);
+        let temporary = self.directory.join("settings.json.tmp");
+        let serialized = serde_json::to_vec_pretty(settings).map_err(|_| AppError::SettingsWriteFailed)?;
+        let mut file = OpenOptions::new().create(true).truncate(true).write(true).open(&temporary).map_err(|_| AppError::SettingsWriteFailed)?;
+        set_file_permissions(&temporary)?;
+        file.write_all(&serialized).and_then(|_| file.write_all(b"
+")).and_then(|_| file.sync_all()).map_err(|_| AppError::SettingsWriteFailed)?;
+        fs::rename(&temporary, &destination).map_err(|_| AppError::SettingsWriteFailed)?;
+        Ok(())
+    }
+
+    pub fn reset(&self) -> Result<AppSettings, AppError> {
+        let settings = AppSettings::default();
+        self.save(&settings)?;
+        Ok(settings)
+    }
+
+    fn quarantine(&self, path: &Path) -> Result<(), AppError> {
+        let quarantine = self.directory.join("settings.corrupt.json");
+        fs::rename(path, quarantine).map_err(|_| AppError::SettingsWriteFailed)
+    }
+}
+
+#[cfg(unix)]
+fn set_directory_permissions(path: &Path) -> Result<(), AppError> {
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(path, fs::Permissions::from_mode(0o700)).map_err(|_| AppError::SettingsWriteFailed)
+}
+
+#[cfg(not(unix))]
+fn set_directory_permissions(_path: &Path) -> Result<(), AppError> { Ok(()) }
+
+#[cfg(unix)]
+fn set_file_permissions(path: &Path) -> Result<(), AppError> {
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(path, fs::Permissions::from_mode(0o600)).map_err(|_| AppError::SettingsWriteFailed)
+}
+
+#[cfg(not(unix))]
+fn set_file_permissions(_path: &Path) -> Result<(), AppError> { Ok(()) }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn settings_round_trip_atomically() {
+        let dir = tempdir().expect("tempdir");
+        let store = SettingsStore::new(dir.path().to_path_buf());
+        let settings = AppSettings::default();
+        store.save(&settings).expect("save");
+        assert_eq!(store.load().expect("load"), settings);
+        assert!(!dir.path().join("settings.json.tmp").exists());
+    }
+
+    #[test]
+    fn corrupt_settings_are_quarantined() {
+        let dir = tempdir().expect("tempdir");
+        fs::write(dir.path().join(SETTINGS_FILE), b"not json").expect("write corrupt settings");
+        let store = SettingsStore::new(dir.path().to_path_buf());
+        assert!(matches!(store.load(), Err(AppError::SettingsInvalid)));
+        assert!(dir.path().join("settings.corrupt.json").exists());
+    }
+}
