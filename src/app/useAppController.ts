@@ -100,7 +100,9 @@ export function useAppController() {
     }
   }, []);
 
-  const capture = useCallback(async () => performCapture(settings), [performCapture, settings]);
+  const capture = useCallback(async () => {
+    await performCapture(settings);
+  }, [performCapture, settings]);
 
   useEffect(() => {
     let active = true;
