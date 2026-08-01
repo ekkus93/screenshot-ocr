@@ -2,113 +2,199 @@ name: CI
 
 on:
   push:
-    branches:
-      - master
+    branches: [master]
+  pull_request:
+    branches: [master]
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: scaffold-bootstrap-master
-  cancel-in-progress: false
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  extract-reviewed-scaffold:
-    name: Extract reviewed project scaffold
-    if: github.repository == 'ekkus93/screenshot-ocr' && github.ref == 'refs/heads/master'
+  repository-policy:
+    name: Repository policy
     runs-on: ubuntu-22.04
     timeout-minutes: 10
-
     steps:
-      - name: Check out master
-        uses: actions/checkout@v4
-        with:
-          ref: master
-          fetch-depth: 0
-
-      - name: Verify archive and extract reviewed files
+      - name: Check out repository
+        uses: actions/checkout@v6
+      - name: Validate baseline and source-file limits
         shell: bash
         run: |
           set -euo pipefail
-
-          cat <<'CHECKSUMS' | sha256sum --check --strict
-          e1336fed06301e19700612a947ef8ab2c77eba6b45ee4ee2fbae897437a8c45b  .bootstrap/scaffold.part.00
-          776462a86dbb06cd0c054e4f6ce11e7ca49b4bfa7a3210c38787dacb4c8c55ae  .bootstrap/scaffold.part.01
-          0a4d7e3dd05f3e955924286f28a3c2e9348e9ea58f1b290f1e81274565467ab0  .bootstrap/scaffold.part.02
-          59353eeef55da6f04a4e54d09a11472d92396a82a0ff7096d9e6458eb8775f94  .bootstrap/scaffold.part.03a
-          f1f6d0151a530414fd9e251d7e944f304fd21185604a1c233a904b4599d3ec53  .bootstrap/scaffold.part.03b
-          1ea6b8d8575f8dc5878422d455b502fb2f32d5b3f79ec1fa8cb9a1bb95c0a1bc  .bootstrap/scaffold.part.03c
-          fda7266acb4f1cd8bfc3fa382780aa4cef541cb22e7d8720490970dd5d4a09d1  .bootstrap/scaffold.part.03d
-          42f8d35660455ae6076146b7b3b2b91c444175f2d8fd6536a0b579c1f584c01c  .bootstrap/scaffold.part.04a
-          5c5e9ec925cedc2bad5196def8310dd8a5ddd682a98a93f26fd149785d3cfdaa  .bootstrap/scaffold.part.04b
-          1eaafd683d7bcfd6613551510a40ef4aaeeb6ea58f6bf074ab5589f87be571ec  .bootstrap/scaffold.part.04c
-          357d261edb5d89aeac5c56b82d2b97b1571f908d157f9964ac75fb6670e5a98a  .bootstrap/scaffold.part.04d
-          10200dfdc78984689d31c1e4703037f4637878299d5e39356d0dbeb25421829e  .bootstrap/scaffold.part.05a
-          c90683c2867c9fb22a0b3e6632367995e6df36c489978b276841fe4303999023  .bootstrap/scaffold.part.05b
-          cfc7515453be69fc4bf9ed16d09f86f3846c4ba28bf9397a28a4ca964319e720  .bootstrap/scaffold.part.05c
-          CHECKSUMS
-
-          cat \
-            .bootstrap/scaffold.part.00 \
-            .bootstrap/scaffold.part.01 \
-            .bootstrap/scaffold.part.02 \
-            .bootstrap/scaffold.part.03a \
-            .bootstrap/scaffold.part.03b \
-            .bootstrap/scaffold.part.03c \
-            .bootstrap/scaffold.part.03d \
-            .bootstrap/scaffold.part.04a \
-            .bootstrap/scaffold.part.04b \
-            .bootstrap/scaffold.part.04c \
-            .bootstrap/scaffold.part.04d \
-            .bootstrap/scaffold.part.05a \
-            .bootstrap/scaffold.part.05b \
-            .bootstrap/scaffold.part.05c \
-            > "${RUNNER_TEMP}/scaffold.tar.gz.b64"
-
-          base64 --decode \
-            "${RUNNER_TEMP}/scaffold.tar.gz.b64" \
-            > "${RUNNER_TEMP}/scaffold.tar.gz"
-
-          printf '%s  %s\n' \
-            'dad9e7b02b53aa15384c5e794563f29f67445f7eb5061a9ef3a3544e5d6586b3' \
-            "${RUNNER_TEMP}/scaffold.tar.gz" \
-            | sha256sum --check --strict
-
-          python3 - "${RUNNER_TEMP}/scaffold.tar.gz" <<'PY'
-          from pathlib import Path, PurePosixPath
-          import sys
-          import tarfile
-
-          archive = Path(sys.argv[1])
-          with tarfile.open(archive, mode="r:gz") as bundle:
-              members = bundle.getmembers()
-              if not members:
-                  raise SystemExit("reviewed scaffold archive is empty")
-              for member in members:
-                  path = PurePosixPath(member.name)
-                  if path.is_absolute() or ".." in path.parts:
-                      raise SystemExit(f"unsafe archive path: {member.name!r}")
-                  if member.issym() or member.islnk():
-                      raise SystemExit(f"archive links are forbidden: {member.name!r}")
-          print(f"Validated {len(members)} reviewed archive entries.")
+          python3 - <<'PY'
+          from pathlib import Path
+          required = [Path("README.md"), Path("LICENSE"), Path("package.json"), Path("src-tauri/Cargo.toml"), Path("docs/SCREENSHOT_OCR_V0_1_SPEC.md"), Path("docs/SCREENSHOT_OCR_V0_1_TODO.md")]
+          problems = [f"missing or empty: {path}" for path in required if not path.is_file() or path.stat().st_size == 0]
+          source_suffixes = {".rs", ".ts", ".tsx", ".js", ".jsx"}
+          for path in Path(".").rglob("*"):
+              if path.is_file() and path.suffix in source_suffixes and not any(part in {"node_modules", "target", "dist"} for part in path.parts):
+                  lines = len(path.read_text(encoding="utf-8").splitlines())
+                  if lines > 800:
+                      problems.append(f"first-party source exceeds 800 lines ({lines}): {path}")
+          if problems:
+              raise SystemExit("\n".join(problems))
+          print("Repository baseline and source-file limits are valid.")
           PY
-
-          tar --extract --gzip --file "${RUNNER_TEMP}/scaffold.tar.gz" --directory . --no-same-owner --no-same-permissions
-
-          # The workflow token may write source but cannot create or update workflow files.
-          # Restore the existing workflows; the GitHub connector will install the reviewed
-          # CI workflow and remove the one-shot extractor after this source commit lands.
-          git checkout HEAD -- .github/workflows/ci.yml .github/workflows/extract-scaffold.yml
-          rm -rf .bootstrap
-
-      - name: Commit reviewed scaffold source to master
+      - name: Ensure no broad Tauri capability wildcard
         shell: bash
         run: |
           set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add --all
-          git diff --cached --check
-          git commit -m 'build: scaffold Screenshot OCR application'
-          git push origin HEAD:master
+          if grep -R '"permissions".*\*' src-tauri/capabilities; then
+            echo "Wildcard Tauri capability is forbidden." >&2
+            exit 1
+          fi
+
+  frontend-quality:
+    name: Frontend quality gates
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+      - name: Bootstrap package lockfile when absent
+        id: lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f package-lock.json ]]; then
+            echo "generated=false" >> "${GITHUB_OUTPUT}"
+          else
+            npm install --package-lock-only --ignore-scripts
+            echo "generated=true" >> "${GITHUB_OUTPUT}"
+          fi
+      - name: Upload generated package lockfile
+        if: ${{ steps.lock.outputs.generated == 'true' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: generated-package-lock
+          path: package-lock.json
+          if-no-files-found: error
+      - name: Require committed package lockfile
+        if: ${{ steps.lock.outputs.generated == 'true' }}
+        run: |
+          echo "Commit package-lock.json from the generated-package-lock artifact." >&2
+          exit 1
+      - name: Install locked dependencies
+        if: ${{ steps.lock.outputs.generated != 'true' }}
+        run: npm ci
+      - name: Check formatting
+        if: ${{ steps.lock.outputs.generated != 'true' }}
+        run: npm run format:check
+      - name: Lint
+        if: ${{ steps.lock.outputs.generated != 'true' }}
+        run: npm run lint
+      - name: Typecheck
+        if: ${{ steps.lock.outputs.generated != 'true' }}
+        run: npm run typecheck
+      - name: Test
+        if: ${{ steps.lock.outputs.generated != 'true' }}
+        run: npm run test
+      - name: Build frontend
+        if: ${{ steps.lock.outputs.generated != 'true' }}
+        run: npm run build
+
+  rust-quality:
+    name: Rust quality gates
+    runs-on: ubuntu-22.04
+    timeout-minutes: 50
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+      - name: Install Tauri Linux build dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends build-essential curl file libayatana-appindicator3-dev librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev pkg-config wget
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.88.0
+          components: clippy, rustfmt
+      - name: Bootstrap Cargo lockfile when absent
+        id: lock
+        run: |
+          set -euo pipefail
+          if [[ -f src-tauri/Cargo.lock ]]; then
+            echo "generated=false" >> "${GITHUB_OUTPUT}"
+          else
+            cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
+            echo "generated=true" >> "${GITHUB_OUTPUT}"
+          fi
+      - name: Upload generated Cargo lockfile
+        if: ${{ steps.lock.outputs.generated == 'true' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: generated-cargo-lock
+          path: src-tauri/Cargo.lock
+          if-no-files-found: error
+      - name: Require committed Cargo lockfile
+        if: ${{ steps.lock.outputs.generated == 'true' }}
+        run: |
+          echo "Commit Cargo.lock from the generated-cargo-lock artifact." >&2
+          exit 1
+      - name: Check Rust formatting
+        if: ${{ steps.lock.outputs.generated != 'true' }}
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+      - name: Run Clippy with warnings denied
+        if: ${{ steps.lock.outputs.generated != 'true' }}
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --workspace --all-targets --all-features --locked -- -D warnings
+      - name: Run Rust tests
+        if: ${{ steps.lock.outputs.generated != 'true' }}
+        run: cargo test --manifest-path src-tauri/Cargo.toml --workspace --all-features --locked
+      - name: Build Rust workspace
+        if: ${{ steps.lock.outputs.generated != 'true' }}
+        run: cargo build --manifest-path src-tauri/Cargo.toml --workspace --all-features --locked
+
+  packaging:
+    name: Debian package smoke
+    needs: [frontend-quality, rust-quality]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 50
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+      - name: Stop until lockfiles are committed
+        if: ${{ hashFiles('package-lock.json', 'src-tauri/Cargo.lock') == '' }}
+        run: exit 1
+      - name: Install build dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends build-essential curl file libayatana-appindicator3-dev librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev pkg-config wget
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.88.0
+      - name: Install frontend dependencies
+        run: npm ci
+      - name: Build Debian package
+        run: npm run tauri -- build --bundles deb
+      - name: Inspect Debian package
+        run: |
+          set -euo pipefail
+          package="$(find src-tauri/target/release/bundle/deb -name '*.deb' -print -quit)"
+          test -n "${package}"
+          dpkg-deb --info "${package}"
+          sha256sum "${package}" | tee package.sha256
+      - name: Upload reviewed package artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: screenshot-ocr-deb-${{ github.sha }}
+          path: |
+            src-tauri/target/release/bundle/deb/*.deb
+            package.sha256
+          if-no-files-found: error
