@@ -33,13 +33,7 @@ pub fn decode_captured_image(
         .map_err(|_| AppError::CaptureImageInvalid)?;
     enforce_dimensions(width, height)?;
     let image = image::load_from_memory(bytes).map_err(|_| AppError::CaptureImageInvalid)?;
-    Ok(CapturedImage {
-        image,
-        width,
-        height,
-        backend,
-        cleanup_succeeded: true,
-    })
+    Ok(CapturedImage { image, backend })
 }
 
 pub fn prepare_variants(image: &DynamicImage) -> Vec<PreparedVariant> {
