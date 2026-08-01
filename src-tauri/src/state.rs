@@ -1,18 +1,6 @@
 use crate::error::AppError;
 use crate::models::CaptureJobId;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum CaptureStage {
-    Idle,
-    Preparing(CaptureJobId),
-    Selecting(CaptureJobId),
-    Processing(CaptureJobId),
-    Reviewing(CaptureJobId),
-    Copied(CaptureJobId),
-    Cancelled(CaptureJobId),
-    Failed(CaptureJobId),
-}
-
 #[derive(Debug, Default)]
 pub struct CaptureStateMachine {
     active: Option<CaptureJobId>,
@@ -57,7 +45,10 @@ mod tests {
     fn prevents_overlapping_capture_jobs() {
         let mut state = CaptureStateMachine::default();
         let first = state.begin().expect("first capture");
-        assert!(matches!(state.begin(), Err(AppError::CaptureAlreadyActive)));
+        assert!(matches!(
+            state.begin(),
+            Err(AppError::CaptureAlreadyActive)
+        ));
         state.finish(first);
         assert!(state.begin().is_ok());
     }
