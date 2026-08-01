@@ -1,0 +1,326 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  repository-policy:
+    name: Repository policy
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Validate repository baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          required_files = [
+              Path("docs/SCREENSHOT_OCR_V0_1_SPEC.md"),
+              Path("docs/SCREENSHOT_OCR_V0_1_TODO.md"),
+              Path("docs/CI_STATUS_BRIDGE.md"),
+              Path(".github/workflows/ci.yml"),
+              Path(".github/workflows/publish-ci-status.yml"),
+          ]
+
+          problems: list[str] = []
+          for path in required_files:
+              if not path.is_file():
+                  problems.append(f"missing required file: {path}")
+                  continue
+              if path.stat().st_size == 0:
+                  problems.append(f"required file is empty: {path}")
+
+          if problems:
+              raise SystemExit("\n".join(problems))
+
+          print("Repository baseline files are present and non-empty.")
+          PY
+
+      - name: Create CI metadata artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .ci-metadata
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          payload = {
+              "schema_version": 1,
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "workflow": os.environ["GITHUB_WORKFLOW"],
+              "run_id": int(os.environ["GITHUB_RUN_ID"]),
+              "run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
+              "event": os.environ["GITHUB_EVENT_NAME"],
+              "ref": os.environ["GITHUB_REF"],
+              "head_sha": os.environ["GITHUB_SHA"],
+              "runner_os": os.environ["RUNNER_OS"],
+              "runner_arch": os.environ["RUNNER_ARCH"],
+          }
+          Path(".ci-metadata/metadata.json").write_text(
+              json.dumps(payload, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Upload CI metadata artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-metadata-${{ github.run_id }}
+          path: .ci-metadata/metadata.json
+          if-no-files-found: error
+          retention-days: 7
+
+  rust-quality:
+    name: Rust quality gates
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Detect Rust project
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f Cargo.toml ]]; then
+            manifest="Cargo.toml"
+          elif [[ -f src-tauri/Cargo.toml ]]; then
+            manifest="src-tauri/Cargo.toml"
+          else
+            printf '%s\n' "present=false" >> "${GITHUB_OUTPUT}"
+            printf '%s\n' "Rust project is not scaffolded yet; Rust gates are explicitly inactive."
+            exit 0
+          fi
+
+          printf '%s\n' "present=true" >> "${GITHUB_OUTPUT}"
+          printf '%s\n' "manifest=${manifest}" >> "${GITHUB_OUTPUT}"
+          printf 'Detected Rust manifest: %s\n' "${manifest}"
+
+      - name: Install Tauri Linux build dependencies
+        if: ${{ steps.detect.outputs.present == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential \
+            curl \
+            file \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            libxdo-dev \
+            wget
+
+      - name: Install Rust toolchain
+        if: ${{ steps.detect.outputs.present == 'true' }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Verify committed Cargo lockfile
+        if: ${{ steps.detect.outputs.present == 'true' }}
+        shell: bash
+        env:
+          MANIFEST: ${{ steps.detect.outputs.manifest }}
+        run: |
+          set -euo pipefail
+          manifest_dir="$(dirname "${MANIFEST}")"
+          if [[ ! -f "${manifest_dir}/Cargo.lock" && ! -f Cargo.lock ]]; then
+            printf 'A Rust manifest exists but no committed Cargo.lock was found.\n' >&2
+            exit 1
+          fi
+
+      - name: Check Rust formatting
+        if: ${{ steps.detect.outputs.present == 'true' }}
+        shell: bash
+        env:
+          MANIFEST: ${{ steps.detect.outputs.manifest }}
+        run: |
+          set -euo pipefail
+          cargo fmt --manifest-path "${MANIFEST}" --all -- --check
+
+      - name: Run Clippy with warnings denied
+        if: ${{ steps.detect.outputs.present == 'true' }}
+        shell: bash
+        env:
+          MANIFEST: ${{ steps.detect.outputs.manifest }}
+        run: |
+          set -euo pipefail
+          cargo clippy \
+            --manifest-path "${MANIFEST}" \
+            --workspace \
+            --all-targets \
+            --all-features \
+            --locked \
+            -- \
+            -D warnings
+
+      - name: Run Rust tests
+        if: ${{ steps.detect.outputs.present == 'true' }}
+        shell: bash
+        env:
+          MANIFEST: ${{ steps.detect.outputs.manifest }}
+        run: |
+          set -euo pipefail
+          cargo test \
+            --manifest-path "${MANIFEST}" \
+            --workspace \
+            --all-features \
+            --locked
+
+      - name: Build Rust workspace
+        if: ${{ steps.detect.outputs.present == 'true' }}
+        shell: bash
+        env:
+          MANIFEST: ${{ steps.detect.outputs.manifest }}
+        run: |
+          set -euo pipefail
+          cargo build \
+            --manifest-path "${MANIFEST}" \
+            --workspace \
+            --all-features \
+            --locked
+
+  frontend-quality:
+    name: Frontend quality gates
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Detect frontend project
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -f package.json ]]; then
+            printf '%s\n' "present=false" >> "${GITHUB_OUTPUT}"
+            printf '%s\n' "Frontend project is not scaffolded yet; frontend gates are explicitly inactive."
+            exit 0
+          fi
+
+          node_version="22"
+          if [[ -s .node-version ]]; then
+            node_version="$(tr -d '[:space:]' < .node-version)"
+          elif [[ -s .nvmrc ]]; then
+            node_version="$(tr -d '[:space:]' < .nvmrc)"
+          fi
+
+          printf '%s\n' "present=true" >> "${GITHUB_OUTPUT}"
+          printf '%s\n' "node-version=${node_version}" >> "${GITHUB_OUTPUT}"
+
+      - name: Set up Node.js
+        if: ${{ steps.detect.outputs.present == 'true' }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ steps.detect.outputs.node-version }}
+
+      - name: Install locked frontend dependencies
+        if: ${{ steps.detect.outputs.present == 'true' }}
+        id: package-manager
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f pnpm-lock.yaml ]]; then
+            corepack enable
+            pnpm install --frozen-lockfile
+            printf '%s\n' "command=pnpm" >> "${GITHUB_OUTPUT}"
+          elif [[ -f yarn.lock ]]; then
+            corepack enable
+            yarn install --immutable
+            printf '%s\n' "command=yarn" >> "${GITHUB_OUTPUT}"
+          elif [[ -f package-lock.json ]]; then
+            npm ci
+            printf '%s\n' "command=npm" >> "${GITHUB_OUTPUT}"
+          else
+            printf 'package.json exists but no supported committed lockfile was found.\n' >&2
+            exit 1
+          fi
+
+      - name: Verify mandatory frontend scripts
+        if: ${{ steps.detect.outputs.present == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'JS'
+          const pkg = require('./package.json');
+          const required = ['format:check', 'lint', 'typecheck', 'test', 'build'];
+          const missing = required.filter((name) => !pkg.scripts || !pkg.scripts[name]);
+          if (missing.length > 0) {
+            console.error(`Missing mandatory package scripts: ${missing.join(', ')}`);
+            process.exit(1);
+          }
+          console.log('Mandatory frontend scripts are present.');
+          JS
+
+      - name: Check frontend formatting
+        if: ${{ steps.detect.outputs.present == 'true' }}
+        shell: bash
+        env:
+          PACKAGE_MANAGER: ${{ steps.package-manager.outputs.command }}
+        run: |
+          set -euo pipefail
+          "${PACKAGE_MANAGER}" run format:check
+
+      - name: Lint frontend
+        if: ${{ steps.detect.outputs.present == 'true' }}
+        shell: bash
+        env:
+          PACKAGE_MANAGER: ${{ steps.package-manager.outputs.command }}
+        run: |
+          set -euo pipefail
+          "${PACKAGE_MANAGER}" run lint
+
+      - name: Typecheck frontend
+        if: ${{ steps.detect.outputs.present == 'true' }}
+        shell: bash
+        env:
+          PACKAGE_MANAGER: ${{ steps.package-manager.outputs.command }}
+        run: |
+          set -euo pipefail
+          "${PACKAGE_MANAGER}" run typecheck
+
+      - name: Test frontend
+        if: ${{ steps.detect.outputs.present == 'true' }}
+        shell: bash
+        env:
+          PACKAGE_MANAGER: ${{ steps.package-manager.outputs.command }}
+        run: |
+          set -euo pipefail
+          "${PACKAGE_MANAGER}" run test
+
+      - name: Build frontend
+        if: ${{ steps.detect.outputs.present == 'true' }}
+        shell: bash
+        env:
+          PACKAGE_MANAGER: ${{ steps.package-manager.outputs.command }}
+        run: |
+          set -euo pipefail
+          "${PACKAGE_MANAGER}" run build
