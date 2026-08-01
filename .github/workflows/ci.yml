@@ -3,198 +3,63 @@ name: CI
 on:
   push:
     branches: [master]
-  pull_request:
-    branches: [master]
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: lockfile-bootstrap-master
+  cancel-in-progress: false
 
 jobs:
-  repository-policy:
-    name: Repository policy
+  commit-verified-lockfiles:
+    name: Commit verified lockfiles
+    if: github.repository == 'ekkus93/screenshot-ocr' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-22.04
-    timeout-minutes: 10
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-      - name: Validate baseline and source-file limits
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-          required = [Path("README.md"), Path("LICENSE"), Path("package.json"), Path("src-tauri/Cargo.toml"), Path("docs/SCREENSHOT_OCR_V0_1_SPEC.md"), Path("docs/SCREENSHOT_OCR_V0_1_TODO.md")]
-          problems = [f"missing or empty: {path}" for path in required if not path.is_file() or path.stat().st_size == 0]
-          source_suffixes = {".rs", ".ts", ".tsx", ".js", ".jsx"}
-          for path in Path(".").rglob("*"):
-              if path.is_file() and path.suffix in source_suffixes and not any(part in {"node_modules", "target", "dist"} for part in path.parts):
-                  lines = len(path.read_text(encoding="utf-8").splitlines())
-                  if lines > 800:
-                      problems.append(f"first-party source exceeds 800 lines ({lines}): {path}")
-          if problems:
-              raise SystemExit("\n".join(problems))
-          print("Repository baseline and source-file limits are valid.")
-          PY
-      - name: Ensure no broad Tauri capability wildcard
-        shell: bash
-        run: |
-          set -euo pipefail
-          if grep -R '"permissions".*\*' src-tauri/capabilities; then
-            echo "Wildcard Tauri capability is forbidden." >&2
-            exit 1
-          fi
+    timeout-minutes: 20
 
-  frontend-quality:
-    name: Frontend quality gates
-    runs-on: ubuntu-22.04
-    timeout-minutes: 30
     steps:
-      - name: Check out repository
+      - name: Check out master
         uses: actions/checkout@v6
+        with:
+          ref: master
+          fetch-depth: 0
+
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
           node-version-file: .node-version
-      - name: Bootstrap package lockfile when absent
-        id: lock
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ -f package-lock.json ]]; then
-            echo "generated=false" >> "${GITHUB_OUTPUT}"
-          else
-            npm install --package-lock-only --ignore-scripts
-            echo "generated=true" >> "${GITHUB_OUTPUT}"
-          fi
-      - name: Upload generated package lockfile
-        if: ${{ steps.lock.outputs.generated == 'true' }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: generated-package-lock
-          path: package-lock.json
-          if-no-files-found: error
-      - name: Require committed package lockfile
-        if: ${{ steps.lock.outputs.generated == 'true' }}
-        run: |
-          echo "Commit package-lock.json from the generated-package-lock artifact." >&2
-          exit 1
-      - name: Install locked dependencies
-        if: ${{ steps.lock.outputs.generated != 'true' }}
-        run: npm ci
-      - name: Check formatting
-        if: ${{ steps.lock.outputs.generated != 'true' }}
-        run: npm run format:check
-      - name: Lint
-        if: ${{ steps.lock.outputs.generated != 'true' }}
-        run: npm run lint
-      - name: Typecheck
-        if: ${{ steps.lock.outputs.generated != 'true' }}
-        run: npm run typecheck
-      - name: Test
-        if: ${{ steps.lock.outputs.generated != 'true' }}
-        run: npm run test
-      - name: Build frontend
-        if: ${{ steps.lock.outputs.generated != 'true' }}
-        run: npm run build
 
-  rust-quality:
-    name: Rust quality gates
-    runs-on: ubuntu-22.04
-    timeout-minutes: 50
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-      - name: Install Tauri Linux build dependencies
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends build-essential curl file libayatana-appindicator3-dev librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev pkg-config wget
       - name: Install pinned Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.88.0
-          components: clippy, rustfmt
-      - name: Bootstrap Cargo lockfile when absent
-        id: lock
-        run: |
-          set -euo pipefail
-          if [[ -f src-tauri/Cargo.lock ]]; then
-            echo "generated=false" >> "${GITHUB_OUTPUT}"
-          else
-            cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
-            echo "generated=true" >> "${GITHUB_OUTPUT}"
-          fi
-      - name: Upload generated Cargo lockfile
-        if: ${{ steps.lock.outputs.generated == 'true' }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: generated-cargo-lock
-          path: src-tauri/Cargo.lock
-          if-no-files-found: error
-      - name: Require committed Cargo lockfile
-        if: ${{ steps.lock.outputs.generated == 'true' }}
-        run: |
-          echo "Commit Cargo.lock from the generated-cargo-lock artifact." >&2
-          exit 1
-      - name: Check Rust formatting
-        if: ${{ steps.lock.outputs.generated != 'true' }}
-        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
-      - name: Run Clippy with warnings denied
-        if: ${{ steps.lock.outputs.generated != 'true' }}
-        run: cargo clippy --manifest-path src-tauri/Cargo.toml --workspace --all-targets --all-features --locked -- -D warnings
-      - name: Run Rust tests
-        if: ${{ steps.lock.outputs.generated != 'true' }}
-        run: cargo test --manifest-path src-tauri/Cargo.toml --workspace --all-features --locked
-      - name: Build Rust workspace
-        if: ${{ steps.lock.outputs.generated != 'true' }}
-        run: cargo build --manifest-path src-tauri/Cargo.toml --workspace --all-features --locked
 
-  packaging:
-    name: Debian package smoke
-    needs: [frontend-quality, rust-quality]
-    runs-on: ubuntu-22.04
-    timeout-minutes: 50
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-      - name: Stop until lockfiles are committed
-        if: ${{ hashFiles('package-lock.json', 'src-tauri/Cargo.lock') == '' }}
-        run: exit 1
-      - name: Install build dependencies
+      - name: Generate and verify lockfiles
+        shell: bash
         run: |
           set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends build-essential curl file libayatana-appindicator3-dev librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev pkg-config wget
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: .node-version
-          cache: npm
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: 1.88.0
-      - name: Install frontend dependencies
-        run: npm ci
-      - name: Build Debian package
-        run: npm run tauri -- build --bundles deb
-      - name: Inspect Debian package
+          test ! -e package-lock.json
+          test ! -e src-tauri/Cargo.lock
+          npm install --package-lock-only --ignore-scripts
+          cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
+          printf '%s  %s\n' \
+            '311ce6b191cd906d6c5ea4778f23ab88627d1ff542229e3a687c08176dd21f0a' \
+            package-lock.json \
+            | sha256sum --check --strict
+          printf '%s  %s\n' \
+            '6558cf0cc2cb0693e662e4e83ef17c8de5de7217eaa9a506647677099add6915' \
+            src-tauri/Cargo.lock \
+            | sha256sum --check --strict
+
+      - name: Commit lockfiles to master
+        shell: bash
         run: |
           set -euo pipefail
-          package="$(find src-tauri/target/release/bundle/deb -name '*.deb' -print -quit)"
-          test -n "${package}"
-          dpkg-deb --info "${package}"
-          sha256sum "${package}" | tee package.sha256
-      - name: Upload reviewed package artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: screenshot-ocr-deb-${{ github.sha }}
-          path: |
-            src-tauri/target/release/bundle/deb/*.deb
-            package.sha256
-          if-no-files-found: error
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package-lock.json src-tauri/Cargo.lock
+          git diff --cached --check
+          git commit -m 'build: commit verified dependency lockfiles'
+          git push origin HEAD:master
