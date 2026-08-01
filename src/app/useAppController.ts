@@ -49,16 +49,17 @@ export function useAppController() {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [settingsDirty, setSettingsDirty] = useState(false);
   const [diagnostics, setDiagnostics] = useState<Diagnostics | null>(null);
-  const [startupCapturePending, setStartupCapturePending] = useState(false);
   const activeRequest = useRef(0);
 
-  const refreshSettings = useCallback(async () => {
+  const refreshSettings = useCallback(async (): Promise<AppSettings> => {
     try {
       const loaded = await getSettings();
       setSettings(loaded);
       setSettingsDirty(false);
+      return loaded;
     } catch (value) {
       setError(normalizeError(value));
+      return DEFAULT_SETTINGS;
     }
   }, []);
 
@@ -70,24 +71,7 @@ export function useAppController() {
     }
   }, []);
 
-  useEffect(() => {
-    let active = true;
-    void (async () => {
-      await refreshSettings();
-      await refreshDiagnostics();
-      try {
-        const requested = await takeStartupCapture();
-        if (active && requested) setStartupCapturePending(true);
-      } catch (value) {
-        if (active) setError(normalizeError(value));
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, [refreshDiagnostics, refreshSettings]);
-
-  const capture = useCallback(async () => {
+  const performCapture = useCallback(async (captureSettings: AppSettings) => {
     const requestToken = activeRequest.current + 1;
     activeRequest.current = requestToken;
     setStatus("preparing");
@@ -95,9 +79,9 @@ export function useAppController() {
     try {
       setStatus("selecting");
       const nextResult = await startCapture({
-        mode: settings.textMode,
-        language: settings.language,
-        copyPolicy: settings.previewBeforeCopy ? "preview" : "immediate",
+        mode: captureSettings.textMode,
+        language: captureSettings.language,
+        copyPolicy: captureSettings.previewBeforeCopy ? "preview" : "immediate",
         source: "mainWindow",
       });
       if (requestToken !== activeRequest.current) return;
@@ -114,13 +98,30 @@ export function useAppController() {
         setStatus("error");
       }
     }
-  }, [settings]);
+  }, []);
+
+  const capture = useCallback(async () => performCapture(settings), [performCapture, settings]);
 
   useEffect(() => {
-    if (!startupCapturePending) return;
-    setStartupCapturePending(false);
-    void capture();
-  }, [capture, startupCapturePending]);
+    let active = true;
+    void (async () => {
+      const loadedSettings = await refreshSettings();
+      await refreshDiagnostics();
+      try {
+        const requested = await takeStartupCapture();
+        if (active && requested) {
+          await performCapture(loadedSettings);
+        }
+      } catch (value) {
+        if (active) {
+          setError(normalizeError(value));
+        }
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [performCapture, refreshDiagnostics, refreshSettings]);
 
   const copy = useCallback(async () => {
     if (editorText.trim().length === 0) {
