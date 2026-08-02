@@ -267,18 +267,21 @@ M11 + M12 + M13
 
 ### M3.3 Diagnostics model
 
-- [ ] Implement safe diagnostics DTO.
-- [ ] Include application version.
-- [ ] Include OS release, desktop environment, and session type.
-- [ ] Include portal presence and safe capability summary.
+- [x] Implement safe diagnostics DTO.
+- [x] Include application version.
+- [x] Include OS release, desktop environment, and session type.
+- [x] Include portal presence and safe capability summary.
 - [ ] Include GNOME screenshot helper presence/version.
 - [ ] Include Tesseract presence/version and installed language codes.
-- [ ] Include clipboard and tray status.
-- [ ] Include settings schema version.
+- [x] Include clipboard and tray status.
+- [x] Include settings schema version.
 - [ ] Include last safe error code and stage duration.
-- [ ] Include cleanup failure counts without paths.
+- [x] Include cleanup failure counts without paths.
 - [ ] Implement **Copy diagnostics** with guaranteed redaction.
 - [ ] Add snapshot tests for the diagnostics report.
+
+  - Evidence (2026-08-02): source `2fdce81e5163c5234515fc26efeea48544077c88`; CI run `30731505719`; `docs/DIAGNOSTICS_STATUS_2026-08-02.md`.
+  - Combined presence/version and error-code/stage-duration items remain unchecked because helper versions and stage duration are not implemented.
 
 ### M3 acceptance gate
 
