@@ -26,13 +26,6 @@ impl CaptureStateMachine {
         Ok(cancellation)
     }
 
-    pub fn ensure_active(&self, id: CaptureJobId) -> Result<(), AppError> {
-        match &self.active {
-            Some(active) if active.id == id => Ok(()),
-            _ => Err(AppError::Internal),
-        }
-    }
-
     pub fn ensure_not_cancelled(&self, id: CaptureJobId) -> Result<(), AppError> {
         let active = self.active_for(id)?;
         active.cancellation.check()
@@ -100,7 +93,7 @@ mod tests {
         state.begin(current).expect("capture");
         state.finish(current);
         let stale = CaptureJobId::new();
-        assert!(state.ensure_active(stale).is_err());
+        assert!(state.ensure_not_cancelled(stale).is_err());
         assert!(state.cancel(stale).is_err());
     }
 }
