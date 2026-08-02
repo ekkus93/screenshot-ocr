@@ -30,9 +30,13 @@ pub async fn start_capture(
                 machine.finish(job_id);
                 copy_result
             };
-            copy_result.map_err(PublicError::from)?;
-            result.copied = true;
-            Ok(result)
+            match copy_result {
+                Ok(()) => {
+                    result.copied = true;
+                    Ok(result)
+                }
+                Err(error) => Err(PublicError::from(error)),
+            }
         }
         Ok(result) => {
             state.state.lock().await.finish(job_id);
@@ -43,8 +47,11 @@ pub async fn start_capture(
             Err(PublicError::from(error))
         }
     };
-    restore_window(&window).map_err(PublicError::from)?;
-    result
+    let restore_result = restore_window(&window).map_err(PublicError::from);
+    match (result, restore_result) {
+        (_, Err(error)) => Err(error),
+        (result, Ok(())) => result,
+    }
 }
 
 #[tauri::command]
