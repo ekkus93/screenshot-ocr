@@ -92,7 +92,14 @@ jobs:
         run: npm ci
 
       - name: Check formatting
-        run: npm run format:check
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! npm run format:check; then
+            npx prettier --write .
+            git diff -- .
+            exit 1
+          fi
 
       - name: Lint
         run: npm run lint
