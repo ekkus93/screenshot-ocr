@@ -20,7 +20,6 @@ pub enum ErrorCode {
     OcrTimedOut,
     OcrFailed,
     OcrEmptyResult,
-    ClipboardUnavailable,
     ClipboardWriteFailed,
     SettingsInvalid,
     SettingsWriteFailed,
@@ -71,8 +70,6 @@ pub enum AppError {
     OcrFailed,
     #[error("OCR result is empty")]
     OcrEmptyResult,
-    #[error("clipboard service is unavailable")]
-    ClipboardUnavailable,
     #[error("clipboard write failed")]
     ClipboardWriteFailed,
     #[error("settings are invalid")]
@@ -184,12 +181,6 @@ impl From<AppError> for PublicError {
                 "Select an area containing larger, higher-contrast text. The clipboard was unchanged.",
                 true,
             ),
-            AppError::ClipboardUnavailable => (
-                ErrorCode::ClipboardUnavailable,
-                "The desktop clipboard is unavailable.",
-                "Keep the preview open, verify the desktop session, and retry copying.",
-                true,
-            ),
             AppError::ClipboardWriteFailed => (
                 ErrorCode::ClipboardWriteFailed,
                 "The recognized text could not be copied.",
@@ -259,11 +250,7 @@ mod tests {
     }
 
     #[test]
-    fn clipboard_errors_cover_unavailable_and_write_failure() {
-        assert_eq!(
-            PublicError::from(AppError::ClipboardUnavailable).code,
-            ErrorCode::ClipboardUnavailable
-        );
+    fn clipboard_write_failure_has_stable_public_code() {
         assert_eq!(
             PublicError::from(AppError::ClipboardWriteFailed).code,
             ErrorCode::ClipboardWriteFailed
