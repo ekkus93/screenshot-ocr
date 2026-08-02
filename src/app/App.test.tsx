@@ -60,7 +60,7 @@ vi.mock("../lib/tauri", () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.listen.mockResolvedValue(vi.fn());
-  mocks.getSettings.mockResolvedValue(settings);
+  mocks.getSettings.mockResolvedValue({ settings, warning: null });
   mocks.getDiagnostics.mockResolvedValue(diagnostics);
   mocks.takePendingAppAction.mockResolvedValue(null);
 });
@@ -115,4 +115,58 @@ test("routes a reserved shortcut action through the normal capture command", asy
   await waitFor(() => {
     expect(screen.getByLabelText("Recognized text editor")).toHaveValue("cargo test\n");
   });
+});
+
+test("shows settings save failures on the settings tab without discarding edits", async () => {
+  const user = userEvent.setup();
+  mocks.updateSettings.mockRejectedValueOnce({
+    code: "settings_write_failed",
+    message: "Settings could not be saved.",
+    guidance: "Check configuration-directory permissions and try again.",
+    retryable: true,
+  });
+  render(<App />);
+  await screen.findByText("Ready to capture");
+
+  await user.click(screen.getByRole("button", { name: /settings/i }));
+  await user.selectOptions(screen.getByLabelText("Text mode"), "document");
+  await user.click(screen.getByRole("button", { name: "Save settings" }));
+
+  expect(await screen.findByText("Settings could not be saved.")).toBeVisible();
+  expect(screen.getByLabelText("Text mode")).toHaveValue("document");
+});
+
+test("shows corrupt settings recovery as a safe settings warning", async () => {
+  const user = userEvent.setup();
+  mocks.getSettings.mockResolvedValueOnce({
+    settings,
+    warning: {
+      code: "settings_invalid_recovered",
+      message: "Settings could not be loaded, so safe defaults were used.",
+      guidance: "Review the settings and save them to replace the invalid configuration.",
+      recoveredWithDefaults: true,
+    },
+  });
+  render(<App />);
+  await screen.findByText("Ready to capture");
+
+  await user.click(screen.getByRole("button", { name: /settings/i }));
+
+  expect(
+    await screen.findByText("Settings could not be loaded, so safe defaults were used."),
+  ).toBeVisible();
+  expect(screen.queryByText("SYNTHETIC_SECRET_9f33")).not.toBeInTheDocument();
+});
+
+test("reserved settings controls are visible but not active", async () => {
+  const user = userEvent.setup();
+  render(<App />);
+  await screen.findByText("Ready to capture");
+
+  await user.click(screen.getByRole("button", { name: /settings/i }));
+
+  expect(screen.getByLabelText(/Notify after copy/)).toBeDisabled();
+  expect(screen.getByLabelText(/Start at login/)).toBeDisabled();
+  expect(screen.getByLabelText(/Keep running when window closes/)).toBeDisabled();
+  expect(screen.getByText(/Not implemented in this pre-release build/)).toBeVisible();
 });
