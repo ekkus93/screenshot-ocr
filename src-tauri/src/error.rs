@@ -7,8 +7,11 @@ pub enum ErrorCode {
     CaptureAlreadyActive,
     CaptureCancelled,
     CaptureBackendUnavailable,
+    CapturePermissionDenied,
+    CaptureTimedOut,
     CaptureProcessFailed,
     CaptureResultMissing,
+    CaptureResultUriInvalid,
     CaptureImageInvalid,
     CaptureTooLarge,
     TemporaryCleanupFailed,
@@ -41,10 +44,16 @@ pub enum AppError {
     CaptureCancelled,
     #[error("capture backend is unavailable")]
     CaptureBackendUnavailable,
+    #[error("capture permission was denied")]
+    CapturePermissionDenied,
+    #[error("capture operation timed out")]
+    CaptureTimedOut,
     #[error("capture helper failed")]
     CaptureProcessFailed,
     #[error("capture output is missing")]
     CaptureResultMissing,
+    #[error("capture result URI is invalid")]
+    CaptureResultUriInvalid,
     #[error("captured image is invalid")]
     CaptureImageInvalid,
     #[error("captured image exceeds safe limits")]
@@ -91,12 +100,24 @@ impl From<AppError> for PublicError {
             AppError::CaptureBackendUnavailable => (
                 ErrorCode::CaptureBackendUnavailable,
                 "No safe region-capture backend is available.",
-                "Install gnome-screenshot or use a supported GNOME session.",
+                "Install gnome-screenshot or use a portal that advertises area capture.",
+                true,
+            ),
+            AppError::CapturePermissionDenied => (
+                ErrorCode::CapturePermissionDenied,
+                "Screen-capture permission was denied.",
+                "Allow screen capture in the desktop prompt and try again.",
+                true,
+            ),
+            AppError::CaptureTimedOut => (
+                ErrorCode::CaptureTimedOut,
+                "Screen selection took too long and was stopped.",
+                "Start another capture and complete or cancel the selector. The clipboard was unchanged.",
                 true,
             ),
             AppError::CaptureProcessFailed => (
                 ErrorCode::CaptureProcessFailed,
-                "The screen-selection helper failed.",
+                "The screen-selection service failed.",
                 "Try again and inspect safe diagnostics if it continues.",
                 true,
             ),
@@ -104,6 +125,12 @@ impl From<AppError> for PublicError {
                 ErrorCode::CaptureResultMissing,
                 "The selector did not produce an image.",
                 "Try selecting a region again.",
+                true,
+            ),
+            AppError::CaptureResultUriInvalid => (
+                ErrorCode::CaptureResultUriInvalid,
+                "The screen-selection service returned an unsupported result.",
+                "Use the GNOME compatibility backend or inspect safe diagnostics.",
                 true,
             ),
             AppError::CaptureImageInvalid => (
@@ -204,5 +231,21 @@ mod tests {
         let json = serde_json::to_string(&public).expect("serialize public error");
         assert!(!json.contains("SYNTHETIC_SECRET_9f33"));
         assert!(!json.contains("/tmp/"));
+    }
+
+    #[test]
+    fn portal_errors_have_stable_public_codes() {
+        assert_eq!(
+            PublicError::from(AppError::CapturePermissionDenied).code,
+            ErrorCode::CapturePermissionDenied
+        );
+        assert_eq!(
+            PublicError::from(AppError::CaptureTimedOut).code,
+            ErrorCode::CaptureTimedOut
+        );
+        assert_eq!(
+            PublicError::from(AppError::CaptureResultUriInvalid).code,
+            ErrorCode::CaptureResultUriInvalid
+        );
     }
 }
