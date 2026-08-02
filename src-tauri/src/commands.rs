@@ -2,9 +2,9 @@ use crate::app::AppServices;
 use crate::capture::{EnvironmentProbe, PortalScreenshotBackend};
 use crate::diagnostics::Diagnostics;
 use crate::error::{AppError, PublicError};
-use crate::models::{AppActionEvent, CaptureJobId, CaptureRequest, CopyPolicy, OcrResult};
+use crate::models::{AppActionEvent, CaptureJobId, CaptureRequest, CopyPolicy, OcrResult, OcrWarning};
 use crate::ocr::TesseractEngine;
-use crate::settings::AppSettings;
+use crate::settings::{AppSettings, SettingsLoadResult};
 use tauri::{AppHandle, Manager, State, WebviewWindow};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 
@@ -33,6 +33,12 @@ pub async fn start_capture(
             match copy_result {
                 Ok(()) => {
                     result.copied = true;
+                    Ok(result)
+                }
+                Err(AppError::ClipboardWriteFailed) => {
+                    let public = record_error(&state, AppError::ClipboardWriteFailed);
+                    result.copied = false;
+                    result.warnings.push(clipboard_failure_warning(&public));
                     Ok(result)
                 }
                 Err(error) => Err(record_error(&state, error)),
@@ -82,15 +88,16 @@ pub fn copy_text(
 }
 
 #[tauri::command]
-pub fn get_settings(state: State<'_, AppServices>) -> Result<AppSettings, PublicError> {
-    match state.settings.load() {
-        Ok(settings) => Ok(settings),
-        Err(AppError::SettingsInvalid) => {
-            let _ = record_error(&state, AppError::SettingsInvalid);
-            Ok(AppSettings::default())
-        }
-        Err(error) => Err(record_error(&state, error)),
+pub fn get_settings(state: State<'_, AppServices>) -> Result<SettingsLoadResult, PublicError> {
+    let result = state
+        .settings
+        .load_for_frontend()
+        .map_err(|error| record_error(&state, error))?;
+    if result.warning.is_some() {
+        let public = PublicError::from(AppError::SettingsInvalid);
+        state.runtime_diagnostics.record(public.code);
     }
+    Ok(result)
 }
 
 #[tauri::command]
@@ -116,9 +123,11 @@ pub fn reset_settings(state: State<'_, AppServices>) -> Result<AppSettings, Publ
 #[tauri::command]
 pub async fn get_diagnostics(state: State<'_, AppServices>) -> Result<Diagnostics, PublicError> {
     let environment = EnvironmentProbe::probe().map_err(|error| record_error(&state, error))?;
-    let languages = TesseractEngine::from_environment(&environment)
-        .and_then(|engine| engine.probe_english())
-        .unwrap_or_default();
+    let cancellation = crate::cancellation::CancellationToken::new();
+    let languages = match TesseractEngine::from_environment(&environment) {
+        Ok(engine) => engine.probe_english(&cancellation).await.unwrap_or_default(),
+        Err(_) => Vec::new(),
+    };
     let portal_summary = PortalScreenshotBackend::safe_capability_summary().await;
     Ok(Diagnostics::from_environment(
         &environment,
@@ -156,6 +165,13 @@ fn validate_clipboard_text(text: &str) -> Result<(), AppError> {
     Ok(())
 }
 
+fn clipboard_failure_warning(public: &PublicError) -> OcrWarning {
+    OcrWarning {
+        code: "clipboard_write_failed".into(),
+        message: format!("{} {}", public.message, public.guidance),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -177,6 +193,16 @@ mod tests {
     #[test]
     fn clipboard_validation_preserves_code_whitespace() {
         assert!(validate_clipboard_text("  cargo test\n").is_ok());
+    }
+
+    #[test]
+    fn clipboard_failure_warning_is_safe_and_recoverable() {
+        let public = PublicError::from(AppError::ClipboardWriteFailed);
+        let warning = clipboard_failure_warning(&public);
+        assert_eq!(warning.code, "clipboard_write_failed");
+        assert!(warning.message.contains("could not be copied"));
+        assert!(!warning.message.contains("SYNTHETIC_SECRET_9f33"));
+        assert!(!warning.message.contains("/tmp/"));
     }
 
     #[test]
