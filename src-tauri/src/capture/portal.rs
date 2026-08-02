@@ -3,8 +3,8 @@ use crate::error::AppError;
 use crate::image_pipeline::decode_captured_image;
 use crate::models::{CaptureBackendId, CapturedImage};
 use ashpd::desktop::{
-    ResponseError,
     screenshot::{AvailableTargets, Screenshot, ScreenshotProxy},
+    ResponseError,
 };
 use ashpd::{Error as PortalClientError, PortalError};
 use async_trait::async_trait;
@@ -37,7 +37,10 @@ impl PortalScreenshotBackend {
             .await
             .map_err(|_| AppError::CaptureBackendUnavailable)?
             .map_err(map_portal_error)?;
-        Ok(supports_area(version, targets.contains(AvailableTargets::Area)))
+        Ok(supports_area(
+            version,
+            targets.contains(AvailableTargets::Area),
+        ))
     }
 
     async fn capture_area(&self) -> Result<CapturedImage, AppError> {
@@ -72,9 +75,7 @@ fn map_portal_error(error: PortalClientError) -> AppError {
     match error {
         PortalClientError::Response(ResponseError::Cancelled)
         | PortalClientError::Portal(PortalError::Cancelled(_)) => AppError::CaptureCancelled,
-        PortalClientError::Portal(PortalError::NotAllowed(_)) => {
-            AppError::CapturePermissionDenied
-        }
+        PortalClientError::Portal(PortalError::NotAllowed(_)) => AppError::CapturePermissionDenied,
         PortalClientError::RequiresVersion(_, _) | PortalClientError::PortalNotFound(_) => {
             AppError::CaptureBackendUnavailable
         }
