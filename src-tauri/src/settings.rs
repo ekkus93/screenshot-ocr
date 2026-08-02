@@ -51,6 +51,33 @@ impl AppSettings {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SettingsRecoveryWarning {
+    pub code: String,
+    pub message: String,
+    pub guidance: String,
+    pub recovered_with_defaults: bool,
+}
+
+impl SettingsRecoveryWarning {
+    fn invalid_settings() -> Self {
+        Self {
+            code: "settings_invalid_recovered".into(),
+            message: "Settings could not be loaded, so safe defaults were used.".into(),
+            guidance: "Review the settings and save them to replace the invalid configuration.".into(),
+            recovered_with_defaults: true,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SettingsLoadResult {
+    pub settings: AppSettings,
+    pub warning: Option<SettingsRecoveryWarning>,
+}
+
 #[derive(Debug)]
 pub struct SettingsStore {
     directory: PathBuf,
@@ -79,6 +106,20 @@ impl SettingsStore {
         }
     }
 
+    pub fn load_for_frontend(&self) -> Result<SettingsLoadResult, AppError> {
+        match self.load() {
+            Ok(settings) => Ok(SettingsLoadResult {
+                settings,
+                warning: None,
+            }),
+            Err(AppError::SettingsInvalid) => Ok(SettingsLoadResult {
+                settings: AppSettings::default(),
+                warning: Some(SettingsRecoveryWarning::invalid_settings()),
+            }),
+            Err(error) => Err(error),
+        }
+    }
+
     pub fn save(&self, settings: &AppSettings) -> Result<(), AppError> {
         settings.validate()?;
         fs::create_dir_all(&self.directory).map_err(|_| AppError::SettingsWriteFailed)?;
@@ -95,12 +136,7 @@ impl SettingsStore {
             .map_err(|_| AppError::SettingsWriteFailed)?;
         set_file_permissions(&temporary)?;
         file.write_all(&serialized)
-            .and_then(|_| {
-                file.write_all(
-                    b"
-",
-                )
-            })
+            .and_then(|_| file.write_all(b"\n"))
             .and_then(|_| file.sync_all())
             .map_err(|_| AppError::SettingsWriteFailed)?;
         fs::rename(&temporary, &destination).map_err(|_| AppError::SettingsWriteFailed)?;
@@ -165,5 +201,22 @@ mod tests {
         let store = SettingsStore::new(dir.path().to_path_buf());
         assert!(matches!(store.load(), Err(AppError::SettingsInvalid)));
         assert!(dir.path().join("settings.corrupt.json").exists());
+    }
+
+    #[test]
+    fn corrupt_settings_return_visible_safe_recovery_result() {
+        let dir = tempdir().expect("tempdir");
+        fs::write(
+            dir.path().join(SETTINGS_FILE),
+            br#"{"secret":"SYNTHETIC_SECRET_9f33","path":"/tmp/private"}"#,
+        )
+        .expect("write corrupt settings");
+        let store = SettingsStore::new(dir.path().to_path_buf());
+        let result = store.load_for_frontend().expect("recovery result");
+        assert_eq!(result.settings, AppSettings::default());
+        assert!(result.warning.is_some());
+        let json = serde_json::to_string(&result).expect("serialize recovery result");
+        assert!(!json.contains("SYNTHETIC_SECRET_9f33"));
+        assert!(!json.contains("/tmp/private"));
     }
 }
