@@ -17,9 +17,7 @@ const LABELS = {
 } as const;
 
 export function CapturePanel({ controller }: Props) {
-  const busy = ["preparing", "selecting", "processing", "cancelling"].includes(
-    controller.status,
-  );
+  const busy = ["preparing", "selecting", "processing", "cancelling"].includes(controller.status);
   const cancelling = controller.status === "cancelling";
 
   return (
