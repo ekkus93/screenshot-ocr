@@ -7,15 +7,14 @@ use crate::diagnostics::RuntimeDiagnostics;
 use crate::error::AppError;
 use crate::image_pipeline::prepare_variants;
 use crate::models::{
-    CaptureBackendId, CaptureBackendPreference, CaptureJobId, CaptureRequest, OcrEngineId,
-    OcrResult,
+    AppActionEvent, CaptureBackendId, CaptureBackendPreference, CaptureJobId, CaptureRequest,
+    OcrEngineId, OcrResult,
 };
 use crate::ocr::{select_best_candidate, TesseractEngine};
 use crate::settings::SettingsStore;
 use crate::state::CaptureStateMachine;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex as StdMutex};
 use std::time::Instant;
 use tokio::sync::Mutex;
 
@@ -24,21 +23,44 @@ pub struct AppServices {
     pub state: Arc<Mutex<CaptureStateMachine>>,
     pub settings: Arc<SettingsStore>,
     pub runtime_diagnostics: Arc<RuntimeDiagnostics>,
-    startup_capture: Arc<AtomicBool>,
+    pending_app_action: Arc<StdMutex<Option<AppActionEvent>>>,
 }
 
 impl AppServices {
-    pub fn new(config_dir: PathBuf, startup_capture: bool) -> Self {
+    pub fn new(config_dir: PathBuf) -> Self {
         Self {
             state: Arc::new(Mutex::new(CaptureStateMachine::default())),
             settings: Arc::new(SettingsStore::new(config_dir)),
             runtime_diagnostics: Arc::new(RuntimeDiagnostics::default()),
-            startup_capture: Arc::new(AtomicBool::new(startup_capture)),
+            pending_app_action: Arc::new(StdMutex::new(None)),
         }
     }
 
-    pub fn take_startup_capture(&self) -> bool {
-        self.startup_capture.swap(false, Ordering::AcqRel)
+    pub fn queue_app_action(&self, action: AppActionEvent) -> Result<(), AppError> {
+        let mut pending = self
+            .pending_app_action
+            .lock()
+            .map_err(|_| AppError::Internal)?;
+        if pending.is_some() {
+            return Err(AppError::CaptureAlreadyActive);
+        }
+        *pending = Some(action);
+        Ok(())
+    }
+
+    pub fn take_app_action(&self) -> Option<AppActionEvent> {
+        self.pending_app_action
+            .lock()
+            .ok()
+            .and_then(|mut pending| pending.take())
+    }
+
+    pub fn clear_app_action(&self, job_id: CaptureJobId) {
+        if let Ok(mut pending) = self.pending_app_action.lock() {
+            if pending.as_ref().is_some_and(|action| action.job_id == job_id) {
+                *pending = None;
+            }
+        }
     }
 
     pub async fn capture(&self, request: CaptureRequest) -> Result<OcrResult, AppError> {
@@ -154,14 +176,47 @@ fn choose_backend_id(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::models::{CaptureSource, FrontendAppAction};
     use tempfile::tempdir;
 
     #[test]
-    fn startup_capture_is_consumed_once() {
+    fn pending_app_action_is_consumed_once() {
         let directory = tempdir().expect("tempdir");
-        let services = AppServices::new(directory.path().to_path_buf(), true);
-        assert!(services.take_startup_capture());
-        assert!(!services.take_startup_capture());
+        let services = AppServices::new(directory.path().to_path_buf());
+        let job_id = CaptureJobId::new();
+        services
+            .queue_app_action(AppActionEvent {
+                action: FrontendAppAction::StartCapture,
+                job_id,
+                source: CaptureSource::CommandLine,
+            })
+            .expect("queue action");
+        assert_eq!(
+            services.take_app_action().map(|action| action.job_id),
+            Some(job_id)
+        );
+        assert!(services.take_app_action().is_none());
+    }
+
+    #[test]
+    fn pending_app_action_does_not_overwrite_an_existing_request() {
+        let directory = tempdir().expect("tempdir");
+        let services = AppServices::new(directory.path().to_path_buf());
+        services
+            .queue_app_action(AppActionEvent {
+                action: FrontendAppAction::StartCapture,
+                job_id: CaptureJobId::new(),
+                source: CaptureSource::Tray,
+            })
+            .expect("first action");
+        assert!(matches!(
+            services.queue_app_action(AppActionEvent {
+                action: FrontendAppAction::StartCapture,
+                job_id: CaptureJobId::new(),
+                source: CaptureSource::Shortcut,
+            }),
+            Err(AppError::CaptureAlreadyActive)
+        ));
     }
 
     #[test]
