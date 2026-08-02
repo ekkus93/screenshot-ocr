@@ -91,7 +91,12 @@ export function SettingsPanel({ controller }: Props) {
           Preview before copying
         </label>
         <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-3 text-slate-500 dark:border-slate-800 dark:text-slate-400">
-          <input type="checkbox" checked={controller.settings.preserveWhitespace} disabled className="mt-1" />
+          <input
+            type="checkbox"
+            checked={controller.settings.preserveWhitespace}
+            disabled
+            className="mt-1"
+          />
           <span>
             <span className="block font-medium text-slate-700 dark:text-slate-300">
               Preserve indentation and blank lines
@@ -103,7 +108,10 @@ export function SettingsPanel({ controller }: Props) {
         </label>
         <ReservedCheckbox checked={controller.settings.notifyAfterCopy} label="Notify after copy" />
         <ReservedCheckbox checked={controller.settings.startAtLogin} label="Start at login" />
-        <ReservedCheckbox checked={controller.settings.closeToTray} label="Keep running when window closes" />
+        <ReservedCheckbox
+          checked={controller.settings.closeToTray}
+          label="Keep running when window closes"
+        />
         <label className="space-y-2">
           <span className="font-medium">Capture backend</span>
           <select
