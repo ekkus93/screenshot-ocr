@@ -37,8 +37,7 @@ impl AppAction {
     }
 
     pub fn from_secondary_args(arguments: &[String]) -> Self {
-        Self::from_argument(arguments.get(1).map(String::as_str))
-            .unwrap_or(Self::ShowMainWindow)
+        Self::from_argument(arguments.get(1).map(String::as_str)).unwrap_or(Self::ShowMainWindow)
     }
 }
 

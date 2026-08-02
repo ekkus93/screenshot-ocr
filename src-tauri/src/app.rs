@@ -57,7 +57,10 @@ impl AppServices {
 
     pub fn clear_app_action(&self, job_id: CaptureJobId) {
         if let Ok(mut pending) = self.pending_app_action.lock() {
-            if pending.as_ref().is_some_and(|action| action.job_id == job_id) {
+            if pending
+                .as_ref()
+                .is_some_and(|action| action.job_id == job_id)
+            {
                 *pending = None;
             }
         }
