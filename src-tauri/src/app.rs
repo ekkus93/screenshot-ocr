@@ -1,8 +1,12 @@
-use crate::capture::{CaptureBackend, EnvironmentInfo, EnvironmentProbe, GnomeScreenshotBackend};
+use crate::capture::{
+    CaptureBackend, EnvironmentInfo, EnvironmentProbe, GnomeScreenshotBackend,
+    PortalScreenshotBackend,
+};
 use crate::error::AppError;
 use crate::image_pipeline::prepare_variants;
 use crate::models::{
-    CaptureBackendPreference, CaptureJobId, CaptureRequest, OcrEngineId, OcrResult,
+    CaptureBackendId, CaptureBackendPreference, CaptureJobId, CaptureRequest, OcrEngineId,
+    OcrResult,
 };
 use crate::ocr::{select_best_candidate, TesseractEngine};
 use crate::settings::SettingsStore;
@@ -51,7 +55,7 @@ impl AppServices {
         let started = Instant::now();
         let settings = self.settings.load()?;
         let environment = EnvironmentProbe::probe()?;
-        let backend = select_capture_backend(settings.capture_backend, &environment)?;
+        let backend = select_capture_backend(settings.capture_backend, &environment).await?;
         let captured = backend.capture_region().await?;
         let engine = TesseractEngine::from_environment(&environment)?;
         engine.probe_english()?;
@@ -85,18 +89,51 @@ impl AppServices {
     }
 }
 
-fn select_capture_backend(
+async fn select_capture_backend(
     preference: CaptureBackendPreference,
     environment: &EnvironmentInfo,
 ) -> Result<Box<dyn CaptureBackend>, AppError> {
-    match preference {
-        CaptureBackendPreference::Auto | CaptureBackendPreference::Gnome => environment
+    let portal_supported = match preference {
+        CaptureBackendPreference::Gnome => false,
+        CaptureBackendPreference::Auto => PortalScreenshotBackend::probe_area_support()
+            .await
+            .unwrap_or(false),
+        CaptureBackendPreference::Portal => {
+            PortalScreenshotBackend::probe_area_support().await?
+        }
+    };
+    match choose_backend_id(
+        preference,
+        portal_supported,
+        environment.gnome_screenshot.is_some(),
+    )? {
+        CaptureBackendId::XdgPortal => Ok(Box::new(PortalScreenshotBackend)),
+        CaptureBackendId::GnomeScreenshot => environment
             .gnome_screenshot
             .clone()
             .map(GnomeScreenshotBackend::new)
             .map(|backend| Box::new(backend) as Box<dyn CaptureBackend>)
             .ok_or(AppError::CaptureBackendUnavailable),
+    }
+}
+
+fn choose_backend_id(
+    preference: CaptureBackendPreference,
+    portal_supported: bool,
+    gnome_available: bool,
+) -> Result<CaptureBackendId, AppError> {
+    match preference {
+        CaptureBackendPreference::Portal if portal_supported => Ok(CaptureBackendId::XdgPortal),
         CaptureBackendPreference::Portal => Err(AppError::CaptureBackendUnavailable),
+        CaptureBackendPreference::Gnome if gnome_available => {
+            Ok(CaptureBackendId::GnomeScreenshot)
+        }
+        CaptureBackendPreference::Gnome => Err(AppError::CaptureBackendUnavailable),
+        CaptureBackendPreference::Auto if portal_supported => Ok(CaptureBackendId::XdgPortal),
+        CaptureBackendPreference::Auto if gnome_available => {
+            Ok(CaptureBackendId::GnomeScreenshot)
+        }
+        CaptureBackendPreference::Auto => Err(AppError::CaptureBackendUnavailable),
     }
 }
 
@@ -104,17 +141,6 @@ fn select_capture_backend(
 mod tests {
     use super::*;
     use tempfile::tempdir;
-
-    fn environment(gnome_screenshot: Option<PathBuf>) -> EnvironmentInfo {
-        EnvironmentInfo {
-            os_release: "Ubuntu".into(),
-            desktop_environment: "GNOME".into(),
-            session_type: "wayland".into(),
-            gnome_screenshot,
-            tesseract: None,
-            portal_summary: "not proven".into(),
-        }
-    }
 
     #[test]
     fn startup_capture_is_consumed_once() {
@@ -125,22 +151,36 @@ mod tests {
     }
 
     #[test]
-    fn explicit_portal_selection_fails_closed_until_supported() {
+    fn automatic_selection_prefers_proven_portal_area_capture() {
+        assert_eq!(
+            choose_backend_id(CaptureBackendPreference::Auto, true, true)
+                .expect("portal backend"),
+            CaptureBackendId::XdgPortal
+        );
+    }
+
+    #[test]
+    fn automatic_selection_falls_back_before_opening_a_selector() {
+        assert_eq!(
+            choose_backend_id(CaptureBackendPreference::Auto, false, true)
+                .expect("GNOME backend"),
+            CaptureBackendId::GnomeScreenshot
+        );
+    }
+
+    #[test]
+    fn explicit_portal_selection_fails_closed_without_area_support() {
         assert!(matches!(
-            select_capture_backend(CaptureBackendPreference::Portal, &environment(None)),
+            choose_backend_id(CaptureBackendPreference::Portal, false, true),
             Err(AppError::CaptureBackendUnavailable)
         ));
     }
 
     #[test]
-    fn automatic_selection_requires_available_gnome_backend() {
-        assert!(
-            select_capture_backend(CaptureBackendPreference::Auto, &environment(None)).is_err()
-        );
-        assert!(select_capture_backend(
-            CaptureBackendPreference::Auto,
-            &environment(Some(PathBuf::from("/usr/bin/gnome-screenshot")))
-        )
-        .is_ok());
+    fn automatic_selection_rejects_missing_backends() {
+        assert!(matches!(
+            choose_backend_id(CaptureBackendPreference::Auto, false, false),
+            Err(AppError::CaptureBackendUnavailable)
+        ));
     }
 }
