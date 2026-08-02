@@ -1,3 +1,4 @@
+use crate::cancellation::CancellationToken;
 use crate::capture::EnvironmentInfo;
 use crate::error::AppError;
 use crate::image_pipeline::{encode_png, PreparedVariant};
@@ -6,8 +7,8 @@ use crate::ocr::cleanup::{cleanup_text, score_text};
 use std::process::Stdio;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::process::Command;
-use tokio::time::timeout;
+use tokio::process::{Child, Command};
+use tokio::time::{sleep_until, Instant};
 
 const OCR_TIMEOUT: Duration = Duration::from_secs(30);
 const MAX_OCR_TEXT_BYTES: usize = 1_000_000;
@@ -59,7 +60,10 @@ impl TesseractEngine {
         &self,
         variant: &PreparedVariant,
         mode: TextMode,
+        cancellation: &CancellationToken,
     ) -> Result<OcrCandidate, AppError> {
+        cancellation.check()?;
+        let deadline = Instant::now() + OCR_TIMEOUT;
         let png = encode_png(&variant.image)?;
         let page_segmentation = match mode {
             TextMode::Terminal => "6",
@@ -83,15 +87,33 @@ impl TesseractEngine {
             .kill_on_drop(true)
             .spawn()
             .map_err(|_| AppError::OcrEngineUnavailable)?;
-        let mut stdin = child.stdin.take().ok_or(AppError::OcrFailed)?;
-        stdin
-            .write_all(&png)
-            .await
-            .map_err(|_| AppError::OcrFailed)?;
+        let mut stdin = match child.stdin.take() {
+            Some(stdin) => stdin,
+            None => {
+                terminate_child(&mut child).await?;
+                return Err(AppError::OcrFailed);
+            }
+        };
+        let write_result = tokio::select! {
+            biased;
+            _ = cancellation.cancelled() => Err(AppError::CaptureCancelled),
+            _ = sleep_until(deadline) => Err(AppError::OcrTimedOut),
+            result = stdin.write_all(&png) => result.map_err(|_| AppError::OcrFailed),
+        };
         drop(stdin);
+        if let Err(error) = write_result {
+            terminate_child(&mut child).await?;
+            return Err(error);
+        }
 
-        let stdout = child.stdout.take().ok_or(AppError::OcrFailed)?;
-        let read_stdout = async move {
+        let stdout = match child.stdout.take() {
+            Some(stdout) => stdout,
+            None => {
+                terminate_child(&mut child).await?;
+                return Err(AppError::OcrFailed);
+            }
+        };
+        let mut reader = tokio::spawn(async move {
             let mut limited = stdout.take((MAX_OCR_TEXT_BYTES + 1) as u64);
             let mut bytes = Vec::new();
             limited
@@ -99,17 +121,43 @@ impl TesseractEngine {
                 .await
                 .map_err(|_| AppError::OcrFailed)?;
             Ok::<Vec<u8>, AppError>(bytes)
+        });
+
+        let status_result = tokio::select! {
+            biased;
+            _ = cancellation.cancelled() => {
+                reader.abort();
+                terminate_child(&mut child).await?;
+                return Err(AppError::CaptureCancelled);
+            }
+            _ = sleep_until(deadline) => {
+                reader.abort();
+                terminate_child(&mut child).await?;
+                return Err(AppError::OcrTimedOut);
+            }
+            result = child.wait() => result.map_err(|_| AppError::OcrFailed),
         };
-        let wait_for_output = async {
-            let (status, bytes) = tokio::try_join!(
-                async { child.wait().await.map_err(|_| AppError::OcrFailed) },
-                read_stdout
-            )?;
-            Ok::<_, AppError>((status, bytes))
+        let status = match status_result {
+            Ok(status) => status,
+            Err(error) => {
+                reader.abort();
+                return Err(error);
+            }
         };
-        let (status, output) = timeout(OCR_TIMEOUT, wait_for_output)
-            .await
-            .map_err(|_| AppError::OcrTimedOut)??;
+        let output = tokio::select! {
+            biased;
+            _ = cancellation.cancelled() => {
+                reader.abort();
+                return Err(AppError::CaptureCancelled);
+            }
+            _ = sleep_until(deadline) => {
+                reader.abort();
+                return Err(AppError::OcrTimedOut);
+            }
+            result = &mut reader => result
+                .map_err(|_| AppError::OcrFailed)??,
+        };
+        cancellation.check()?;
         if !status.success() || output.len() > MAX_OCR_TEXT_BYTES {
             return Err(AppError::OcrFailed);
         }
@@ -131,5 +179,57 @@ impl TesseractEngine {
             warnings,
             score,
         })
+    }
+}
+
+async fn terminate_child(child: &mut Child) -> Result<(), AppError> {
+    match child.try_wait().map_err(|_| AppError::OcrFailed)? {
+        Some(_) => Ok(()),
+        None => {
+            child.start_kill().map_err(|_| AppError::OcrFailed)?;
+            child.wait().await.map_err(|_| AppError::OcrFailed)?;
+            Ok(())
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::PreprocessingVariant;
+    use image::DynamicImage;
+    use std::fs;
+    use tempfile::tempdir;
+    use tokio::time::{sleep, timeout};
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn cancellation_terminates_ocr_process() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let directory = tempdir().expect("tempdir");
+        let executable = directory.path().join("slow-tesseract");
+        fs::write(&executable, "#!/bin/sh\nsleep 30\n").expect("write executable");
+        fs::set_permissions(&executable, fs::Permissions::from_mode(0o700))
+            .expect("make executable");
+        let engine = TesseractEngine { executable };
+        let variant = PreparedVariant {
+            image: DynamicImage::new_luma8(1, 1),
+            id: PreprocessingVariant::Original,
+        };
+        let cancellation = CancellationToken::new();
+        let task_token = cancellation.clone();
+        let task = tokio::spawn(async move {
+            engine
+                .recognize(&variant, TextMode::Terminal, &task_token)
+                .await
+        });
+        sleep(Duration::from_millis(50)).await;
+        cancellation.cancel();
+        let result = timeout(Duration::from_secs(2), task)
+            .await
+            .expect("OCR cancellation timed out")
+            .expect("OCR task failed");
+        assert!(matches!(result, Err(AppError::CaptureCancelled)));
     }
 }
