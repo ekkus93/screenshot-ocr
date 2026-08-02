@@ -41,6 +41,16 @@ function normalizeError(value: unknown): PublicError {
   };
 }
 
+function throwIfAborted(signal: AbortSignal): void {
+  if (signal.aborted) {
+    throw new DOMException("Startup initialization was cancelled.", "AbortError");
+  }
+}
+
+function isAbortError(value: unknown): boolean {
+  return value instanceof DOMException && value.name === "AbortError";
+}
+
 export function useAppController() {
   const [status, setStatus] = useState<CaptureStatus>("idle");
   const [result, setResult] = useState<OcrResult | null>(null);
@@ -50,18 +60,6 @@ export function useAppController() {
   const [settingsDirty, setSettingsDirty] = useState(false);
   const [diagnostics, setDiagnostics] = useState<Diagnostics | null>(null);
   const activeRequest = useRef(0);
-
-  const refreshSettings = useCallback(async (): Promise<AppSettings> => {
-    try {
-      const loaded = await getSettings();
-      setSettings(loaded);
-      setSettingsDirty(false);
-      return loaded;
-    } catch (value) {
-      setError(normalizeError(value));
-      return DEFAULT_SETTINGS;
-    }
-  }, []);
 
   const refreshDiagnostics = useCallback(async () => {
     try {
@@ -106,18 +104,25 @@ export function useAppController() {
 
   useEffect(() => {
     const controller = new AbortController();
+    const { signal } = controller;
     void (async () => {
-      const loadedSettings = await refreshSettings();
-      await refreshDiagnostics();
-      if (controller.signal.aborted) return;
       try {
+        const loadedSettings = await getSettings();
+        throwIfAborted(signal);
+        setSettings(loadedSettings);
+        setSettingsDirty(false);
+
+        const loadedDiagnostics = await getDiagnostics();
+        throwIfAborted(signal);
+        setDiagnostics(loadedDiagnostics);
+
         const requested = await takeStartupCapture();
-        if (controller.signal.aborted) return;
+        throwIfAborted(signal);
         if (requested) {
           await performCapture(loadedSettings);
         }
       } catch (value) {
-        if (!controller.signal.aborted) {
+        if (!isAbortError(value)) {
           setError(normalizeError(value));
         }
       }
@@ -125,7 +130,7 @@ export function useAppController() {
     return () => {
       controller.abort();
     };
-  }, [performCapture, refreshDiagnostics, refreshSettings]);
+  }, [performCapture]);
 
   const copy = useCallback(async () => {
     if (editorText.trim().length === 0) {
