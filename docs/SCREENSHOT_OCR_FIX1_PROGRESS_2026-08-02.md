@@ -4,7 +4,7 @@
 **Branch:** `master`  
 **FIX1 TODO:** `docs/SCREENSHOT_OCR_FIX1_TODO_2026-08-02.md`  
 **Baseline before first FIX1 implementation pass:** `d77b5281975e2773d51afb0ce52d2ff77d966986`  
-**Latest source commit after cleanup tranche:** `ee79a7fddd731d3d756033d2a168b36f69c8f919`  
+**Latest source commit after guard tranche:** `88590e7a896d6b3145eba16ba7d162ac4ab962f5`  
 **Status:** implementation tranches in progress; CI/package validation not yet proven in this document
 
 ## 1. Scope completed so far
@@ -19,7 +19,7 @@ Implemented changes:
 - disabled active-looking Settings controls for unimplemented notification, start-at-login, and close-to-tray behavior;
 - made the preserve-whitespace Settings control truthful as always-on/reserved for the current pre-release behavior;
 - added Settings-page warning/error regions using accessible alert patterns;
-- added frontend tests for Settings save failure visibility, unsaved-value preservation, corrupt-settings warning visibility, and reserved-control disablement;
+- added frontend tests for Settings save failure visibility, unsaved-value preservation, corrupt-settings warning visibility, reserved-control disablement, and immediate-copy clipboard recovery;
 - added a Rust `SettingsLoadResult` / `SettingsRecoveryWarning` recovery contract;
 - changed `get_settings` so corrupt/invalid settings return safe defaults plus a visible safe warning instead of silently returning defaults;
 - preserved corrupt-settings quarantine behavior;
@@ -29,6 +29,7 @@ Implemented changes:
 - converted Tesseract language probing from blocking `std::process::Command::output()` to bounded async Tokio process execution with cancellation, stdout limits, no shell, stdin null, stderr null, timeout, and kill/reap behavior;
 - passed the capture cancellation token into Tesseract language probing;
 - used bounded language probing in diagnostics;
+- added Tesseract language-probe tests for valid filtering, missing English, pre-cancelled probes, oversized stdout, and hanging-helper timeout;
 - renamed the misleading `GrayscaleContrast` preprocessing variant to `Grayscale`;
 - removed the unused `Upscale3x` enum value for now;
 - rechecked generated upscale dimensions before resizing and skipped unsafe upscales;
@@ -36,7 +37,10 @@ Implemented changes:
 - added GNOME capture-directory ownership markers;
 - added conservative stale GNOME capture-directory scavenging limited to old `screenshot-ocr-*` directories with an exact content-free ownership marker;
 - added tests proving unmarked directories and symlink markers are not scavenged;
-- documented the portal lifecycle review and explicitly kept physical portal validation as a separate unreplaced release gate.
+- documented the portal lifecycle review and explicitly kept physical portal validation as a separate unreplaced release gate;
+- added `scripts/check-content-leakage.py`;
+- wired the content-leakage source guard into the repository-policy CI job;
+- reconciled the public clipboard error-code checklist by adding `clipboard_unavailable` alongside `clipboard_write_failed`.
 
 ## 2. Commit list
 
@@ -59,6 +63,11 @@ e8abf9e00a43128b4ffb037331487e64a735d3c2  test: avoid ambiguous reserved-control
 612226f28df07e11deceb8a02ec9ec1f5828ae30  refactor: remove obsolete test controller type helper
 ebb58660bb6a3c19169c187e93b181c4cb07c696  fix: mark and scavenge owned GNOME capture directories
 ee79a7fddd731d3d756033d2a168b36f69c8f919  docs: record portal lifecycle FIX1 review
+0f5aa670e77b2c8661ea5647f915f5fb9c13755e  ci: add source content leakage guard
+d07a043b7cf20862ffed4a3c66e4cb6f92853934  ci: run content leakage source guard
+babfcce2e5a69ccee92dfa8c70ca59380d3bcaf6  fix: reconcile clipboard public error codes
+5a26fd87f43c0630ec915e7013ac0b4230b6bbba  test: cover immediate clipboard recovery path
+88590e7a896d6b3145eba16ba7d162ac4ab962f5  test: cover bounded Tesseract language probes
 ```
 
 ## 3. FIX1 TODO mapping
@@ -102,14 +111,13 @@ Implemented in source:
 
 - selected Option A: return `OcrResult` with `copied = false` plus warning `clipboard_write_failed`;
 - OCR text is preserved in the ordinary result path after immediate-copy clipboard failure;
-- the frontend already places any non-copied successful result into the editor and shows warnings;
+- the frontend places the text into the editor, shows the warning, avoids `Text copied`, and allows retry;
 - safe runtime diagnostics record the clipboard failure code;
-- warning helper test added.
+- warning helper and frontend recovery tests were added.
 
 Remaining before marking the whole milestone complete:
 
 - add a fuller command-level fake/integration test if feasible;
-- add frontend test specifically covering immediate-copy warning recovery;
 - run CI gates.
 
 ### F1.4 — Capture/OCR progress state
@@ -137,13 +145,12 @@ Implemented in source:
 - child kill/reap used on timeout/cancellation;
 - cancellation token passed through capture language probing;
 - diagnostics path uses the bounded probe;
-- tests added for valid filtering, missing English, and pre-cancelled probe.
+- tests added for valid filtering, missing English, pre-cancelled probe, oversized stdout, and hanging-helper timeout.
 
 Remaining:
 
-- add explicit hanging-helper timeout test if CI runtime budget allows;
-- add oversized stdout test;
-- decide and document bounded `tesseract --version` as implemented or deferred.
+- decide and document bounded `tesseract --version` as implemented or deferred;
+- run CI gates.
 
 ### F1.6 — Image preprocessing limits and naming
 
@@ -206,6 +213,33 @@ Remaining:
 
 - run frontend lint/typecheck/tests/build.
 
+### F1.11 — Content-leakage guard and OCR fixture foundation
+
+Implemented in source/CI:
+
+- added `scripts/check-content-leakage.py`;
+- repository-policy CI now runs the source guard;
+- the guard rejects obvious first-party debug/logging surfaces such as frontend console logging and Rust print/debug macros.
+
+Remaining:
+
+- richer synthetic OCR fixture foundation remains open;
+- fault-injection leakage checks remain open;
+- run CI gates.
+
+### F1.12 — Public error-code and CI/security reconciliation
+
+Implemented in source:
+
+- added `ClipboardUnavailable` to `ErrorCode` and `AppError`;
+- added public mapping and tests for `clipboard_unavailable` and `clipboard_write_failed`.
+
+Remaining:
+
+- full per-error checklist still needs broader test coverage;
+- action SHA pinning/security tooling decisions remain open;
+- run CI gates.
+
 ## 4. Validation status
 
 Not yet proven in this document:
@@ -224,10 +258,10 @@ Not yet proven in this document:
 
 Connector checks performed:
 
-- combined commit status for `fe0ef2593490020ad76faf0ca0647f273e39d35e` returned no status entries;
-- the GitHub connector did not return workflow runs for `fe0ef2593490020ad76faf0ca0647f273e39d35e`;
-- compare from `d77b5281975e2773d51afb0ce52d2ff77d966986` to `612226f28df07e11deceb8a02ec9ec1f5828ae30` showed 16 commits touching the expected Rust/frontend files before the cleanup tranche;
-- latest cleanup tranche source/doc commits are recorded above.
+- combined commit status for `88590e7a896d6b3145eba16ba7d162ac4ab962f5` returned no status entries;
+- the GitHub connector did not return workflow runs for `88590e7a896d6b3145eba16ba7d162ac4ab962f5`;
+- compare from `d77b5281975e2773d51afb0ce52d2ff77d966986` to `612226f28df07e11deceb8a02ec9ec1f5828ae30` showed 16 commits touching the expected Rust/frontend files before the cleanup/guard tranches;
+- latest cleanup/guard tranche source/doc commits are recorded above.
 
 Local validation was not run from this environment because the local container could not resolve `github.com` to clone the repository. Do not treat this status file as CI evidence.
 
@@ -235,8 +269,8 @@ Local validation was not run from this environment because the local container c
 
 Recommended next actions:
 
-1. Inspect the final CI run for `ee79a7fddd731d3d756033d2a168b36f69c8f919` or later.
+1. Inspect the final CI run for `88590e7a896d6b3145eba16ba7d162ac4ab962f5` or later.
 2. Fix any format, lint, typecheck, test, or build failures.
-3. Add missing immediate-copy frontend test and stronger Tesseract probe timeout/stdout tests.
+3. Decide/document bounded `tesseract --version` as implemented or deferred.
 4. Update `docs/SCREENSHOT_OCR_FIX1_TODO_2026-08-02.md` checkboxes only after CI proves the relevant tasks.
-5. Continue with F1.11 content-leakage guard and F1.12 public error-code reconciliation.
+5. Continue with richer F1.11 synthetic fixture/fault-injection leakage coverage and any CI failures.
