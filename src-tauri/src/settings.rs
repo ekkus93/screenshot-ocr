@@ -65,7 +65,8 @@ impl SettingsRecoveryWarning {
         Self {
             code: "settings_invalid_recovered".into(),
             message: "Settings could not be loaded, so safe defaults were used.".into(),
-            guidance: "Review the settings and save them to replace the invalid configuration.".into(),
+            guidance: "Review the settings and save them to replace the invalid configuration."
+                .into(),
             recovered_with_defaults: true,
         }
     }
