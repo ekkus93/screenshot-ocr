@@ -4,15 +4,19 @@ use crate::error::AppError;
 use crate::image_pipeline::decode_captured_image;
 use crate::models::{CaptureBackendId, CapturedImage};
 use async_trait::async_trait;
-use std::fs;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 use tokio::process::{Child, Command};
 use tokio::time::sleep;
 use uuid::Uuid;
 
 const CAPTURE_TIMEOUT: Duration = Duration::from_secs(120);
+const STALE_CAPTURE_AGE: Duration = Duration::from_secs(60 * 60);
+const OWNERSHIP_MARKER: &str = ".screenshot-ocr-owned";
+const OWNERSHIP_MARKER_CONTENT: &str = "screenshot-ocr temporary capture directory\n";
 
 #[derive(Clone, Debug)]
 pub struct GnomeScreenshotBackend {
@@ -119,10 +123,27 @@ fn create_capture_directory() -> Result<PathBuf, AppError> {
         .map(PathBuf::from)
         .filter(|path| path.is_absolute() && path.is_dir());
     let base = runtime_directory.unwrap_or_else(std::env::temp_dir);
+    let _ = scavenge_owned_stale_directories(&base, SystemTime::now(), STALE_CAPTURE_AGE);
     let directory = base.join(format!("screenshot-ocr-{}", Uuid::new_v4()));
     fs::create_dir(&directory).map_err(|_| AppError::CaptureProcessFailed)?;
-    set_private_permissions(&directory)?;
+    if let Err(error) = set_private_permissions(&directory).and_then(|()| write_ownership_marker(&directory)) {
+        let _ = fs::remove_dir_all(&directory);
+        return Err(error);
+    }
     Ok(directory)
+}
+
+fn write_ownership_marker(directory: &Path) -> Result<(), AppError> {
+    let marker = directory.join(OWNERSHIP_MARKER);
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&marker)
+        .map_err(|_| AppError::CaptureProcessFailed)?;
+    set_private_file_permissions(&marker)?;
+    file.write_all(OWNERSHIP_MARKER_CONTENT.as_bytes())
+        .and_then(|_| file.sync_all())
+        .map_err(|_| AppError::CaptureProcessFailed)
 }
 
 #[cfg(unix)]
@@ -137,8 +158,67 @@ fn set_private_permissions(_path: &Path) -> Result<(), AppError> {
     Ok(())
 }
 
+#[cfg(unix)]
+fn set_private_file_permissions(path: &Path) -> Result<(), AppError> {
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(path, fs::Permissions::from_mode(0o600))
+        .map_err(|_| AppError::CaptureProcessFailed)
+}
+
+#[cfg(not(unix))]
+fn set_private_file_permissions(_path: &Path) -> Result<(), AppError> {
+    Ok(())
+}
+
 fn cleanup_directory(directory: &Path) -> Result<(), AppError> {
     fs::remove_dir_all(directory).map_err(|_| AppError::TemporaryCleanupFailed)
+}
+
+fn scavenge_owned_stale_directories(
+    base: &Path,
+    now: SystemTime,
+    minimum_age: Duration,
+) -> Result<usize, AppError> {
+    let mut removed = 0;
+    let entries = fs::read_dir(base).map_err(|_| AppError::TemporaryCleanupFailed)?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !is_capture_directory_name(&path) || !has_valid_ownership_marker(&path) {
+            continue;
+        }
+        let Ok(metadata) = fs::symlink_metadata(&path) else {
+            continue;
+        };
+        let Ok(modified) = metadata.modified() else {
+            continue;
+        };
+        if now.duration_since(modified).unwrap_or_default() < minimum_age {
+            continue;
+        }
+        if fs::remove_dir_all(&path).is_ok() {
+            removed += 1;
+        }
+    }
+    Ok(removed)
+}
+
+fn is_capture_directory_name(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| name.starts_with("screenshot-ocr-"))
+}
+
+fn has_valid_ownership_marker(directory: &Path) -> bool {
+    let marker = directory.join(OWNERSHIP_MARKER);
+    let Ok(metadata) = fs::symlink_metadata(&marker) else {
+        return false;
+    };
+    if !metadata.file_type().is_file() || metadata.file_type().is_symlink() {
+        return false;
+    }
+    fs::read_to_string(marker)
+        .map(|content| content == OWNERSHIP_MARKER_CONTENT)
+        .unwrap_or(false)
 }
 
 #[cfg(test)]
@@ -155,6 +235,45 @@ mod tests {
         fs::write(directory.join("capture.png"), b"private pixels").expect("write capture");
         cleanup_directory(&directory).expect("cleanup capture directory");
         assert!(!directory.exists());
+    }
+
+    #[test]
+    fn ownership_marker_is_content_free_and_required_for_scavenging() {
+        let parent = tempdir().expect("tempdir");
+        let owned = parent.path().join("screenshot-ocr-owned");
+        let unowned = parent.path().join("screenshot-ocr-unowned");
+        fs::create_dir(&owned).expect("create owned directory");
+        fs::create_dir(&unowned).expect("create unowned directory");
+        write_ownership_marker(&owned).expect("write marker");
+        assert!(has_valid_ownership_marker(&owned));
+        assert!(!has_valid_ownership_marker(&unowned));
+        assert_eq!(
+            scavenge_owned_stale_directories(parent.path(), SystemTime::now(), Duration::ZERO)
+                .expect("scavenge"),
+            1
+        );
+        assert!(!owned.exists());
+        assert!(unowned.exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn scavenger_rejects_symlink_marker() {
+        use std::os::unix::fs::symlink;
+
+        let parent = tempdir().expect("tempdir");
+        let directory = parent.path().join("screenshot-ocr-link-marker");
+        fs::create_dir(&directory).expect("create directory");
+        let target = parent.path().join("target-marker");
+        fs::write(&target, OWNERSHIP_MARKER_CONTENT).expect("write marker target");
+        symlink(&target, directory.join(OWNERSHIP_MARKER)).expect("symlink marker");
+        assert!(!has_valid_ownership_marker(&directory));
+        assert_eq!(
+            scavenge_owned_stale_directories(parent.path(), SystemTime::now(), Duration::ZERO)
+                .expect("scavenge"),
+            0
+        );
+        assert!(directory.exists());
     }
 
     #[cfg(unix)]
