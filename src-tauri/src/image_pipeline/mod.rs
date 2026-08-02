@@ -134,7 +134,8 @@ mod tests {
 
     #[test]
     fn generated_upscale_dimensions_are_rechecked() {
-        let (width, height) = checked_scaled_dimensions(6_000, 6_000, 2).expect("scaled dimensions");
+        let (width, height) =
+            checked_scaled_dimensions(6_000, 6_000, 2).expect("scaled dimensions");
         assert!(matches!(
             enforce_dimensions(width, height),
             Err(AppError::CaptureTooLarge)
