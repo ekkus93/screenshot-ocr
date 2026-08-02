@@ -45,7 +45,7 @@ pub fn prepare_variants(image: &DynamicImage) -> Vec<PreparedVariant> {
     let grayscale = image.grayscale();
     variants.push(PreparedVariant {
         image: grayscale.clone(),
-        id: PreprocessingVariant::GrayscaleContrast,
+        id: PreprocessingVariant::Grayscale,
     });
     if mean_luminance(&grayscale) < 110.0 {
         let mut inverted = grayscale.clone();
@@ -55,16 +55,13 @@ pub fn prepare_variants(image: &DynamicImage) -> Vec<PreparedVariant> {
             id: PreprocessingVariant::InvertedGrayscale,
         });
     }
-    let max_dimension = image.width().max(image.height());
-    if max_dimension <= 4_000 {
-        variants.push(PreparedVariant {
-            image: grayscale.resize(
-                image.width().saturating_mul(2),
-                image.height().saturating_mul(2),
-                FilterType::CatmullRom,
-            ),
-            id: PreprocessingVariant::Upscale2x,
-        });
+    if let Some((width, height)) = checked_scaled_dimensions(image.width(), image.height(), 2) {
+        if enforce_dimensions(width, height).is_ok() {
+            variants.push(PreparedVariant {
+                image: grayscale.resize(width, height, FilterType::CatmullRom),
+                id: PreprocessingVariant::Upscale2x,
+            });
+        }
     }
     variants
 }
@@ -86,6 +83,10 @@ fn enforce_dimensions(width: u32, height: u32) -> Result<(), AppError> {
         return Err(AppError::CaptureTooLarge);
     }
     Ok(())
+}
+
+fn checked_scaled_dimensions(width: u32, height: u32, factor: u32) -> Option<(u32, u32)> {
+    Some((width.checked_mul(factor)?, height.checked_mul(factor)?))
 }
 
 fn mean_luminance(image: &DynamicImage) -> f64 {
@@ -121,5 +122,22 @@ mod tests {
         assert!(prepare_variants(&image)
             .iter()
             .any(|variant| variant.id == PreprocessingVariant::InvertedGrayscale));
+    }
+
+    #[test]
+    fn grayscale_variant_is_named_truthfully() {
+        let image = DynamicImage::ImageRgb8(ImageBuffer::from_pixel(10, 10, Rgb([200, 200, 200])));
+        assert!(prepare_variants(&image)
+            .iter()
+            .any(|variant| variant.id == PreprocessingVariant::Grayscale));
+    }
+
+    #[test]
+    fn generated_upscale_dimensions_are_rechecked() {
+        let (width, height) = checked_scaled_dimensions(6_000, 6_000, 2).expect("scaled dimensions");
+        assert!(matches!(
+            enforce_dimensions(width, height),
+            Err(AppError::CaptureTooLarge)
+        ));
     }
 }
