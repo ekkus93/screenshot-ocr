@@ -3,13 +3,13 @@
 **Repository:** `ekkus93/screenshot-ocr`  
 **Branch:** `master`  
 **FIX1 TODO:** `docs/SCREENSHOT_OCR_FIX1_TODO_2026-08-02.md`  
-**Baseline before this pass:** `d77b5281975e2773d51afb0ce52d2ff77d966986`  
-**Latest source commit after this pass:** `612226f28df07e11deceb8a02ec9ec1f5828ae30`  
-**Status:** first implementation tranche complete; CI/package validation not yet proven in this document
+**Baseline before first FIX1 implementation pass:** `d77b5281975e2773d51afb0ce52d2ff77d966986`  
+**Latest source commit after cleanup tranche:** `ee79a7fddd731d3d756033d2a168b36f69c8f919`  
+**Status:** implementation tranches in progress; CI/package validation not yet proven in this document
 
-## 1. Scope completed in this tranche
+## 1. Scope completed so far
 
-This Ralph pass targeted high-risk FIX1 items that can be implemented from source review without physical Ubuntu desktop access.
+These Ralph passes targeted high-risk FIX1 items that can be implemented from source review without physical Ubuntu desktop access.
 
 Implemented changes:
 
@@ -32,7 +32,11 @@ Implemented changes:
 - renamed the misleading `GrayscaleContrast` preprocessing variant to `Grayscale`;
 - removed the unused `Upscale3x` enum value for now;
 - rechecked generated upscale dimensions before resizing and skipped unsafe upscales;
-- added image-pipeline tests for truthful grayscale naming and resize-bound behavior.
+- added image-pipeline tests for truthful grayscale naming and resize-bound behavior;
+- added GNOME capture-directory ownership markers;
+- added conservative stale GNOME capture-directory scavenging limited to old `screenshot-ocr-*` directories with an exact content-free ownership marker;
+- added tests proving unmarked directories and symlink markers are not scavenged;
+- documented the portal lifecycle review and explicitly kept physical portal validation as a separate unreplaced release gate.
 
 ## 2. Commit list
 
@@ -53,6 +57,8 @@ cb168f4ad0e67cc5bb444728f3c9aa6b0ca9d6ba  fix: bound generated preprocessing var
 770de3e4e21a7a8a3d9dc9dae702ad2b36819402  test: cover settings recovery and truthful controls
 e8abf9e00a43128b4ffb037331487e64a735d3c2  test: avoid ambiguous reserved-control copy lookup
 612226f28df07e11deceb8a02ec9ec1f5828ae30  refactor: remove obsolete test controller type helper
+ebb58660bb6a3c19169c187e93b181c4cb07c696  fix: mark and scavenge owned GNOME capture directories
+ee79a7fddd731d3d756033d2a168b36f69c8f919  docs: record portal lifecycle FIX1 review
 ```
 
 ## 3. FIX1 TODO mapping
@@ -156,6 +162,39 @@ Remaining:
 - add broader boundary tests if desired;
 - run CI gates.
 
+### F1.7 — GNOME temp ownership and stale cleanup
+
+Implemented in source:
+
+- new capture directories receive `.screenshot-ocr-owned` marker files with static content-free text;
+- marker files are created with private permissions where supported;
+- if permission or marker creation fails, the new capture directory is removed before returning failure;
+- startup-time capture-directory creation opportunistically scavenges stale owned directories from the same runtime/temp base;
+- scavenging only considers names beginning `screenshot-ocr-`;
+- scavenging only removes directories that contain the exact valid regular-file marker;
+- symlink markers are rejected;
+- unmarked directories are left untouched;
+- tests cover marker requirement, unowned directory preservation, and symlink-marker rejection.
+
+Remaining:
+
+- run Rustfmt, Clippy, and Rust tests;
+- physically inspect runtime directories after success/cancel/failure on Ubuntu GNOME;
+- decide whether to expose scavenged-count diagnostics later.
+
+### F1.8 — Portal lifecycle review
+
+Implemented in documentation:
+
+- created `docs/SCREENSHOT_OCR_FIX1_PORTAL_LIFECYCLE_REVIEW_2026-08-02.md`;
+- recorded why FIX1 does not add a source-level request-close hook for the current `ashpd` request usage;
+- recorded that physical portal UI/result lifecycle validation remains mandatory and unclaimed.
+
+Remaining:
+
+- physical GNOME portal validation;
+- targeted source change only if physical testing finds stale prompts/artifacts.
+
 ### F1.9 — Frontend production/test boundary
 
 Implemented in source:
@@ -185,10 +224,10 @@ Not yet proven in this document:
 
 Connector checks performed:
 
-- latest commit confirmed as `612226f28df07e11deceb8a02ec9ec1f5828ae30`;
-- compare from `d77b5281975e2773d51afb0ce52d2ff77d966986` to `612226f28df07e11deceb8a02ec9ec1f5828ae30` shows 16 commits touching the expected Rust/frontend files;
-- GitHub combined commit status returned no status entries at the time this status file was written;
-- the GitHub connector did not return workflow runs for the latest commit at the time this status file was written.
+- combined commit status for `fe0ef2593490020ad76faf0ca0647f273e39d35e` returned no status entries;
+- the GitHub connector did not return workflow runs for `fe0ef2593490020ad76faf0ca0647f273e39d35e`;
+- compare from `d77b5281975e2773d51afb0ce52d2ff77d966986` to `612226f28df07e11deceb8a02ec9ec1f5828ae30` showed 16 commits touching the expected Rust/frontend files before the cleanup tranche;
+- latest cleanup tranche source/doc commits are recorded above.
 
 Local validation was not run from this environment because the local container could not resolve `github.com` to clone the repository. Do not treat this status file as CI evidence.
 
@@ -196,8 +235,8 @@ Local validation was not run from this environment because the local container c
 
 Recommended next actions:
 
-1. Inspect the final CI run for `612226f28df07e11deceb8a02ec9ec1f5828ae30` or later.
+1. Inspect the final CI run for `ee79a7fddd731d3d756033d2a168b36f69c8f919` or later.
 2. Fix any format, lint, typecheck, test, or build failures.
 3. Add missing immediate-copy frontend test and stronger Tesseract probe timeout/stdout tests.
 4. Update `docs/SCREENSHOT_OCR_FIX1_TODO_2026-08-02.md` checkboxes only after CI proves the relevant tasks.
-5. Continue with F1.7 GNOME temp ownership/stale cleanup and F1.8 portal lifecycle review.
+5. Continue with F1.11 content-leakage guard and F1.12 public error-code reconciliation.
