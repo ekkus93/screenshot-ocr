@@ -11,13 +11,20 @@ export type CaptureStatus =
 
 export type TextMode = "terminal" | "document" | "singleLine";
 export type CopyPolicy = "preview" | "immediate";
+export type CaptureSource = "mainWindow" | "tray" | "shortcut" | "commandLine";
 
 export interface CaptureRequest {
   jobId: string;
   mode: TextMode;
   language: "eng";
   copyPolicy: CopyPolicy;
-  source: "mainWindow" | "tray" | "shortcut" | "commandLine";
+  source: CaptureSource;
+}
+
+export interface PendingAppAction {
+  action: "startCapture";
+  jobId: string;
+  source: Exclude<CaptureSource, "mainWindow">;
 }
 
 export interface OcrWarning {
@@ -68,6 +75,7 @@ export interface Diagnostics {
   installedLanguages: string[];
   clipboardStatus: string;
   trayStatus: string;
+  shortcutStatus: string;
   settingsSchemaVersion: number;
   lastErrorCode: string | null;
   cleanupFailureCount: number;
