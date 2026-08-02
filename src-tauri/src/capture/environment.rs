@@ -13,7 +13,6 @@ pub struct EnvironmentInfo {
     pub session_type: String,
     pub gnome_screenshot: Option<PathBuf>,
     pub tesseract: Option<PathBuf>,
-    pub portal_summary: String,
 }
 
 pub struct EnvironmentProbe;
@@ -29,18 +28,12 @@ impl EnvironmentProbe {
         let session_type = env::var("XDG_SESSION_TYPE").unwrap_or_else(|_| "unknown".into());
         let gnome_screenshot = find_system_executable("gnome-screenshot");
         let tesseract = find_system_executable("tesseract");
-        let portal_summary = if env::var_os("DBUS_SESSION_BUS_ADDRESS").is_some() {
-            "session bus available; explicit area target not yet proven".into()
-        } else {
-            "session bus unavailable".into()
-        };
         Ok(EnvironmentInfo {
             os_release,
             desktop_environment,
             session_type,
             gnome_screenshot,
             tesseract,
-            portal_summary,
         })
     }
 }
