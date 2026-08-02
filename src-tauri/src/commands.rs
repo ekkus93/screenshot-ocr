@@ -2,7 +2,7 @@ use crate::app::AppServices;
 use crate::capture::{EnvironmentProbe, PortalScreenshotBackend};
 use crate::diagnostics::Diagnostics;
 use crate::error::{AppError, PublicError};
-use crate::models::{CaptureJobId, CaptureRequest, CopyPolicy, OcrResult};
+use crate::models::{AppActionEvent, CaptureJobId, CaptureRequest, CopyPolicy, OcrResult};
 use crate::ocr::TesseractEngine;
 use crate::settings::AppSettings;
 use tauri::{AppHandle, Manager, State, WebviewWindow};
@@ -68,8 +68,8 @@ pub async fn cancel_capture(
 }
 
 #[tauri::command]
-pub fn take_startup_capture(state: State<'_, AppServices>) -> bool {
-    state.take_startup_capture()
+pub fn take_pending_app_action(state: State<'_, AppServices>) -> Option<AppActionEvent> {
+    state.take_app_action()
 }
 
 #[tauri::command]
@@ -182,7 +182,7 @@ mod tests {
     #[test]
     fn public_error_recording_updates_safe_runtime_state() {
         let directory = tempdir().expect("tempdir");
-        let services = AppServices::new(directory.path().to_path_buf(), false);
+        let services = AppServices::new(directory.path().to_path_buf());
         let public = record_error(&services, AppError::TemporaryCleanupFailed);
         assert_eq!(public.code, crate::error::ErrorCode::TemporaryCleanupFailed);
         let snapshot = services.runtime_diagnostics.snapshot();
