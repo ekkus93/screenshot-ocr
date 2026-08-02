@@ -48,6 +48,20 @@ pub enum CaptureSource {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub enum FrontendAppAction {
+    StartCapture,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppActionEvent {
+    pub action: FrontendAppAction,
+    pub job_id: CaptureJobId,
+    pub source: CaptureSource,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum CaptureBackendPreference {
     Auto,
     Gnome,
@@ -143,5 +157,18 @@ mod tests {
             source: CaptureSource::MainWindow,
         };
         assert!(!request.validate());
+    }
+
+    #[test]
+    fn app_action_event_serializes_without_platform_details() {
+        let event = AppActionEvent {
+            action: FrontendAppAction::StartCapture,
+            job_id: CaptureJobId::new(),
+            source: CaptureSource::Shortcut,
+        };
+        let value = serde_json::to_value(event).expect("serialize");
+        assert_eq!(value["action"], "startCapture");
+        assert_eq!(value["source"], "shortcut");
+        assert!(value.get("jobId").is_some());
     }
 }
