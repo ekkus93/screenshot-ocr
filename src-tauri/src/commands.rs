@@ -114,11 +114,8 @@ pub fn reset_settings(state: State<'_, AppServices>) -> Result<AppSettings, Publ
 }
 
 #[tauri::command]
-pub async fn get_diagnostics(
-    state: State<'_, AppServices>,
-) -> Result<Diagnostics, PublicError> {
-    let environment =
-        EnvironmentProbe::probe().map_err(|error| record_error(&state, error))?;
+pub async fn get_diagnostics(state: State<'_, AppServices>) -> Result<Diagnostics, PublicError> {
+    let environment = EnvironmentProbe::probe().map_err(|error| record_error(&state, error))?;
     let languages = TesseractEngine::from_environment(&environment)
         .and_then(|engine| engine.probe_english())
         .unwrap_or_default();
@@ -187,10 +184,7 @@ mod tests {
         let directory = tempdir().expect("tempdir");
         let services = AppServices::new(directory.path().to_path_buf(), false);
         let public = record_error(&services, AppError::TemporaryCleanupFailed);
-        assert_eq!(
-            public.code,
-            crate::error::ErrorCode::TemporaryCleanupFailed
-        );
+        assert_eq!(public.code, crate::error::ErrorCode::TemporaryCleanupFailed);
         let snapshot = services.runtime_diagnostics.snapshot();
         assert_eq!(snapshot.cleanup_failure_count, 1);
         assert_eq!(
