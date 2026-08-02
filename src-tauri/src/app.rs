@@ -90,7 +90,7 @@ impl AppServices {
         let captured = backend.capture_region(cancellation).await?;
         cancellation.check()?;
         let engine = TesseractEngine::from_environment(&environment)?;
-        engine.probe_english()?;
+        engine.probe_english(cancellation).await?;
         cancellation.check()?;
         let variants = prepare_variants(&captured.image);
         let mut candidates = Vec::new();
