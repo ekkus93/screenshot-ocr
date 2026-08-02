@@ -64,6 +64,18 @@ export interface AppSettings {
   shortcut: "Super+Shift+O";
 }
 
+export interface SettingsRecoveryWarning {
+  code: string;
+  message: string;
+  guidance: string;
+  recoveredWithDefaults: boolean;
+}
+
+export interface SettingsLoadResult {
+  settings: AppSettings;
+  warning: SettingsRecoveryWarning | null;
+}
+
 export interface Diagnostics {
   appVersion: string;
   osRelease: string;
