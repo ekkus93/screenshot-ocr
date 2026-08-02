@@ -29,6 +29,7 @@ See:
 - [privacy](docs/PRIVACY.md)
 - [threat model](docs/THREAT_MODEL.md)
 - [CI status bridge](docs/CI_STATUS_BRIDGE.md)
+- [synthetic OCR fixtures](docs/OCR_SYNTHETIC_FIXTURES.md)
 
 ## Development prerequisites
 
@@ -62,17 +63,50 @@ npm run tauri build
 
 Hosted CI on Ubuntu 22.04 is authoritative for compilation and linting. Physical desktop validation remains a separate release gate.
 
-## Shortcut and startup capture
+## Shortcut, tray, and startup capture
 
-The documented default is `Super+Shift+O`. On GNOME Wayland, create a custom keyboard shortcut that runs:
+The documented default shortcut is `Super+Shift+O`.
+
+On GNOME Wayland, create a custom keyboard shortcut that runs:
 
 ```text
 screenshot-ocr capture
 ```
 
-The binary recognizes only the exact first argument `capture`. On a fresh launch, that argument is consumed once by the Rust backend, then the React application starts the normal configured capture workflow after settings and diagnostics load. Re-rendering the frontend cannot replay the startup request.
-
 The application does not modify GNOME settings automatically.
+
+On Linux X11, the app attempts direct registration of `Super+Shift+O` and reports the registration result in diagnostics. On Wayland, diagnostics tell the user to use the GNOME custom shortcut path instead.
+
+The binary recognizes only these exact first arguments:
+
+```text
+capture
+cancel
+toggle
+show
+quit
+```
+
+Unknown second-instance invocations only show the main window. They do not start capture implicitly.
+
+The tray menu currently exposes only implemented actions:
+
+```text
+Capture text
+Cancel capture
+Show Screenshot OCR
+Quit
+```
+
+There is no Settings tray action yet. Start-at-login, close-to-tray, and notification-after-copy are reserved pre-release settings and are not active behavior in this build.
+
+`quit` cancels an active capture before exiting. The app does not currently keep running after the window is closed as a tray-only background utility.
+
+## Fixture policy
+
+Automated OCR cleanup tests use synthetic text fixtures only. Do not commit private screenshots, real OCR output, clipboard text, temporary paths, portal result URIs, or helper stdout/stderr from a real machine.
+
+See [synthetic OCR fixtures](docs/OCR_SYNTHETIC_FIXTURES.md).
 
 ## License
 
