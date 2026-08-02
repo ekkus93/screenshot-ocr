@@ -98,9 +98,7 @@ async fn select_capture_backend(
         CaptureBackendPreference::Auto => PortalScreenshotBackend::probe_area_support()
             .await
             .unwrap_or(false),
-        CaptureBackendPreference::Portal => {
-            PortalScreenshotBackend::probe_area_support().await?
-        }
+        CaptureBackendPreference::Portal => PortalScreenshotBackend::probe_area_support().await?,
     };
     match choose_backend_id(
         preference,
@@ -125,14 +123,10 @@ fn choose_backend_id(
     match preference {
         CaptureBackendPreference::Portal if portal_supported => Ok(CaptureBackendId::XdgPortal),
         CaptureBackendPreference::Portal => Err(AppError::CaptureBackendUnavailable),
-        CaptureBackendPreference::Gnome if gnome_available => {
-            Ok(CaptureBackendId::GnomeScreenshot)
-        }
+        CaptureBackendPreference::Gnome if gnome_available => Ok(CaptureBackendId::GnomeScreenshot),
         CaptureBackendPreference::Gnome => Err(AppError::CaptureBackendUnavailable),
         CaptureBackendPreference::Auto if portal_supported => Ok(CaptureBackendId::XdgPortal),
-        CaptureBackendPreference::Auto if gnome_available => {
-            Ok(CaptureBackendId::GnomeScreenshot)
-        }
+        CaptureBackendPreference::Auto if gnome_available => Ok(CaptureBackendId::GnomeScreenshot),
         CaptureBackendPreference::Auto => Err(AppError::CaptureBackendUnavailable),
     }
 }
@@ -153,8 +147,7 @@ mod tests {
     #[test]
     fn automatic_selection_prefers_proven_portal_area_capture() {
         assert_eq!(
-            choose_backend_id(CaptureBackendPreference::Auto, true, true)
-                .expect("portal backend"),
+            choose_backend_id(CaptureBackendPreference::Auto, true, true).expect("portal backend"),
             CaptureBackendId::XdgPortal
         );
     }
@@ -162,8 +155,7 @@ mod tests {
     #[test]
     fn automatic_selection_falls_back_before_opening_a_selector() {
         assert_eq!(
-            choose_backend_id(CaptureBackendPreference::Auto, false, true)
-                .expect("GNOME backend"),
+            choose_backend_id(CaptureBackendPreference::Auto, false, true).expect("GNOME backend"),
             CaptureBackendId::GnomeScreenshot
         );
     }
