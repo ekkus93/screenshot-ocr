@@ -110,7 +110,7 @@ fn validate_portal_file(path: &Path) -> Result<(), AppError> {
         return Err(AppError::CaptureImageInvalid);
     }
     if metadata.len() > MAX_CAPTURE_BYTES {
-        return Err(AppError::ImageTooLarge);
+        return Err(AppError::CaptureTooLarge);
     }
     Ok(())
 }
@@ -122,7 +122,7 @@ fn read_bounded(path: &Path) -> Result<Vec<u8>, AppError> {
         .read_to_end(&mut bytes)
         .map_err(|_| AppError::CaptureImageInvalid)?;
     if bytes.len() as u64 > MAX_CAPTURE_BYTES {
-        return Err(AppError::ImageTooLarge);
+        return Err(AppError::CaptureTooLarge);
     }
     Ok(bytes)
 }
@@ -163,7 +163,7 @@ mod tests {
         file.set_len(MAX_CAPTURE_BYTES + 1).expect("extend capture");
         assert!(matches!(
             validate_portal_file(&path),
-            Err(AppError::ImageTooLarge)
+            Err(AppError::CaptureTooLarge)
         ));
     }
 
