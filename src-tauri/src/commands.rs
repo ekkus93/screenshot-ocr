@@ -1,5 +1,5 @@
 use crate::app::AppServices;
-use crate::capture::EnvironmentProbe;
+use crate::capture::{EnvironmentProbe, PortalScreenshotBackend};
 use crate::diagnostics::Diagnostics;
 use crate::error::{AppError, PublicError};
 use crate::models::{CaptureJobId, CaptureRequest, CopyPolicy, OcrResult};
@@ -18,7 +18,7 @@ pub async fn start_capture(
     let copy_policy = request.copy_policy;
     window
         .hide()
-        .map_err(|_| PublicError::from(AppError::Internal))?;
+        .map_err(|_| record_error(&state, AppError::Internal))?;
     let capture_result = state.capture(request).await;
     let result = match capture_result {
         Ok(mut result) if copy_policy == CopyPolicy::Immediate => {
@@ -35,7 +35,7 @@ pub async fn start_capture(
                     result.copied = true;
                     Ok(result)
                 }
-                Err(error) => Err(PublicError::from(error)),
+                Err(error) => Err(record_error(&state, error)),
             }
         }
         Ok(result) => {
@@ -44,10 +44,10 @@ pub async fn start_capture(
         }
         Err(error) => {
             state.state.lock().await.finish(job_id);
-            Err(PublicError::from(error))
+            Err(record_error(&state, error))
         }
     };
-    let restore_result = restore_window(&window).map_err(PublicError::from);
+    let restore_result = restore_window(&window).map_err(|error| record_error(&state, error));
     match (result, restore_result) {
         (_, Err(error)) => Err(error),
         (result, Ok(())) => result,
@@ -64,7 +64,7 @@ pub async fn cancel_capture(
         .lock()
         .await
         .cancel(job_id)
-        .map_err(PublicError::from)
+        .map_err(|error| record_error(&state, error))
 }
 
 #[tauri::command]
@@ -73,23 +73,24 @@ pub fn take_startup_capture(state: State<'_, AppServices>) -> bool {
 }
 
 #[tauri::command]
-pub fn copy_text(app: AppHandle, text: String) -> Result<(), PublicError> {
-    write_clipboard(&app, &text).map_err(PublicError::from)
+pub fn copy_text(
+    app: AppHandle,
+    state: State<'_, AppServices>,
+    text: String,
+) -> Result<(), PublicError> {
+    write_clipboard(&app, &text).map_err(|error| record_error(&state, error))
 }
 
 #[tauri::command]
 pub fn get_settings(state: State<'_, AppServices>) -> Result<AppSettings, PublicError> {
-    state
-        .settings
-        .load()
-        .or_else(|error| {
-            if matches!(error, AppError::SettingsInvalid) {
-                Ok(AppSettings::default())
-            } else {
-                Err(error)
-            }
-        })
-        .map_err(PublicError::from)
+    match state.settings.load() {
+        Ok(settings) => Ok(settings),
+        Err(AppError::SettingsInvalid) => {
+            let _ = record_error(&state, AppError::SettingsInvalid);
+            Ok(AppSettings::default())
+        }
+        Err(error) => Err(record_error(&state, error)),
+    }
 }
 
 #[tauri::command]
@@ -97,22 +98,43 @@ pub fn update_settings(
     state: State<'_, AppServices>,
     settings: AppSettings,
 ) -> Result<AppSettings, PublicError> {
-    state.settings.save(&settings).map_err(PublicError::from)?;
+    state
+        .settings
+        .save(&settings)
+        .map_err(|error| record_error(&state, error))?;
     Ok(settings)
 }
 
 #[tauri::command]
 pub fn reset_settings(state: State<'_, AppServices>) -> Result<AppSettings, PublicError> {
-    state.settings.reset().map_err(PublicError::from)
+    state
+        .settings
+        .reset()
+        .map_err(|error| record_error(&state, error))
 }
 
 #[tauri::command]
-pub fn get_diagnostics() -> Result<Diagnostics, PublicError> {
-    let environment = EnvironmentProbe::probe().map_err(PublicError::from)?;
+pub async fn get_diagnostics(
+    state: State<'_, AppServices>,
+) -> Result<Diagnostics, PublicError> {
+    let environment =
+        EnvironmentProbe::probe().map_err(|error| record_error(&state, error))?;
     let languages = TesseractEngine::from_environment(&environment)
         .and_then(|engine| engine.probe_english())
         .unwrap_or_default();
-    Ok(Diagnostics::from_environment(&environment, languages))
+    let portal_summary = PortalScreenshotBackend::safe_capability_summary().await;
+    Ok(Diagnostics::from_environment(
+        &environment,
+        languages,
+        portal_summary,
+        state.runtime_diagnostics.snapshot(),
+    ))
+}
+
+fn record_error(state: &AppServices, error: AppError) -> PublicError {
+    let public = PublicError::from(error);
+    state.runtime_diagnostics.record(public.code);
+    public
 }
 
 fn restore_window(window: &WebviewWindow) -> Result<(), AppError> {
@@ -140,6 +162,7 @@ fn validate_clipboard_text(text: &str) -> Result<(), AppError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::tempdir;
 
     #[test]
     fn clipboard_validation_rejects_empty_and_oversized_text() {
@@ -157,5 +180,22 @@ mod tests {
     #[test]
     fn clipboard_validation_preserves_code_whitespace() {
         assert!(validate_clipboard_text("  cargo test\n").is_ok());
+    }
+
+    #[test]
+    fn public_error_recording_updates_safe_runtime_state() {
+        let directory = tempdir().expect("tempdir");
+        let services = AppServices::new(directory.path().to_path_buf(), false);
+        let public = record_error(&services, AppError::TemporaryCleanupFailed);
+        assert_eq!(
+            public.code,
+            crate::error::ErrorCode::TemporaryCleanupFailed
+        );
+        let snapshot = services.runtime_diagnostics.snapshot();
+        assert_eq!(snapshot.cleanup_failure_count, 1);
+        assert_eq!(
+            snapshot.last_error_code,
+            Some("temporary_cleanup_failed".into())
+        );
     }
 }
