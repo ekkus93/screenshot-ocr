@@ -305,6 +305,41 @@ mod tests {
         ));
     }
 
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn language_probe_rejects_oversized_stdout() {
+        let directory = tempdir().expect("tempdir");
+        let executable = directory.path().join("fake-tesseract");
+        write_executable(
+            &executable,
+            "#!/bin/sh\nif [ \"$1\" = \"--list-langs\" ]; then head -c 70000 /dev/zero | tr '\\000' a; exit 0; fi\nexit 1\n",
+        );
+        let engine = TesseractEngine { executable };
+        assert!(matches!(
+            engine.probe_english(&CancellationToken::new()).await,
+            Err(AppError::OcrEngineUnavailable)
+        ));
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn language_probe_times_out_hanging_helper() {
+        let directory = tempdir().expect("tempdir");
+        let executable = directory.path().join("fake-tesseract");
+        write_executable(
+            &executable,
+            "#!/bin/sh\nif [ \"$1\" = \"--list-langs\" ]; then sleep 30; fi\nexit 1\n",
+        );
+        let engine = TesseractEngine { executable };
+        let result = timeout(
+            LANGUAGE_PROBE_TIMEOUT + Duration::from_secs(2),
+            engine.probe_english(&CancellationToken::new()),
+        )
+        .await
+        .expect("language probe did not honor timeout");
+        assert!(matches!(result, Err(AppError::OcrEngineUnavailable)));
+    }
+
     #[tokio::test]
     async fn pre_cancelled_language_probe_exits_before_spawn_requirements() {
         let engine = TesseractEngine {
