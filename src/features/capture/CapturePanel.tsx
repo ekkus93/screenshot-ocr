@@ -9,6 +9,7 @@ const LABELS = {
   preparing: "Preparing capture",
   selecting: "Select a screen region",
   processing: "Recognizing text",
+  cancelling: "Cancelling capture",
   reviewing: "Review recognized text",
   copied: "Text copied",
   cancelled: "Capture cancelled",
@@ -16,7 +17,11 @@ const LABELS = {
 } as const;
 
 export function CapturePanel({ controller }: Props) {
-  const busy = ["preparing", "selecting", "processing"].includes(controller.status);
+  const busy = ["preparing", "selecting", "processing", "cancelling"].includes(
+    controller.status,
+  );
+  const cancelling = controller.status === "cancelling";
+
   return (
     <div className="space-y-5">
       <header>
@@ -27,16 +32,30 @@ export function CapturePanel({ controller }: Props) {
       </header>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-        <button
-          type="button"
-          disabled={busy}
-          className="w-full rounded-xl bg-indigo-600 px-5 py-4 font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
-          onClick={() => {
-            void controller.capture();
-          }}
-        >
-          {busy ? "Capture in progress…" : "Capture text from screen"}
-        </button>
+        <div className={busy ? "grid gap-2 sm:grid-cols-[1fr_auto]" : undefined}>
+          <button
+            type="button"
+            disabled={busy}
+            className="w-full rounded-xl bg-indigo-600 px-5 py-4 font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+            onClick={() => {
+              void controller.capture();
+            }}
+          >
+            {busy ? "Capture in progress…" : "Capture text from screen"}
+          </button>
+          {busy && (
+            <button
+              type="button"
+              disabled={cancelling}
+              className="rounded-xl border border-slate-300 px-5 py-4 font-medium hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-slate-700 dark:hover:bg-slate-800"
+              onClick={() => {
+                void controller.cancel();
+              }}
+            >
+              {cancelling ? "Cancelling…" : "Cancel capture"}
+            </button>
+          )}
+        </div>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm">
           <span className="text-slate-500">Keyboard shortcut</span>
           <kbd className="rounded-lg border border-slate-300 px-2 py-1 font-mono dark:border-slate-700">
@@ -92,14 +111,16 @@ export function CapturePanel({ controller }: Props) {
         <div className="mt-4 flex flex-wrap justify-end gap-2">
           <button
             type="button"
-            className="rounded-xl border border-slate-300 px-4 py-2 dark:border-slate-700"
+            disabled={busy}
+            className="rounded-xl border border-slate-300 px-4 py-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700"
             onClick={controller.clear}
           >
             Clear
           </button>
           <button
             type="button"
-            className="rounded-xl border border-slate-300 px-4 py-2 dark:border-slate-700"
+            disabled={busy}
+            className="rounded-xl border border-slate-300 px-4 py-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700"
             onClick={() => {
               void controller.capture();
             }}
@@ -108,7 +129,8 @@ export function CapturePanel({ controller }: Props) {
           </button>
           <button
             type="button"
-            className="rounded-xl bg-indigo-600 px-4 py-2 font-medium text-white"
+            disabled={busy}
+            className="rounded-xl bg-indigo-600 px-4 py-2 font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
             onClick={() => {
               void controller.copy();
             }}
