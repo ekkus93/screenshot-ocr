@@ -1,0 +1,81 @@
+name: Patch diagnostics TODO
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - .github/diagnostics-todo-trigger.txt
+
+permissions:
+  contents: write
+
+concurrency:
+  group: patch-diagnostics-todo
+  cancel-in-progress: false
+
+jobs:
+  patch:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out exact trigger commit
+        uses: actions/checkout@v6
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - name: Patch only proven diagnostics checklist items
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("docs/SCREENSHOT_OCR_V0_1_TODO.md")
+          text = path.read_text(encoding="utf-8")
+          replacements = {
+              "- [ ] Implement safe diagnostics DTO.": "- [x] Implement safe diagnostics DTO.",
+              "- [ ] Include application version.": "- [x] Include application version.",
+              "- [ ] Include OS release, desktop environment, and session type.": "- [x] Include OS release, desktop environment, and session type.",
+              "- [ ] Include portal presence and safe capability summary.": "- [x] Include portal presence and safe capability summary.",
+              "- [ ] Include clipboard and tray status.": "- [x] Include clipboard and tray status.",
+              "- [ ] Include settings schema version.": "- [x] Include settings schema version.",
+              "- [ ] Include cleanup failure counts without paths.": "- [x] Include cleanup failure counts without paths.",
+          }
+          for old, new in replacements.items():
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"expected exactly one checklist line for {old!r}, found {count}")
+              text = text.replace(old, new, 1)
+
+          anchor = "- [ ] Add snapshot tests for the diagnostics report.\n"
+          evidence = (
+              "\n"
+              "  - Evidence (2026-08-02): source `2fdce81e5163c5234515fc26efeea48544077c88`; "
+              "CI run `30731505719`; `docs/DIAGNOSTICS_STATUS_2026-08-02.md`.\n"
+              "  - Combined presence/version and error-code/stage-duration items remain unchecked because "
+              "helper versions and stage duration are not implemented.\n"
+          )
+          if evidence.strip() not in text:
+              count = text.count(anchor)
+              if count != 1:
+                  raise SystemExit(f"expected one diagnostics evidence anchor, found {count}")
+              text = text.replace(anchor, anchor + evidence, 1)
+
+          path.write_text(text, encoding="utf-8")
+          PY
+
+          test "$(git diff --name-only)" = "docs/SCREENSHOT_OCR_V0_1_TODO.md"
+          git diff --check
+          git diff -- docs/SCREENSHOT_OCR_V0_1_TODO.md
+
+      - name: Commit exact TODO reconciliation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/SCREENSHOT_OCR_V0_1_TODO.md
+          test "$(git diff --cached --name-only)" = "docs/SCREENSHOT_OCR_V0_1_TODO.md"
+          git commit -m "docs: reconcile proven diagnostics TODO items"
+          git push origin HEAD:master
