@@ -1,7 +1,9 @@
+mod actions;
 mod app;
 mod cancellation;
 mod capture;
 mod commands;
+mod desktop;
 mod diagnostics;
 mod error;
 mod image_pipeline;
@@ -10,12 +12,14 @@ mod ocr;
 mod settings;
 mod state;
 
+use actions::{spawn_dispatch, ActivationSource, AppAction};
 use app::AppServices;
 use commands::{
     cancel_capture, copy_text, get_diagnostics, get_settings, reset_settings, start_capture,
-    take_startup_capture, update_settings,
+    take_pending_app_action, update_settings,
 };
 use tauri::Manager;
+use tauri_plugin_global_shortcut::ShortcutState;
 
 pub fn run() {
     tracing_subscriber::fmt()
@@ -25,21 +29,42 @@ pub fn run() {
         .compact()
         .init();
 
-    let startup_capture = startup_capture_requested(std::env::args().nth(1).as_deref());
+    let initial_action = AppAction::from_argument(std::env::args().nth(1).as_deref());
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            let action = AppAction::from_secondary_args(&args);
+            spawn_dispatch(app.clone(), action, ActivationSource::SecondInstance);
+        }))
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(|app, _shortcut, event| {
+                    if event.state() == ShortcutState::Pressed {
+                        spawn_dispatch(
+                            app.clone(),
+                            AppAction::ToggleCapture,
+                            ActivationSource::GlobalShortcut,
+                        );
+                    }
+                })
+                .build(),
+        )
         .plugin(tauri_plugin_clipboard_manager::init())
         .setup(move |app| {
             let config_dir = app
                 .path()
                 .app_config_dir()
                 .map_err(|_| "configuration directory unavailable")?;
-            app.manage(AppServices::new(config_dir, startup_capture));
+            app.manage(AppServices::new(config_dir));
+            desktop::setup(app);
+            if let Some(action) = initial_action {
+                spawn_dispatch(app.handle().clone(), action, ActivationSource::Startup);
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             start_capture,
             cancel_capture,
-            take_startup_capture,
+            take_pending_app_action,
             copy_text,
             get_settings,
             update_settings,
@@ -48,21 +73,4 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Screenshot OCR");
-}
-
-fn startup_capture_requested(argument: Option<&str>) -> bool {
-    argument == Some("capture")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn only_exact_capture_argument_requests_startup_capture() {
-        assert!(startup_capture_requested(Some("capture")));
-        assert!(!startup_capture_requested(None));
-        assert!(!startup_capture_requested(Some("--capture")));
-        assert!(!startup_capture_requested(Some("capture-now")));
-    }
 }
