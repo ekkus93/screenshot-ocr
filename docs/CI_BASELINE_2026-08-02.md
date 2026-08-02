@@ -73,3 +73,5 @@ This baseline proves hosted formatting, linting, typechecking, tests, compilatio
 ## Subsequent work
 
 The XDG Screenshot Portal implementation began only after this baseline was accepted. Portal commits require a new exact-SHA CI and package result and do not inherit this baseline’s acceptance automatically.
+
+The one-shot lockfile workflow is limited to regenerating and committing `src-tauri/Cargo.lock`; it must be removed immediately after that bounded operation completes.
