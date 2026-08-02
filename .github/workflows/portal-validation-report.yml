@@ -1,0 +1,192 @@
+name: Portal Validation Report
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - docs/PORTAL_VALIDATION_TRIGGER.md
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: portal-validation-report-master
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate portal implementation
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out triggering master commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Install Linux build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential \
+            curl \
+            file \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            libxdo-dev \
+            pkg-config \
+            wget
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.88.0
+          components: clippy, rustfmt
+
+      - name: Run bounded validation and write sanitized report
+        id: validate
+        shell: bash
+        run: |
+          set -uo pipefail
+          report=docs/PORTAL_VALIDATION_RESULT.md
+          log_dir="${RUNNER_TEMP}/portal-validation"
+          mkdir -p "${log_dir}"
+          success=true
+          failed_gate=""
+
+          cat > "${report}" <<EOF
+          # Portal Backend Hosted Validation
+
+          **Trigger commit:** \`${GITHUB_SHA}\`  
+          **Run:** \`${GITHUB_RUN_ID}\`  
+          **Runner:** Ubuntu 22.04  
+          **Rust:** 1.88.0
+
+          EOF
+
+          run_gate() {
+            local gate="$1"
+            shift
+            local log="${log_dir}/${gate}.log"
+            printf 'Running %s\n' "${gate}"
+            "$@" >"${log}" 2>&1
+            local status=$?
+            if [ "${status}" -eq 0 ]; then
+              printf -- '- `%s`: success\n' "${gate}" >> "${report}"
+              return 0
+            fi
+            success=false
+            failed_gate="${gate}"
+            printf -- '- `%s`: failure (exit %s)\n\n' "${gate}" "${status}" >> "${report}"
+            printf '## Sanitized failure output\n\n```text\n' >> "${report}"
+            tail -n 240 "${log}" \
+              | sed "s#${GITHUB_WORKSPACE}/##g; s#${RUNNER_TEMP}/#<runner-temp>/#g" \
+              >> "${report}"
+            printf '\n```\n' >> "${report}"
+            return "${status}"
+          }
+
+          run_gate cargo-format cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check || true
+          if [ "${success}" = true ]; then
+            run_gate cargo-clippy cargo clippy --manifest-path src-tauri/Cargo.toml --workspace --all-targets --all-features --locked -- -D warnings || true
+          fi
+          if [ "${success}" = true ]; then
+            run_gate cargo-test cargo test --manifest-path src-tauri/Cargo.toml --workspace --all-features --locked || true
+          fi
+          if [ "${success}" = true ]; then
+            run_gate cargo-build cargo build --manifest-path src-tauri/Cargo.toml --workspace --all-features --locked || true
+          fi
+          if [ "${success}" = true ]; then
+            run_gate npm-install npm ci || true
+          fi
+          if [ "${success}" = true ]; then
+            run_gate frontend-format npm run format:check || true
+          fi
+          if [ "${success}" = true ]; then
+            run_gate frontend-lint npm run lint || true
+          fi
+          if [ "${success}" = true ]; then
+            run_gate frontend-typecheck npm run typecheck || true
+          fi
+          if [ "${success}" = true ]; then
+            run_gate frontend-test npm run test || true
+          fi
+          if [ "${success}" = true ]; then
+            run_gate frontend-build npm run build || true
+          fi
+          if [ "${success}" = true ]; then
+            run_gate debian-package npm run tauri -- build --bundles deb || true
+          fi
+
+          if [ "${success}" = true ]; then
+            package="$(find src-tauri/target/release/bundle/deb -name '*.deb' -print -quit)"
+            if [ -z "${package}" ]; then
+              success=false
+              failed_gate=debian-package-inspection
+              printf -- '- `debian-package-inspection`: failure (package missing)\n' >> "${report}"
+            else
+              package_sha="$(sha256sum "${package}" | awk '{print $1}')"
+              package_name="$(basename "${package}")"
+              printf '\n## Package candidate\n\n' >> "${report}"
+              printf -- '- File: `%s`\n' "${package_name}" >> "${report}"
+              printf -- '- SHA-256: `%s`\n' "${package_sha}" >> "${report}"
+              printf 'success=true\n' >> "${GITHUB_OUTPUT}"
+              printf 'package=%s\n' "${package}" >> "${GITHUB_OUTPUT}"
+              printf 'package_sha=%s\n' "${package_sha}" >> "${GITHUB_OUTPUT}"
+            fi
+          fi
+
+          if [ "${success}" != true ]; then
+            printf '\n**Result:** failure at `%s`\n' "${failed_gate}" >> "${report}"
+            printf 'success=false\n' >> "${GITHUB_OUTPUT}"
+          else
+            printf '\n**Result:** success\n' >> "${report}"
+          fi
+
+      - name: Upload Debian candidate
+        if: steps.validate.outputs.success == 'true'
+        id: upload
+        uses: actions/upload-artifact@v7
+        with:
+          name: portal-validated-deb-${{ github.sha }}
+          path: ${{ steps.validate.outputs.package }}
+          if-no-files-found: error
+
+      - name: Append artifact identity
+        if: steps.validate.outputs.success == 'true'
+        shell: bash
+        env:
+          ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+        run: |
+          set -euo pipefail
+          {
+            printf '\n## Artifact\n\n'
+            printf -- '- ID: `%s`\n' "${ARTIFACT_ID}"
+            printf -- '- URL: `%s`\n' "${ARTIFACT_URL}"
+          } >> docs/PORTAL_VALIDATION_RESULT.md
+
+      - name: Commit only the validation report
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/PORTAL_VALIDATION_RESULT.md
+          changed="$(git diff --cached --name-only)"
+          test "${changed}" = "docs/PORTAL_VALIDATION_RESULT.md"
+          git commit -m "docs: publish portal validation result"
+          git push origin HEAD:master
