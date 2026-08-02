@@ -112,5 +112,7 @@ test("routes a reserved shortcut action through the normal capture command", asy
       source: "shortcut",
     });
   });
-  expect(await screen.findByDisplayValue("cargo test\n")).toBeVisible();
+  await waitFor(() => {
+    expect(screen.getByLabelText("Recognized text editor")).toHaveValue("cargo test\n");
+  });
 });
