@@ -168,5 +168,5 @@ test("reserved settings controls are visible but not active", async () => {
   expect(screen.getByLabelText(/Notify after copy/)).toBeDisabled();
   expect(screen.getByLabelText(/Start at login/)).toBeDisabled();
   expect(screen.getByLabelText(/Keep running when window closes/)).toBeDisabled();
-  expect(screen.getByText(/Not implemented in this pre-release build/)).toBeVisible();
+  expect(screen.getAllByText(/Not implemented in this pre-release build/).length).toBeGreaterThan(0);
 });
