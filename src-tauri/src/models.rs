@@ -107,10 +107,9 @@ pub enum OcrEngineId {
 #[serde(rename_all = "snake_case")]
 pub enum PreprocessingVariant {
     Original,
-    GrayscaleContrast,
+    Grayscale,
     InvertedGrayscale,
     Upscale2x,
-    Upscale3x,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
