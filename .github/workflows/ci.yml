@@ -16,11 +16,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  one-shot-action-router-unpack:
-    name: One-shot action router unpack
+  one-shot-action-router-lockfile:
+    name: One-shot action router lockfile
     if: >-
       github.event_name == 'push' &&
-      github.event.head_commit.message == 'ci: run action router unpack in monitored CI'
+      github.event.head_commit.message == 'ci: generate action router lockfile'
     permissions:
       contents: write
     runs-on: ubuntu-22.04
@@ -32,81 +32,22 @@ jobs:
           ref: master
           fetch-depth: 0
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: .node-version
-          cache: npm
-          cache-dependency-path: package-lock.json
-
       - name: Install pinned Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.88.0
-          components: rustfmt
 
-      - name: Unpack and commit reviewed source
+      - name: Generate and commit only Cargo.lock
         shell: bash
         run: |
           set -euo pipefail
-          python3 .github/unpack_action_router.py
           cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
-          npm ci
-          npx prettier --write \
-            docs/adr/0002-cross-platform-activation-and-cancellation.md \
-            src/app/App.test.tsx \
-            src/app/useAppController.ts \
-            src/lib/tauri.ts \
-            src/lib/types.ts
-          cargo fmt --manifest-path src-tauri/Cargo.toml --all
-
-          python3 - <<'PY'
-          import subprocess
-
-          expected = {
-              "docs/adr/0002-cross-platform-activation-and-cancellation.md",
-              "src-tauri/Cargo.lock",
-              "src-tauri/Cargo.toml",
-              "src-tauri/src/actions.rs",
-              "src-tauri/src/app.rs",
-              "src-tauri/src/commands.rs",
-              "src-tauri/src/desktop.rs",
-              "src-tauri/src/diagnostics.rs",
-              "src-tauri/src/lib.rs",
-              "src-tauri/src/models.rs",
-              "src-tauri/src/state.rs",
-              "src/app/App.test.tsx",
-              "src/app/useAppController.ts",
-              "src/lib/tauri.ts",
-              "src/lib/types.ts",
-          }
-          changed = set(subprocess.check_output(["git", "status", "--short"], text=True).splitlines())
-          paths = {line[3:] for line in changed}
-          if paths != expected:
-              raise SystemExit(f"unexpected changed paths: {sorted(paths ^ expected)}")
-          PY
-
+          test "$(git diff --name-only)" = "src-tauri/Cargo.lock"
           git diff --check
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add \
-            docs/adr/0002-cross-platform-activation-and-cancellation.md \
-            src-tauri/Cargo.lock \
-            src-tauri/Cargo.toml \
-            src-tauri/src/actions.rs \
-            src-tauri/src/app.rs \
-            src-tauri/src/commands.rs \
-            src-tauri/src/desktop.rs \
-            src-tauri/src/diagnostics.rs \
-            src-tauri/src/lib.rs \
-            src-tauri/src/models.rs \
-            src-tauri/src/state.rs \
-            src/app/App.test.tsx \
-            src/app/useAppController.ts \
-            src/lib/tauri.ts \
-            src/lib/types.ts
-          git diff --cached --check
-          git commit -m "feat: add cross-platform action routing"
+          git add src-tauri/Cargo.lock
+          git commit -m "build: lock desktop activation dependencies"
           git push origin HEAD:master
 
   repository-policy:
