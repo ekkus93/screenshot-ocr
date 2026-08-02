@@ -117,6 +117,48 @@ test("routes a reserved shortcut action through the normal capture command", asy
   });
 });
 
+test("immediate-copy clipboard failure keeps recognized text available for retry", async () => {
+  const user = userEvent.setup();
+  mocks.getSettings.mockResolvedValueOnce({
+    settings: { ...settings, previewBeforeCopy: false },
+    warning: null,
+  });
+  mocks.startCapture.mockResolvedValue({
+    jobId: "22222222-2222-4222-8222-222222222222",
+    text: "cargo test --locked\n",
+    meanConfidence: null,
+    backend: "gnome_screenshot",
+    engine: "tesseract",
+    preprocessingVariant: "original",
+    warnings: [
+      {
+        code: "clipboard_write_failed",
+        message: "The recognized text could not be copied. Review it here and retry copy.",
+      },
+    ],
+    copied: false,
+    elapsedMs: 12,
+  });
+
+  render(<App />);
+  await screen.findByText("Ready to capture");
+
+  await user.click(screen.getByRole("button", { name: "Capture text from screen" }));
+
+  await waitFor(() => {
+    expect(mocks.startCapture).toHaveBeenCalledWith(
+      expect.objectContaining({ copyPolicy: "immediate" }),
+    );
+  });
+  expect(await screen.findByText("Review recognized text")).toBeVisible();
+  expect(screen.getByLabelText("Recognized text editor")).toHaveValue("cargo test --locked\n");
+  expect(screen.getByText(/could not be copied/i)).toBeVisible();
+  expect(screen.queryByText("Text copied")).not.toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "Copy text" }));
+  expect(mocks.copyText).toHaveBeenCalledWith("cargo test --locked\n");
+});
+
 test("shows settings save failures on the settings tab without discarding edits", async () => {
   const user = userEvent.setup();
   mocks.updateSettings.mockRejectedValueOnce({
