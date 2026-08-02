@@ -1,8 +1,20 @@
+import type { AppController } from "../../app/controllerTypes";
 import type { AppSettings } from "../../lib/types";
-import type { ReturnTypeOfController } from "../../test/types";
 
 interface Props {
-  controller: ReturnTypeOfController;
+  controller: AppController;
+}
+
+function ReservedCheckbox({ checked, label }: { checked: boolean; label: string }) {
+  return (
+    <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-3 text-slate-500 dark:border-slate-800 dark:text-slate-400">
+      <input type="checkbox" checked={checked} disabled className="mt-1" />
+      <span>
+        <span className="block font-medium text-slate-700 dark:text-slate-300">{label}</span>
+        <span className="block text-sm">Not implemented in this pre-release build.</span>
+      </span>
+    </label>
+  );
 }
 
 export function SettingsPanel({ controller }: Props) {
@@ -18,6 +30,29 @@ export function SettingsPanel({ controller }: Props) {
           Defaults are optimized for terminals and source code.
         </p>
       </header>
+
+      {controller.settingsWarning !== null && (
+        <div
+          role="alert"
+          className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100"
+        >
+          <p className="font-medium">{controller.settingsWarning.message}</p>
+          <p className="mt-1 text-sm">{controller.settingsWarning.guidance}</p>
+          <code className="mt-2 block text-xs">{controller.settingsWarning.code}</code>
+        </div>
+      )}
+
+      {controller.error !== null && (
+        <div
+          role="alert"
+          className="rounded-2xl border border-red-300 bg-red-50 p-4 text-red-950 dark:border-red-900 dark:bg-red-950 dark:text-red-100"
+        >
+          <p className="font-medium">{controller.error.message}</p>
+          <p className="mt-1 text-sm">{controller.error.guidance}</p>
+          <code className="mt-2 block text-xs">{controller.error.code}</code>
+        </div>
+      )}
+
       <div className="grid gap-5 rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 sm:grid-cols-2">
         <label className="space-y-2">
           <span className="font-medium">OCR language</span>
@@ -55,46 +90,20 @@ export function SettingsPanel({ controller }: Props) {
           />{" "}
           Preview before copying
         </label>
-        <label className="flex items-center gap-3">
-          <input
-            type="checkbox"
-            checked={controller.settings.preserveWhitespace}
-            onChange={(event) => {
-              patch("preserveWhitespace", event.target.checked);
-            }}
-          />{" "}
-          Preserve indentation and blank lines
+        <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-3 text-slate-500 dark:border-slate-800 dark:text-slate-400">
+          <input type="checkbox" checked={controller.settings.preserveWhitespace} disabled className="mt-1" />
+          <span>
+            <span className="block font-medium text-slate-700 dark:text-slate-300">
+              Preserve indentation and blank lines
+            </span>
+            <span className="block text-sm">
+              Always on for terminal/code capture in this pre-release build.
+            </span>
+          </span>
         </label>
-        <label className="flex items-center gap-3">
-          <input
-            type="checkbox"
-            checked={controller.settings.notifyAfterCopy}
-            onChange={(event) => {
-              patch("notifyAfterCopy", event.target.checked);
-            }}
-          />{" "}
-          Notify after copy
-        </label>
-        <label className="flex items-center gap-3">
-          <input
-            type="checkbox"
-            checked={controller.settings.startAtLogin}
-            onChange={(event) => {
-              patch("startAtLogin", event.target.checked);
-            }}
-          />{" "}
-          Start at login
-        </label>
-        <label className="flex items-center gap-3">
-          <input
-            type="checkbox"
-            checked={controller.settings.closeToTray}
-            onChange={(event) => {
-              patch("closeToTray", event.target.checked);
-            }}
-          />{" "}
-          Keep running when window closes
-        </label>
+        <ReservedCheckbox checked={controller.settings.notifyAfterCopy} label="Notify after copy" />
+        <ReservedCheckbox checked={controller.settings.startAtLogin} label="Start at login" />
+        <ReservedCheckbox checked={controller.settings.closeToTray} label="Keep running when window closes" />
         <label className="space-y-2">
           <span className="font-medium">Capture backend</span>
           <select
