@@ -1,5 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { AppSettings, CaptureRequest, Diagnostics, OcrResult } from "./types";
+import type {
+  AppSettings,
+  CaptureRequest,
+  Diagnostics,
+  OcrResult,
+  PendingAppAction,
+} from "./types";
 
 export function startCapture(request: CaptureRequest): Promise<OcrResult> {
   return invoke<OcrResult>("start_capture", { request });
@@ -9,8 +15,8 @@ export async function cancelCapture(jobId: string): Promise<void> {
   await invoke<null>("cancel_capture", { jobId });
 }
 
-export function takeStartupCapture(): Promise<boolean> {
-  return invoke<boolean>("take_startup_capture");
+export function takePendingAppAction(): Promise<PendingAppAction | null> {
+  return invoke<PendingAppAction | null>("take_pending_app_action");
 }
 
 export async function copyText(text: string): Promise<void> {
