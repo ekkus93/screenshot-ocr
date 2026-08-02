@@ -110,7 +110,6 @@ mod tests {
             session_type: "wayland".into(),
             gnome_screenshot: Some(PathBuf::from("/sensitive/path")),
             tesseract: None,
-            portal_summary: "safe".into(),
         }
     }
 
