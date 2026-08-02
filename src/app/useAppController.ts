@@ -17,6 +17,7 @@ import type {
   OcrResult,
   PendingAppAction,
   PublicError,
+  SettingsRecoveryWarning,
 } from "../lib/types";
 
 const APP_ACTION_AVAILABLE_EVENT = "screenshot-ocr://app-action-available";
@@ -69,6 +70,7 @@ export function useAppController() {
   const [error, setError] = useState<PublicError | null>(null);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [settingsDirty, setSettingsDirty] = useState(false);
+  const [settingsWarning, setSettingsWarning] = useState<SettingsRecoveryWarning | null>(null);
   const [diagnostics, setDiagnostics] = useState<Diagnostics | null>(null);
   const activeRequest = useRef(0);
   const activeJobId = useRef<string | null>(null);
@@ -172,8 +174,9 @@ export function useAppController() {
 
         const loadedSettings = await getSettings();
         throwIfAborted(signal);
-        settingsRef.current = loadedSettings;
-        setSettings(loadedSettings);
+        settingsRef.current = loadedSettings.settings;
+        setSettings(loadedSettings.settings);
+        setSettingsWarning(loadedSettings.warning);
         setSettingsDirty(false);
 
         const loadedDiagnostics = await getDiagnostics();
@@ -222,6 +225,7 @@ export function useAppController() {
       settingsRef.current = saved;
       setSettings(saved);
       setSettingsDirty(false);
+      setSettingsWarning(null);
       setError(null);
     } catch (value) {
       setError(normalizeError(value));
@@ -234,6 +238,7 @@ export function useAppController() {
       settingsRef.current = restored;
       setSettings(restored);
       setSettingsDirty(false);
+      setSettingsWarning(null);
       setError(null);
     } catch (value) {
       setError(normalizeError(value));
@@ -247,6 +252,7 @@ export function useAppController() {
     error,
     settings,
     settingsDirty,
+    settingsWarning,
     diagnostics,
     capture,
     cancel,
