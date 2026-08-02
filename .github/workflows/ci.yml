@@ -73,34 +73,6 @@ jobs:
             exit 1
           fi
 
-  portal-lockfile:
-    name: Portal dependency lockfile candidate
-    runs-on: ubuntu-22.04
-    timeout-minutes: 15
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-
-      - name: Install pinned Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: 1.88.0
-
-      - name: Generate Cargo lockfile candidate
-        run: cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
-
-      - name: Record lockfile checksum
-        run: sha256sum src-tauri/Cargo.lock | tee cargo-lock.sha256
-
-      - name: Upload lockfile candidate
-        uses: actions/upload-artifact@v7
-        with:
-          name: portal-cargo-lock-${{ github.sha }}
-          path: |
-            src-tauri/Cargo.lock
-            cargo-lock.sha256
-          if-no-files-found: error
-
   frontend-quality:
     name: Frontend quality gates
     runs-on: ubuntu-22.04
