@@ -1,13 +1,13 @@
-import type { ReturnTypeOfController } from "../../test/types";
+import type { AppController } from "../../app/controllerTypes";
 
 interface Props {
-  controller: ReturnTypeOfController;
+  controller: AppController;
 }
 
 const LABELS = {
   idle: "Ready to capture",
   preparing: "Preparing capture",
-  selecting: "Select a screen region",
+  selecting: "Select a region; OCR continues after selection",
   processing: "Recognizing text",
   cancelling: "Cancelling capture",
   reviewing: "Review recognized text",
