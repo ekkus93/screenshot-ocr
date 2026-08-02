@@ -68,10 +68,7 @@ impl AppServices {
         let mut candidates = Vec::new();
         for variant in variants.iter().take(4) {
             cancellation.check()?;
-            match engine
-                .recognize(variant, request.mode, cancellation)
-                .await
-            {
+            match engine.recognize(variant, request.mode, cancellation).await {
                 Ok(candidate) => candidates.push(candidate),
                 Err(AppError::CaptureCancelled) => return Err(AppError::CaptureCancelled),
                 Err(AppError::OcrTimedOut) => return Err(AppError::OcrTimedOut),
