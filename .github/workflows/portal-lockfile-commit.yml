@@ -1,0 +1,54 @@
+name: Portal Lockfile Commit
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: portal-lockfile-master
+  cancel-in-progress: true
+
+jobs:
+  generate:
+    name: Generate portal Cargo lockfile
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out master
+        uses: actions/checkout@v6
+        with:
+          ref: master
+          fetch-depth: 1
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.88.0
+
+      - name: Generate lockfile
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'ashpd = { version = "=0.13.13"' src-tauri/Cargo.toml
+          cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
+
+      - name: Commit only Cargo.lock when changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- src-tauri/Cargo.lock; then
+            echo "Cargo.lock is already current."
+            exit 0
+          fi
+          changed="$(git diff --name-only)"
+          test "${changed}" = "src-tauri/Cargo.lock"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src-tauri/Cargo.lock
+          staged="$(git diff --cached --name-only)"
+          test "${staged}" = "src-tauri/Cargo.lock"
+          git commit -m "build: refresh Cargo lock for portal backend"
+          git push origin HEAD:master
