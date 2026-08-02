@@ -10,8 +10,8 @@
 The latest fully proven implementation commit is:
 
 ```text
-ACCEPTED_SOURCE_SHA=156dd467190ab74b535eff610ff42558f633dd53
-CI_RUN_ID=30730812349
+ACCEPTED_SOURCE_SHA=2fdce81e5163c5234515fc26efeea48544077c88
+CI_RUN_ID=30731505719
 ```
 
 All permanent read-only workflow jobs passed on that exact source commit:
@@ -38,6 +38,7 @@ The repository contains a Tauri 2 Linux desktop application with:
 - persistent versioned settings;
 - startup capture through `screenshot-ocr capture`;
 - caller-owned capture job identifiers and cancellation tokens;
+- privacy-safe in-memory runtime diagnostics;
 - permanent Ubuntu 22.04 source-quality and Debian-package CI;
 - ChatGPT-readable CI status issue `#1`.
 
@@ -77,7 +78,8 @@ Implemented properties:
 - cancellation and timeout checks around portal operations;
 - typed cancellation, permission-denial, unsupported, timeout, and general failures;
 - absolute `file:` URI requirement;
-- regular, non-symlink, nonempty, size-bounded portal result validation.
+- regular, non-symlink, nonempty, size-bounded portal result validation;
+- bounded, content-free portal version and area-capability reporting for diagnostics.
 
 Still open:
 
@@ -160,41 +162,51 @@ Implemented:
 - capture backend preference;
 - text mode, preview policy, whitespace, notification, start-at-login, close-to-tray, and shortcut fields;
 - startup capture intent consumed once;
-- basic environment diagnostics.
+- safe diagnostics DTO with application, OS, desktop, session, clipboard, tray, and schema fields;
+- bounded XDG Screenshot Portal version and area-target capability summary;
+- GNOME helper and Tesseract availability plus installed OCR language codes;
+- privacy-safe in-memory retention of the most recent stable public error code;
+- monotonic cleanup-failure counting without paths;
+- tests that reject executable paths from serialized diagnostics.
 
 Still open:
 
 - corrupt-settings warning surfaced to the UI;
 - stronger settings migration and interrupted-write tests;
-- safe portal capability details in diagnostics;
-- last safe error code and cleanup-failure counters;
+- GNOME screenshot helper version reporting;
+- Tesseract version reporting;
+- last completed stage duration;
+- **Copy diagnostics** with guaranteed redaction;
+- a complete deterministic diagnostics-report snapshot test;
 - real tray and close-to-tray behavior;
 - single-instance behavior;
 - reachable global shortcut behavior;
 - start-at-login implementation or removal of that setting from v0.1.
 
+Detailed diagnostics evidence is in `docs/DIAGNOSTICS_STATUS_2026-08-02.md`.
+
 ## 8. Debian package evidence
 
-Accepted package built from `156dd467190ab74b535eff610ff42558f633dd53`:
+Accepted package built from `2fdce81e5163c5234515fc26efeea48544077c88`:
 
 ```text
 PACKAGE_FILE=Screenshot OCR_0.1.0_amd64.deb
 PACKAGE_NAME=screenshot-ocr
 PACKAGE_VERSION=0.1.0
 ARCHITECTURE=amd64
-PACKAGE_SIZE_BYTES=5826032
+PACKAGE_SIZE_BYTES=5826646
 INSTALLED_SIZE_KIB=16898
-PACKAGE_SHA256=f37e87d2621b4b9a63eee59ea38fe22780d0dcfbeb582a604a891aa345c92b56
+PACKAGE_SHA256=b079ee4bd5a2ea64c91b51248105c15cf6cc3da14a4b2f643f0f664f29ecf180
 ```
 
 Artifact:
 
 ```text
-ARTIFACT_ID=8827984069
-ARTIFACT_NAME=screenshot-ocr-deb-156dd467190ab74b535eff610ff42558f633dd53
-ARTIFACT_ARCHIVE_SIZE_BYTES=5794892
-ARTIFACT_ARCHIVE_SHA256=0b9dc3398fbac0a9bd405ffdf3c03e4d2f9fcd7bcfaf33c53a4f71c041901a59
-ARTIFACT_EXPIRES=2026-10-31T03:32:54Z
+ARTIFACT_ID=8828666725
+ARTIFACT_NAME=screenshot-ocr-deb-2fdce81e5163c5234515fc26efeea48544077c88
+ARTIFACT_ARCHIVE_SIZE_BYTES=5794424
+ARTIFACT_ARCHIVE_SHA256=971cf67e5b70bf0e47fc7a54454507e74955d3e6ad0bb5c0291c488174680351
+ARTIFACT_EXPIRES=2026-10-31T03:58:59Z
 ```
 
 The package declares:
@@ -219,6 +231,7 @@ Hosted CI cannot establish release readiness for:
 - selector dismissal and process-orphan behavior;
 - OCR cancellation through a reachable application control;
 - real clipboard ownership and paste behavior;
+- real diagnostics values and redaction on a GNOME/Wayland session;
 - dark/light terminal OCR quality;
 - launcher, icon, dependency installation, upgrade, and uninstall behavior;
 - tray, shortcut, single-instance, and start-at-login behavior.
@@ -228,9 +241,9 @@ No physical-validation checkbox should be marked complete from hosted compilatio
 ## 10. Highest-priority next product work
 
 1. Make cancellation reachable while the main window is hidden, preferably through a tray action or global shortcut integrated with single-instance behavior.
-2. Add safe diagnostics state: portal capability summary, last public error code, and cleanup-failure count.
-3. Surface corrupt-settings recovery instead of silently presenting defaults.
-4. Add deterministic OCR integration fixtures and accuracy evidence.
+2. Surface corrupt-settings recovery instead of silently presenting defaults.
+3. Add deterministic OCR integration fixtures and accuracy evidence.
+4. Complete missing diagnostics fields and **Copy diagnostics**.
 5. Prepare and execute the Ubuntu 24.04 GNOME Wayland physical validation matrix.
 6. Update the authoritative TODO only where the required evidence exists.
 
