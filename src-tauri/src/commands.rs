@@ -2,7 +2,9 @@ use crate::app::AppServices;
 use crate::capture::{EnvironmentProbe, PortalScreenshotBackend};
 use crate::diagnostics::Diagnostics;
 use crate::error::{AppError, PublicError};
-use crate::models::{AppActionEvent, CaptureJobId, CaptureRequest, CopyPolicy, OcrResult, OcrWarning};
+use crate::models::{
+    AppActionEvent, CaptureJobId, CaptureRequest, CopyPolicy, OcrResult, OcrWarning,
+};
 use crate::ocr::TesseractEngine;
 use crate::settings::{AppSettings, SettingsLoadResult};
 use tauri::{AppHandle, Manager, State, WebviewWindow};
@@ -125,7 +127,10 @@ pub async fn get_diagnostics(state: State<'_, AppServices>) -> Result<Diagnostic
     let environment = EnvironmentProbe::probe().map_err(|error| record_error(&state, error))?;
     let cancellation = crate::cancellation::CancellationToken::new();
     let languages = match TesseractEngine::from_environment(&environment) {
-        Ok(engine) => engine.probe_english(&cancellation).await.unwrap_or_default(),
+        Ok(engine) => engine
+            .probe_english(&cancellation)
+            .await
+            .unwrap_or_default(),
         Err(_) => Vec::new(),
     };
     let portal_summary = PortalScreenshotBackend::safe_capability_summary().await;
