@@ -4,16 +4,42 @@ use serde::Serialize;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct RuntimeDiagnostics {
     last_error_code: Mutex<Option<ErrorCode>>,
     cleanup_failure_count: AtomicU64,
+    tray_status: Mutex<String>,
+    shortcut_status: Mutex<String>,
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+impl Default for RuntimeDiagnostics {
+    fn default() -> Self {
+        Self {
+            last_error_code: Mutex::new(None),
+            cleanup_failure_count: AtomicU64::new(0),
+            tray_status: Mutex::new("not initialized".into()),
+            shortcut_status: Mutex::new("not initialized".into()),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RuntimeDiagnosticsSnapshot {
     pub last_error_code: Option<String>,
     pub cleanup_failure_count: u64,
+    pub tray_status: String,
+    pub shortcut_status: String,
+}
+
+impl Default for RuntimeDiagnosticsSnapshot {
+    fn default() -> Self {
+        Self {
+            last_error_code: None,
+            cleanup_failure_count: 0,
+            tray_status: "not initialized".into(),
+            shortcut_status: "not initialized".into(),
+        }
+    }
 }
 
 impl RuntimeDiagnostics {
@@ -23,6 +49,18 @@ impl RuntimeDiagnostics {
         }
         if let Ok(mut last_error_code) = self.last_error_code.lock() {
             *last_error_code = Some(code);
+        }
+    }
+
+    pub fn set_tray_status(&self, status: impl Into<String>) {
+        if let Ok(mut tray_status) = self.tray_status.lock() {
+            *tray_status = status.into();
+        }
+    }
+
+    pub fn set_shortcut_status(&self, status: impl Into<String>) {
+        if let Ok(mut shortcut_status) = self.shortcut_status.lock() {
+            *shortcut_status = status.into();
         }
     }
 
@@ -36,6 +74,16 @@ impl RuntimeDiagnostics {
         RuntimeDiagnosticsSnapshot {
             last_error_code,
             cleanup_failure_count: self.cleanup_failure_count.load(Ordering::Relaxed),
+            tray_status: self
+                .tray_status
+                .lock()
+                .map(|status| status.clone())
+                .unwrap_or_else(|_| "unavailable".into()),
+            shortcut_status: self
+                .shortcut_status
+                .lock()
+                .map(|status| status.clone())
+                .unwrap_or_else(|_| "unavailable".into()),
         }
     }
 }
@@ -53,6 +101,7 @@ pub struct Diagnostics {
     pub installed_languages: Vec<String>,
     pub clipboard_status: String,
     pub tray_status: String,
+    pub shortcut_status: String,
     pub settings_schema_version: u32,
     pub last_error_code: Option<String>,
     pub cleanup_failure_count: u64,
@@ -75,7 +124,8 @@ impl Diagnostics {
             tesseract: availability(environment.tesseract.is_some()),
             installed_languages: languages,
             clipboard_status: "available through Tauri clipboard manager".into(),
-            tray_status: "not enabled in the current pre-release build".into(),
+            tray_status: runtime.tray_status,
+            shortcut_status: runtime.shortcut_status,
             settings_schema_version: 1,
             last_error_code: runtime.last_error_code,
             cleanup_failure_count: runtime.cleanup_failure_count,
@@ -126,8 +176,10 @@ mod tests {
     }
 
     #[test]
-    fn runtime_diagnostics_retain_only_codes_and_counts() {
+    fn runtime_diagnostics_retain_only_codes_counts_and_safe_statuses() {
         let runtime = RuntimeDiagnostics::default();
+        runtime.set_tray_status("available");
+        runtime.set_shortcut_status("registered");
         runtime.record(ErrorCode::OcrFailed);
         runtime.record(ErrorCode::TemporaryCleanupFailed);
         let snapshot = runtime.snapshot();
@@ -136,6 +188,8 @@ mod tests {
             RuntimeDiagnosticsSnapshot {
                 last_error_code: Some("temporary_cleanup_failed".into()),
                 cleanup_failure_count: 1,
+                tray_status: "available".into(),
+                shortcut_status: "registered".into(),
             }
         );
     }
