@@ -29,8 +29,13 @@ if workflow.count(MARKER) != 1:
 
 payload_source = workflow.split(MARKER, 1)[1].lstrip()
 payload, _ = json.JSONDecoder().raw_decode(payload_source)
-if set(payload) != EXPECTED_PATHS:
-    raise SystemExit("reviewed payload path set changed")
+actual_paths = set(payload)
+if actual_paths != EXPECTED_PATHS:
+    extra = sorted(actual_paths - EXPECTED_PATHS)
+    missing = sorted(EXPECTED_PATHS - actual_paths)
+    raise SystemExit(
+        f"reviewed payload path set changed; extra={extra}; missing={missing}"
+    )
 
 for relative, value in payload.items():
     path = Path(relative)
