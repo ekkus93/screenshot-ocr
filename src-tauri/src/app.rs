@@ -3,6 +3,7 @@ use crate::capture::{
     CaptureBackend, EnvironmentInfo, EnvironmentProbe, GnomeScreenshotBackend,
     PortalScreenshotBackend,
 };
+use crate::diagnostics::RuntimeDiagnostics;
 use crate::error::AppError;
 use crate::image_pipeline::prepare_variants;
 use crate::models::{
@@ -22,6 +23,7 @@ use tokio::sync::Mutex;
 pub struct AppServices {
     pub state: Arc<Mutex<CaptureStateMachine>>,
     pub settings: Arc<SettingsStore>,
+    pub runtime_diagnostics: Arc<RuntimeDiagnostics>,
     startup_capture: Arc<AtomicBool>,
 }
 
@@ -30,6 +32,7 @@ impl AppServices {
         Self {
             state: Arc::new(Mutex::new(CaptureStateMachine::default())),
             settings: Arc::new(SettingsStore::new(config_dir)),
+            runtime_diagnostics: Arc::new(RuntimeDiagnostics::default()),
             startup_capture: Arc::new(AtomicBool::new(startup_capture)),
         }
     }
