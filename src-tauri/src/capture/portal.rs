@@ -21,11 +21,52 @@ const PROBE_TIMEOUT: Duration = Duration::from_secs(5);
 const CAPTURE_TIMEOUT: Duration = Duration::from_secs(120);
 const MAX_CAPTURE_BYTES: u64 = 20 * 1024 * 1024;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct PortalCapabilities {
+    version: u32,
+    area_advertised: bool,
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct PortalScreenshotBackend;
 
 impl PortalScreenshotBackend {
     pub async fn probe_area_support(cancellation: &CancellationToken) -> Result<bool, AppError> {
+        let capabilities = Self::probe_capabilities(cancellation).await?;
+        Ok(supports_area(
+            capabilities.version,
+            capabilities.area_advertised,
+        ))
+    }
+
+    pub async fn safe_capability_summary() -> String {
+        if std::env::var_os("DBUS_SESSION_BUS_ADDRESS").is_none() {
+            return "session bus unavailable".into();
+        }
+        let cancellation = CancellationToken::new();
+        match Self::probe_capabilities(&cancellation).await {
+            Ok(capabilities)
+                if supports_area(capabilities.version, capabilities.area_advertised) =>
+            {
+                format!(
+                    "Screenshot v{}; area target available",
+                    capabilities.version
+                )
+            }
+            Ok(capabilities) => format!(
+                "Screenshot v{}; area target unavailable",
+                capabilities.version
+            ),
+            Err(AppError::CaptureBackendUnavailable) => {
+                "Screenshot portal unavailable or probe timed out".into()
+            }
+            Err(_) => "Screenshot portal capability probe failed".into(),
+        }
+    }
+
+    async fn probe_capabilities(
+        cancellation: &CancellationToken,
+    ) -> Result<PortalCapabilities, AppError> {
         cancellation.check()?;
         let proxy = tokio::select! {
             biased;
@@ -36,7 +77,10 @@ impl PortalScreenshotBackend {
         };
         let version = proxy.version();
         if version < MINIMUM_AREA_VERSION {
-            return Ok(false);
+            return Ok(PortalCapabilities {
+                version,
+                area_advertised: false,
+            });
         }
         let targets = tokio::select! {
             biased;
@@ -45,10 +89,10 @@ impl PortalScreenshotBackend {
                 .map_err(|_| AppError::CaptureBackendUnavailable)?
                 .map_err(map_portal_error)?,
         };
-        Ok(supports_area(
+        Ok(PortalCapabilities {
             version,
-            targets.contains(AvailableTargets::Area),
-        ))
+            area_advertised: targets.contains(AvailableTargets::Area),
+        })
     }
 
     async fn capture_area(
@@ -168,6 +212,20 @@ mod tests {
             PortalScreenshotBackend::probe_area_support(&cancellation).await,
             Err(AppError::CaptureCancelled)
         ));
+    }
+
+    #[test]
+    fn capability_classification_preserves_version_and_area_state() {
+        let old = PortalCapabilities {
+            version: 2,
+            area_advertised: false,
+        };
+        let current = PortalCapabilities {
+            version: 3,
+            area_advertised: true,
+        };
+        assert!(!supports_area(old.version, old.area_advertised));
+        assert!(supports_area(current.version, current.area_advertised));
     }
 
     #[test]
