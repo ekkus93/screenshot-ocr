@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  cancelCapture,
   copyText,
   getDiagnostics,
   getSettings,
@@ -60,6 +61,7 @@ export function useAppController() {
   const [settingsDirty, setSettingsDirty] = useState(false);
   const [diagnostics, setDiagnostics] = useState<Diagnostics | null>(null);
   const activeRequest = useRef(0);
+  const activeJobId = useRef<string | null>(null);
 
   const refreshDiagnostics = useCallback(async () => {
     try {
@@ -71,12 +73,15 @@ export function useAppController() {
 
   const performCapture = useCallback(async (captureSettings: AppSettings) => {
     const requestToken = activeRequest.current + 1;
+    const jobId = crypto.randomUUID();
     activeRequest.current = requestToken;
+    activeJobId.current = jobId;
     setStatus("preparing");
     setError(null);
     try {
       setStatus("selecting");
       const nextResult = await startCapture({
+        jobId,
         mode: captureSettings.textMode,
         language: captureSettings.language,
         copyPolicy: captureSettings.previewBeforeCopy ? "preview" : "immediate",
@@ -90,10 +95,15 @@ export function useAppController() {
       if (requestToken !== activeRequest.current) return;
       const nextError = normalizeError(value);
       if (nextError.code === "capture_cancelled") {
+        setError(null);
         setStatus("cancelled");
       } else {
         setError(nextError);
         setStatus("error");
+      }
+    } finally {
+      if (activeJobId.current === jobId) {
+        activeJobId.current = null;
       }
     }
   }, []);
@@ -101,6 +111,21 @@ export function useAppController() {
   const capture = useCallback(async () => {
     await performCapture(settings);
   }, [performCapture, settings]);
+
+  const cancel = useCallback(async () => {
+    const jobId = activeJobId.current;
+    if (jobId === null) return;
+    setStatus("cancelling");
+    setError(null);
+    try {
+      await cancelCapture(jobId);
+    } catch (value) {
+      if (activeJobId.current === jobId) {
+        setError(normalizeError(value));
+        setStatus("error");
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -183,12 +208,14 @@ export function useAppController() {
     settingsDirty,
     diagnostics,
     capture,
+    cancel,
     copy,
     saveSettings,
     restoreSettings,
     refreshDiagnostics,
     setEditorText,
     clear: () => {
+      if (activeJobId.current !== null) return;
       activeRequest.current += 1;
       setResult(null);
       setEditorText("");
