@@ -1,7 +1,7 @@
-import type { ReturnTypeOfController } from "../../test/types";
+import type { AppController } from "../../app/controllerTypes";
 
 interface Props {
-  controller: ReturnTypeOfController;
+  controller: AppController;
 }
 
 export function DiagnosticsPanel({ controller }: Props) {
