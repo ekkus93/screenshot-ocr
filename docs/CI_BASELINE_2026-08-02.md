@@ -69,3 +69,7 @@ ARTIFACT_EXPIRES=2026-10-31
 ## Scope of this evidence
 
 This baseline proves hosted formatting, linting, typechecking, tests, compilation, and `.deb` construction on Ubuntu 22.04. It does **not** prove real GNOME Wayland/X11 screen selection, clipboard behavior, multi-monitor behavior, fractional scaling, package installation, upgrade, removal, or Ubuntu 24.04 runtime behavior. Those remain separate physical-desktop validation gates in `docs/SCREENSHOT_OCR_V0_1_TODO.md`.
+
+## Subsequent work
+
+The XDG Screenshot Portal implementation began only after this baseline was accepted. Portal commits require a new exact-SHA CI and package result and do not inherit this baseline’s acceptance automatically.
