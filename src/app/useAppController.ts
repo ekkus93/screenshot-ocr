@@ -105,23 +105,25 @@ export function useAppController() {
   }, [performCapture, settings]);
 
   useEffect(() => {
-    let active = true;
+    const controller = new AbortController();
     void (async () => {
       const loadedSettings = await refreshSettings();
       await refreshDiagnostics();
+      if (controller.signal.aborted) return;
       try {
         const requested = await takeStartupCapture();
-        if (active && requested) {
+        if (controller.signal.aborted) return;
+        if (requested) {
           await performCapture(loadedSettings);
         }
       } catch (value) {
-        if (active) {
+        if (!controller.signal.aborted) {
           setError(normalizeError(value));
         }
       }
     })();
     return () => {
-      active = false;
+      controller.abort();
     };
   }, [performCapture, refreshDiagnostics, refreshSettings]);
 
