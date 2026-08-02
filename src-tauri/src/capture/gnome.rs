@@ -126,7 +126,9 @@ fn create_capture_directory() -> Result<PathBuf, AppError> {
     let _ = scavenge_owned_stale_directories(&base, SystemTime::now(), STALE_CAPTURE_AGE);
     let directory = base.join(format!("screenshot-ocr-{}", Uuid::new_v4()));
     fs::create_dir(&directory).map_err(|_| AppError::CaptureProcessFailed)?;
-    if let Err(error) = set_private_permissions(&directory).and_then(|()| write_ownership_marker(&directory)) {
+    if let Err(error) =
+        set_private_permissions(&directory).and_then(|()| write_ownership_marker(&directory))
+    {
         let _ = fs::remove_dir_all(&directory);
         return Err(error);
     }
