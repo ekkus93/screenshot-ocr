@@ -37,22 +37,27 @@ jobs:
           toolchain: 1.88.0
           components: rustfmt
 
-      - name: Unpack, format, and commit reviewed source
+      - name: Unpack and publish reviewed source or exact failure report
         shell: bash
         run: |
-          set -euo pipefail
-          python3 .github/unpack_action_router.py
-          cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
-          npm ci
-          npx prettier --write \
-            docs/adr/0002-cross-platform-activation-and-cancellation.md \
-            src/app/App.test.tsx \
-            src/app/useAppController.ts \
-            src/lib/tauri.ts \
-            src/lib/types.ts
-          cargo fmt --manifest-path src-tauri/Cargo.toml --all
+          set -uo pipefail
+          log="${RUNNER_TEMP}/unpack-action-router.log"
+          report="docs/ACTION_ROUTER_UNPACK_RESULT.md"
 
-          python3 - <<'PY'
+          apply_source() {
+            set -euo pipefail
+            python3 .github/unpack_action_router.py
+            cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
+            npm ci
+            npx prettier --write \
+              docs/adr/0002-cross-platform-activation-and-cancellation.md \
+              src/app/App.test.tsx \
+              src/app/useAppController.ts \
+              src/lib/tauri.ts \
+              src/lib/types.ts
+            cargo fmt --manifest-path src-tauri/Cargo.toml --all
+
+            python3 - <<'PY'
           import subprocess
 
           expected = {
@@ -78,9 +83,35 @@ jobs:
               raise SystemExit(f"unexpected changed paths: {sorted(paths ^ expected)}")
           PY
 
-          git diff --check
+            git diff --check
+          }
+
+          set +e
+          apply_source >"${log}" 2>&1
+          status=$?
+          set -e
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if [ "${status}" -ne 0 ]; then
+            git reset --hard HEAD
+            {
+              echo "# Action Router Unpack Result"
+              echo
+              echo "**Status:** Failed before application source publication"
+              echo
+              echo '```text'
+              tail -n 160 "${log}" | sed "s#${GITHUB_WORKSPACE}#<workspace>#g"
+              echo '```'
+            } >"${report}"
+            git add "${report}"
+            git commit -m "docs: record action router unpack failure"
+            git push origin HEAD:master
+            exit "${status}"
+          fi
+
+          cat "${log}"
           git add \
             docs/adr/0002-cross-platform-activation-and-cancellation.md \
             src-tauri/Cargo.lock \
@@ -97,5 +128,6 @@ jobs:
             src/app/useAppController.ts \
             src/lib/tauri.ts \
             src/lib/types.ts
+          git diff --cached --check
           git commit -m "feat: add cross-platform action routing"
           git push origin HEAD:master
