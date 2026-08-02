@@ -1,0 +1,38 @@
+from __future__ import annotations
+
+import base64
+import json
+from pathlib import Path
+
+WORKFLOW = Path(".github/workflows/implement-action-router.yml")
+MARKER = "payload = json.loads(r'''"
+EXPECTED_PATHS = {
+    "docs/adr/0002-cross-platform-activation-and-cancellation.md",
+    "src-tauri/Cargo.toml",
+    "src-tauri/src/actions.rs",
+    "src-tauri/src/app.rs",
+    "src-tauri/src/commands.rs",
+    "src-tauri/src/desktop.rs",
+    "src-tauri/src/diagnostics.rs",
+    "src-tauri/src/lib.rs",
+    "src-tauri/src/models.rs",
+    "src-tauri/src/state.rs",
+    "src/app/App.test.tsx",
+    "src/app/useAppController.ts",
+    "src/lib/tauri.ts",
+    "src/lib/types.ts",
+}
+
+workflow = WORKFLOW.read_text(encoding="utf-8")
+if workflow.count(MARKER) != 1:
+    raise SystemExit("reviewed payload marker is missing or ambiguous")
+
+encoded = workflow.split(MARKER, 1)[1].split("''')", 1)[0]
+payload = json.loads(encoded)
+if set(payload) != EXPECTED_PATHS:
+    raise SystemExit("reviewed payload path set changed")
+
+for relative, value in payload.items():
+    path = Path(relative)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(base64.b64decode(value, validate=True))
