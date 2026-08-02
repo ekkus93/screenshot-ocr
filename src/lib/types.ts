@@ -3,6 +3,7 @@ export type CaptureStatus =
   | "preparing"
   | "selecting"
   | "processing"
+  | "cancelling"
   | "reviewing"
   | "copied"
   | "cancelled"
@@ -12,6 +13,7 @@ export type TextMode = "terminal" | "document" | "singleLine";
 export type CopyPolicy = "preview" | "immediate";
 
 export interface CaptureRequest {
+  jobId: string;
   mode: TextMode;
   language: "eng";
   copyPolicy: CopyPolicy;
