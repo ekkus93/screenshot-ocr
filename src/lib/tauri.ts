@@ -5,6 +5,7 @@ import type {
   Diagnostics,
   OcrResult,
   PendingAppAction,
+  SettingsLoadResult,
 } from "./types";
 
 export function startCapture(request: CaptureRequest): Promise<OcrResult> {
@@ -23,8 +24,8 @@ export async function copyText(text: string): Promise<void> {
   await invoke<null>("copy_text", { text });
 }
 
-export function getSettings(): Promise<AppSettings> {
-  return invoke<AppSettings>("get_settings");
+export function getSettings(): Promise<SettingsLoadResult> {
+  return invoke<SettingsLoadResult>("get_settings");
 }
 
 export function updateSettings(settings: AppSettings): Promise<AppSettings> {
