@@ -1,3 +1,4 @@
+use crate::cancellation::CancellationToken;
 use crate::capture::{
     CaptureBackend, EnvironmentInfo, EnvironmentProbe, GnomeScreenshotBackend,
     PortalScreenshotBackend,
@@ -41,29 +42,38 @@ impl AppServices {
         if !request.validate() {
             return Err(AppError::SettingsInvalid);
         }
-        let job_id = self.state.lock().await.begin()?;
-        let result = self.capture_inner(job_id, request).await;
-        self.state.lock().await.finish(job_id);
-        result
+        let job_id = request.job_id;
+        let cancellation = self.state.lock().await.begin(job_id)?;
+        self.capture_inner(job_id, request, &cancellation).await
     }
 
     async fn capture_inner(
         &self,
         job_id: CaptureJobId,
         request: CaptureRequest,
+        cancellation: &CancellationToken,
     ) -> Result<OcrResult, AppError> {
         let started = Instant::now();
+        cancellation.check()?;
         let settings = self.settings.load()?;
         let environment = EnvironmentProbe::probe()?;
-        let backend = select_capture_backend(settings.capture_backend, &environment).await?;
-        let captured = backend.capture_region().await?;
+        let backend =
+            select_capture_backend(settings.capture_backend, &environment, cancellation).await?;
+        let captured = backend.capture_region(cancellation).await?;
+        cancellation.check()?;
         let engine = TesseractEngine::from_environment(&environment)?;
         engine.probe_english()?;
+        cancellation.check()?;
         let variants = prepare_variants(&captured.image);
         let mut candidates = Vec::new();
         for variant in variants.iter().take(4) {
-            match engine.recognize(variant, request.mode).await {
+            cancellation.check()?;
+            match engine
+                .recognize(variant, request.mode, cancellation)
+                .await
+            {
                 Ok(candidate) => candidates.push(candidate),
+                Err(AppError::CaptureCancelled) => return Err(AppError::CaptureCancelled),
                 Err(AppError::OcrTimedOut) => return Err(AppError::OcrTimedOut),
                 Err(_) => continue,
             }
@@ -74,6 +84,7 @@ impl AppServices {
                 break;
             }
         }
+        cancellation.check()?;
         let candidate = select_best_candidate(candidates)?;
         Ok(OcrResult {
             job_id,
@@ -92,14 +103,23 @@ impl AppServices {
 async fn select_capture_backend(
     preference: CaptureBackendPreference,
     environment: &EnvironmentInfo,
+    cancellation: &CancellationToken,
 ) -> Result<Box<dyn CaptureBackend>, AppError> {
+    cancellation.check()?;
     let portal_supported = match preference {
         CaptureBackendPreference::Gnome => false,
-        CaptureBackendPreference::Auto => PortalScreenshotBackend::probe_area_support()
-            .await
-            .unwrap_or(false),
-        CaptureBackendPreference::Portal => PortalScreenshotBackend::probe_area_support().await?,
+        CaptureBackendPreference::Auto => {
+            match PortalScreenshotBackend::probe_area_support(cancellation).await {
+                Ok(supported) => supported,
+                Err(AppError::CaptureCancelled) => return Err(AppError::CaptureCancelled),
+                Err(_) => false,
+            }
+        }
+        CaptureBackendPreference::Portal => {
+            PortalScreenshotBackend::probe_area_support(cancellation).await?
+        }
     };
+    cancellation.check()?;
     match choose_backend_id(
         preference,
         portal_supported,
