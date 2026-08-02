@@ -18,7 +18,9 @@ concurrency:
 jobs:
   one-shot-action-router-unpack:
     name: One-shot action router unpack
-    if: github.event_name == 'push' && github.event.head_commit.message == 'ci: run action router unpack in monitored CI'
+    if: >-
+      github.event_name == 'push' &&
+      github.event.head_commit.message == 'ci: run action router unpack in monitored CI'
     permissions:
       contents: write
     runs-on: ubuntu-22.04
