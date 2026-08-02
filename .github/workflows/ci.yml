@@ -16,40 +16,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  one-shot-action-router-lockfile:
-    name: One-shot action router lockfile
-    if: >-
-      github.event_name == 'push' &&
-      github.event.head_commit.message == 'ci: generate action router lockfile'
-    permissions:
-      contents: write
-    runs-on: ubuntu-22.04
-    timeout-minutes: 15
-    steps:
-      - name: Check out master
-        uses: actions/checkout@v6
-        with:
-          ref: master
-          fetch-depth: 0
-
-      - name: Install pinned Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: 1.88.0
-
-      - name: Generate and commit only Cargo.lock
-        shell: bash
-        run: |
-          set -euo pipefail
-          cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
-          test "$(git diff --name-only)" = "src-tauri/Cargo.lock"
-          git diff --check
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src-tauri/Cargo.lock
-          git commit -m "build: lock desktop activation dependencies"
-          git push origin HEAD:master
-
   repository-policy:
     name: Repository policy
     runs-on: ubuntu-22.04
