@@ -27,8 +27,8 @@ workflow = WORKFLOW.read_text(encoding="utf-8")
 if workflow.count(MARKER) != 1:
     raise SystemExit("reviewed payload marker is missing or ambiguous")
 
-encoded = workflow.split(MARKER, 1)[1].split("''')", 1)[0]
-payload = json.loads(encoded)
+payload_source = workflow.split(MARKER, 1)[1].lstrip()
+payload, _ = json.JSONDecoder().raw_decode(payload_source)
 if set(payload) != EXPECTED_PATHS:
     raise SystemExit("reviewed payload path set changed")
 
