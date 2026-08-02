@@ -64,6 +64,9 @@ jobs:
           print("Repository baseline and source-file limits are valid.")
           PY
 
+      - name: Check content-leakage source guard
+        run: python3 scripts/check-content-leakage.py
+
       - name: Ensure no broad Tauri capability wildcard
         shell: bash
         run: |
