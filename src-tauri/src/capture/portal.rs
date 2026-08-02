@@ -1,3 +1,4 @@
+use crate::cancellation::CancellationToken;
 use crate::capture::CaptureBackend;
 use crate::error::AppError;
 use crate::image_pipeline::decode_captured_image;
@@ -24,46 +25,67 @@ const MAX_CAPTURE_BYTES: u64 = 20 * 1024 * 1024;
 pub struct PortalScreenshotBackend;
 
 impl PortalScreenshotBackend {
-    pub async fn probe_area_support() -> Result<bool, AppError> {
-        let proxy = timeout(PROBE_TIMEOUT, ScreenshotProxy::new())
-            .await
-            .map_err(|_| AppError::CaptureBackendUnavailable)?
-            .map_err(map_portal_error)?;
+    pub async fn probe_area_support(
+        cancellation: &CancellationToken,
+    ) -> Result<bool, AppError> {
+        cancellation.check()?;
+        let proxy = tokio::select! {
+            biased;
+            _ = cancellation.cancelled() => return Err(AppError::CaptureCancelled),
+            result = timeout(PROBE_TIMEOUT, ScreenshotProxy::new()) => result
+                .map_err(|_| AppError::CaptureBackendUnavailable)?
+                .map_err(map_portal_error)?,
+        };
         let version = proxy.version();
         if version < MINIMUM_AREA_VERSION {
             return Ok(false);
         }
-        let targets = timeout(PROBE_TIMEOUT, proxy.available_targets())
-            .await
-            .map_err(|_| AppError::CaptureBackendUnavailable)?
-            .map_err(map_portal_error)?;
+        let targets = tokio::select! {
+            biased;
+            _ = cancellation.cancelled() => return Err(AppError::CaptureCancelled),
+            result = timeout(PROBE_TIMEOUT, proxy.available_targets()) => result
+                .map_err(|_| AppError::CaptureBackendUnavailable)?
+                .map_err(map_portal_error)?,
+        };
         Ok(supports_area(
             version,
             targets.contains(AvailableTargets::Area),
         ))
     }
 
-    async fn capture_area(&self) -> Result<CapturedImage, AppError> {
-        let request = timeout(
-            CAPTURE_TIMEOUT,
-            Screenshot::request()
-                .interactive(true)
-                .modal(true)
-                .target(AvailableTargets::Area)
-                .send(),
-        )
-        .await
-        .map_err(|_| AppError::CaptureTimedOut)?
-        .map_err(map_portal_error)?;
+    async fn capture_area(
+        &self,
+        cancellation: &CancellationToken,
+    ) -> Result<CapturedImage, AppError> {
+        cancellation.check()?;
+        let request = tokio::select! {
+            biased;
+            _ = cancellation.cancelled() => return Err(AppError::CaptureCancelled),
+            result = timeout(
+                CAPTURE_TIMEOUT,
+                Screenshot::request()
+                    .interactive(true)
+                    .modal(true)
+                    .target(AvailableTargets::Area)
+                    .send(),
+            ) => result
+                .map_err(|_| AppError::CaptureTimedOut)?
+                .map_err(map_portal_error)?,
+        };
+        cancellation.check()?;
         let response = request.response().map_err(map_portal_error)?;
+        cancellation.check()?;
         load_portal_result(response.uri().as_str())
     }
 }
 
 #[async_trait]
 impl CaptureBackend for PortalScreenshotBackend {
-    async fn capture_region(&self) -> Result<CapturedImage, AppError> {
-        self.capture_area().await
+    async fn capture_region(
+        &self,
+        cancellation: &CancellationToken,
+    ) -> Result<CapturedImage, AppError> {
+        self.capture_area(cancellation).await
     }
 }
 
@@ -138,6 +160,16 @@ mod tests {
         assert!(!supports_area(2, true));
         assert!(!supports_area(3, false));
         assert!(supports_area(3, true));
+    }
+
+    #[tokio::test]
+    async fn pre_cancelled_probe_fails_without_portal_access() {
+        let cancellation = CancellationToken::new();
+        cancellation.cancel();
+        assert!(matches!(
+            PortalScreenshotBackend::probe_area_support(&cancellation).await,
+            Err(AppError::CaptureCancelled)
+        ));
     }
 
     #[test]
