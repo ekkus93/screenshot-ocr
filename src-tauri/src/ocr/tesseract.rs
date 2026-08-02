@@ -266,8 +266,7 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
 
         fs::write(path, body).expect("write executable");
-        fs::set_permissions(path, fs::Permissions::from_mode(0o700))
-            .expect("make executable");
+        fs::set_permissions(path, fs::Permissions::from_mode(0o700)).expect("make executable");
     }
 
     #[cfg(unix)]
