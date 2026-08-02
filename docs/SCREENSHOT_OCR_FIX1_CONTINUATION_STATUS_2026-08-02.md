@@ -4,6 +4,8 @@
 **Branch:** `master`  
 **Continuation base:** `fa6ef706c709fbc7fa1ec68e6a78ef30261d5e0f`  
 **Prior evidence file:** `docs/SCREENSHOT_OCR_FIX1_EVIDENCE_RECONCILIATION_2026-08-02.md`  
+**Validated continuation head:** `84594aa631821a4a89275043506d8701bc281b5a`  
+**Validated CI run:** `30744103457`  
 **Scope:** source-only continuation for F1.10, F1.11, and F1.12 follow-up decisions
 
 ## 1. Purpose
@@ -110,15 +112,49 @@ d539c393a20058f0188bd69a4148fe5271290e5c  docs: document synthetic OCR fixture p
 c6d7a01e31dab52289646db457ecc8b0257e792c  docs: update privacy notes for FIX1 behavior
 2480a2375eff6a2e4335730831d399af6df80138  docs: update threat model for FIX1 hardening
 07a9cb7d6b5dbc45f556ed8c9ad1c6785b3e1d30  docs: document FIX1 architecture boundaries
+612ad2dd187a004a98ede206798aedb38d432239  docs: record FIX1 continuation tranche
+84594aa631821a4a89275043506d8701bc281b5a  docs: apply Prettier to threat model
 ```
 
-This file was added after the listed commits as the continuation-tranche handoff.
+## 7. Hosted CI validation evidence
 
-## 7. Validation status
+The Publish CI Status bridge reported run `30744103457` as successful for continuation head `84594aa631821a4a89275043506d8701bc281b5a`.
 
-Hosted CI must be checked on the final continuation head after this document lands.
+```text
+Status: completed
+Conclusion: success
+Run: 30744103457
+Commit: 84594aa631821a4a89275043506d8701bc281b5a
+Branch/event: master / push
+Jobs: 4 completed, 0 abnormal, 0 running, 4 visible
+Problem steps: None
+Artifacts: 1 available
+Observed: 2026-08-02T10:48:02.760007Z
+```
 
-Do not mark this continuation tranche complete until the CI status bridge reports success for the final continuation commit.
+Successful jobs:
+
+```text
+Repository policy: success
+Frontend quality gates: success
+Rust quality gates: success
+Debian package smoke: success
+```
+
+GitHub Actions artifact metadata:
+
+```text
+Artifact name: screenshot-ocr-deb-84594aa631821a4a89275043506d8701bc281b5a
+Artifact ID: 8832395207
+Artifact size: 6,329,602 bytes
+GitHub artifact digest: sha256:7b97818ce66d47b86941e2ed1978a1d67c1696d329342c637294a7815a4a2e7b
+Created: 2026-08-02T10:47:52Z
+Expires: 2026-10-31T10:37:21Z
+```
+
+This validates the continuation source/doc tranche through hosted automated gates. It does not validate physical desktop behavior.
+
+## 8. Manual validation boundary
 
 Manual validation remains unclaimed:
 
@@ -132,6 +168,8 @@ Manual validation remains unclaimed:
 - multi-monitor and fractional scaling;
 - package install/upgrade/reinstall/removal.
 
-## 8. Recommended next step
+## 9. Recommended next step
 
-Check the CI status bridge for the final continuation commit. If green, the next high-value work is physical Ubuntu validation with the generated `.deb`, starting with Ubuntu 24.04 GNOME Wayland because it is the user's likely primary desktop environment.
+The next high-value work is physical Ubuntu validation with the generated `.deb`, starting with Ubuntu 24.04 GNOME Wayland because it is the user's likely primary desktop environment.
+
+Because this evidence update is itself a new documentation commit, check the CI status bridge for the evidence-update commit before treating the current repository head as green.
