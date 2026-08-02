@@ -1,3 +1,4 @@
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   cancelCapture,
@@ -6,10 +7,19 @@ import {
   getSettings,
   resetSettings,
   startCapture,
-  takeStartupCapture,
+  takePendingAppAction,
   updateSettings,
 } from "../lib/tauri";
-import type { AppSettings, CaptureStatus, Diagnostics, OcrResult, PublicError } from "../lib/types";
+import type {
+  AppSettings,
+  CaptureStatus,
+  Diagnostics,
+  OcrResult,
+  PendingAppAction,
+  PublicError,
+} from "../lib/types";
+
+const APP_ACTION_AVAILABLE_EVENT = "screenshot-ocr://app-action-available";
 
 const DEFAULT_SETTINGS: AppSettings = {
   schemaVersion: 1,
@@ -62,6 +72,9 @@ export function useAppController() {
   const [diagnostics, setDiagnostics] = useState<Diagnostics | null>(null);
   const activeRequest = useRef(0);
   const activeJobId = useRef<string | null>(null);
+  const initialized = useRef(false);
+  const settingsRef = useRef(DEFAULT_SETTINGS);
+  const drainingActions = useRef(false);
 
   const refreshDiagnostics = useCallback(async () => {
     try {
@@ -71,42 +84,60 @@ export function useAppController() {
     }
   }, []);
 
-  const performCapture = useCallback(async (captureSettings: AppSettings) => {
-    const requestToken = activeRequest.current + 1;
-    const jobId = crypto.randomUUID();
-    activeRequest.current = requestToken;
-    activeJobId.current = jobId;
-    setStatus("preparing");
-    setError(null);
+  const performCapture = useCallback(
+    async (captureSettings: AppSettings, pendingAction?: PendingAppAction) => {
+      const requestToken = activeRequest.current + 1;
+      const jobId = pendingAction?.jobId ?? crypto.randomUUID();
+      activeRequest.current = requestToken;
+      activeJobId.current = jobId;
+      setStatus("preparing");
+      setError(null);
+      try {
+        setStatus("selecting");
+        const nextResult = await startCapture({
+          jobId,
+          mode: captureSettings.textMode,
+          language: captureSettings.language,
+          copyPolicy: captureSettings.previewBeforeCopy ? "preview" : "immediate",
+          source: pendingAction?.source ?? "mainWindow",
+        });
+        if (requestToken !== activeRequest.current) return;
+        setResult(nextResult);
+        setEditorText(nextResult.text);
+        setStatus(nextResult.copied ? "copied" : "reviewing");
+      } catch (value) {
+        if (requestToken !== activeRequest.current) return;
+        const nextError = normalizeError(value);
+        if (nextError.code === "capture_cancelled") {
+          setError(null);
+          setStatus("cancelled");
+        } else {
+          setError(nextError);
+          setStatus("error");
+        }
+      } finally {
+        if (activeJobId.current === jobId) {
+          activeJobId.current = null;
+        }
+      }
+    },
+    [],
+  );
+
+  const drainPendingActions = useCallback(async () => {
+    if (!initialized.current || drainingActions.current) return;
+    drainingActions.current = true;
     try {
-      setStatus("selecting");
-      const nextResult = await startCapture({
-        jobId,
-        mode: captureSettings.textMode,
-        language: captureSettings.language,
-        copyPolicy: captureSettings.previewBeforeCopy ? "preview" : "immediate",
-        source: "mainWindow",
-      });
-      if (requestToken !== activeRequest.current) return;
-      setResult(nextResult);
-      setEditorText(nextResult.text);
-      setStatus(nextResult.copied ? "copied" : "reviewing");
+      const pendingAction = await takePendingAppAction();
+      if (pendingAction !== null) {
+        await performCapture(settingsRef.current, pendingAction);
+      }
     } catch (value) {
-      if (requestToken !== activeRequest.current) return;
-      const nextError = normalizeError(value);
-      if (nextError.code === "capture_cancelled") {
-        setError(null);
-        setStatus("cancelled");
-      } else {
-        setError(nextError);
-        setStatus("error");
-      }
+      setError(normalizeError(value));
     } finally {
-      if (activeJobId.current === jobId) {
-        activeJobId.current = null;
-      }
+      drainingActions.current = false;
     }
-  }, []);
+  }, [performCapture]);
 
   const capture = useCallback(async () => {
     await performCapture(settings);
@@ -130,10 +161,18 @@ export function useAppController() {
   useEffect(() => {
     const controller = new AbortController();
     const { signal } = controller;
+    let unlisten: UnlistenFn | undefined;
+
     void (async () => {
       try {
+        unlisten = await listen(APP_ACTION_AVAILABLE_EVENT, () => {
+          void drainPendingActions();
+        });
+        throwIfAborted(signal);
+
         const loadedSettings = await getSettings();
         throwIfAborted(signal);
+        settingsRef.current = loadedSettings;
         setSettings(loadedSettings);
         setSettingsDirty(false);
 
@@ -141,21 +180,21 @@ export function useAppController() {
         throwIfAborted(signal);
         setDiagnostics(loadedDiagnostics);
 
-        const requested = await takeStartupCapture();
-        throwIfAborted(signal);
-        if (requested) {
-          await performCapture(loadedSettings);
-        }
+        initialized.current = true;
+        await drainPendingActions();
       } catch (value) {
         if (!isAbortError(value)) {
           setError(normalizeError(value));
         }
       }
     })();
+
     return () => {
       controller.abort();
+      initialized.current = false;
+      unlisten?.();
     };
-  }, [performCapture]);
+  }, [drainPendingActions]);
 
   const copy = useCallback(async () => {
     if (editorText.trim().length === 0) {
@@ -180,6 +219,7 @@ export function useAppController() {
   const saveSettings = useCallback(async () => {
     try {
       const saved = await updateSettings(settings);
+      settingsRef.current = saved;
       setSettings(saved);
       setSettingsDirty(false);
       setError(null);
@@ -191,6 +231,7 @@ export function useAppController() {
   const restoreSettings = useCallback(async () => {
     try {
       const restored = await resetSettings();
+      settingsRef.current = restored;
       setSettings(restored);
       setSettingsDirty(false);
       setError(null);
@@ -223,6 +264,7 @@ export function useAppController() {
       setStatus("idle");
     },
     changeSettings: (next: AppSettings) => {
+      settingsRef.current = next;
       setSettings(next);
       setSettingsDirty(true);
     },
