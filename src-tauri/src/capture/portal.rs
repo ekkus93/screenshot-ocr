@@ -25,9 +25,7 @@ const MAX_CAPTURE_BYTES: u64 = 20 * 1024 * 1024;
 pub struct PortalScreenshotBackend;
 
 impl PortalScreenshotBackend {
-    pub async fn probe_area_support(
-        cancellation: &CancellationToken,
-    ) -> Result<bool, AppError> {
+    pub async fn probe_area_support(cancellation: &CancellationToken) -> Result<bool, AppError> {
         cancellation.check()?;
         let proxy = tokio::select! {
             biased;
