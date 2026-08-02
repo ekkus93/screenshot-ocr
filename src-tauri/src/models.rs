@@ -10,6 +10,10 @@ impl CaptureJobId {
     pub fn new() -> Self {
         Self(Uuid::new_v4())
     }
+
+    pub fn is_valid(self) -> bool {
+        !self.0.is_nil()
+    }
 }
 
 impl Default for CaptureJobId {
@@ -53,6 +57,7 @@ pub enum CaptureBackendPreference {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CaptureRequest {
+    pub job_id: CaptureJobId,
     pub mode: TextMode,
     pub language: String,
     pub copy_policy: CopyPolicy,
@@ -61,7 +66,7 @@ pub struct CaptureRequest {
 
 impl CaptureRequest {
     pub fn validate(&self) -> bool {
-        self.language == "eng"
+        self.job_id.is_valid() && self.language == "eng"
     }
 }
 
@@ -122,4 +127,21 @@ pub struct OcrResult {
     pub warnings: Vec<OcrWarning>,
     pub copied: bool,
     pub elapsed_ms: u64,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn capture_request_rejects_nil_job_ids() {
+        let request = CaptureRequest {
+            job_id: CaptureJobId(Uuid::nil()),
+            mode: TextMode::Terminal,
+            language: "eng".into(),
+            copy_policy: CopyPolicy::Preview,
+            source: CaptureSource::MainWindow,
+        };
+        assert!(!request.validate());
+    }
 }
