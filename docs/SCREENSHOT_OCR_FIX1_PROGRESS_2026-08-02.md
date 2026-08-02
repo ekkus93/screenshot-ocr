@@ -3,13 +3,100 @@
 **Repository:** `ekkus93/screenshot-ocr`  
 **Branch:** `master`  
 **FIX1 TODO:** `docs/SCREENSHOT_OCR_FIX1_TODO_2026-08-02.md`  
+**Companion evidence file:** `docs/SCREENSHOT_OCR_FIX1_EVIDENCE_RECONCILIATION_2026-08-02.md`  
 **Baseline before first FIX1 implementation pass:** `d77b5281975e2773d51afb0ce52d2ff77d966986`  
-**Latest source commit after guard tranche:** `88590e7a896d6b3145eba16ba7d162ac4ab962f5`  
-**Status:** implementation tranches in progress; CI/package validation not yet proven in this document
+**Final automated-validation source commit:** `a85002390f60c918a01bffbbde7431ca2c49e0bc`  
+**Evidence-document commit:** `7a1999ee5f651095db39e765baf26187b89cc4a7`  
+**Hosted CI run proving source commit:** `30741571581`  
+**Status:** FIX1 source tranche has green hosted CI evidence; physical Ubuntu validation remains unclaimed
 
-## 1. Scope completed so far
+## 1. Final automated validation evidence
 
-These Ralph passes targeted high-risk FIX1 items that can be implemented from source review without physical Ubuntu desktop access.
+The authoritative CI status bridge reported run `30741571581` as successful for
+commit `a85002390f60c918a01bffbbde7431ca2c49e0bc`.
+
+```text
+Status: completed
+Conclusion: success
+Run: 30741571581
+Commit: a85002390f60c918a01bffbbde7431ca2c49e0bc
+Branch/event: master / push
+Jobs: 4 completed, 0 abnormal, 0 running, 4 visible
+Artifacts: 1 available
+Observed: 2026-08-02T09:30:50.639905Z
+```
+
+Successful jobs:
+
+```text
+Repository policy: success
+Frontend quality gates: success
+Rust quality gates: success
+Debian package smoke: success
+```
+
+This proves the hosted automated gates for the final source commit, including:
+
+```text
+npm ci
+npm run format:check
+npm run lint
+npm run typecheck
+npm run test
+npm run build
+cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+cargo clippy --manifest-path src-tauri/Cargo.toml --workspace --all-targets --all-features --locked -- -D warnings
+cargo test --manifest-path src-tauri/Cargo.toml --workspace --all-features --locked
+Rust workspace build path used by the workflow
+Debian package smoke through the Tauri .deb build workflow
+```
+
+## 2. Package artifact evidence
+
+GitHub Actions artifact metadata:
+
+```text
+Artifact name: screenshot-ocr-deb-a85002390f60c918a01bffbbde7431ca2c49e0bc
+Artifact ID: 8831559732
+Artifact size: 6,329,707 bytes
+GitHub artifact digest: sha256:3b4aebc848cebe9d41d152d76384e40fff4a68782b88cc38e9b1b2471a4fe226
+Created: 2026-08-02T09:30:42Z
+Expires: 2026-10-31T09:20:25Z
+```
+
+Downloaded artifact verification performed during reconciliation:
+
+```text
+Downloaded ZIP SHA-256: 3b4aebc848cebe9d41d152d76384e40fff4a68782b88cc38e9b1b2471a4fe226
+ZIP contents:
+  src-tauri/target/release/bundle/deb/Screenshot OCR_0.1.0_amd64.deb  6,360,804 bytes
+  package.sha256                                                                  133 bytes
+```
+
+`package.sha256` content and extracted package checksum:
+
+```text
+24fcdac40d8b3c502177472875548d2388e95ae30aef56c0a4fa81aeea3dfc7e  src-tauri/target/release/bundle/deb/Screenshot OCR_0.1.0_amd64.deb
+```
+
+`dpkg-deb` metadata:
+
+```text
+Package: screenshot-ocr
+Version: 0.1.0
+Architecture: amd64
+Installed-Size: 18347
+Maintainer: Phillip Chin
+Depends: gnome-screenshot, tesseract-ocr, tesseract-ocr-eng, libayatana-appindicator3-1, libwebkit2gtk-4.1-0, libgtk-3-0
+Description: Copy visible screen text with local OCR
+ Select a screen region, recognize text locally with Tesseract, and copy it to the clipboard.
+```
+
+## 3. Scope completed by the FIX1 source tranche
+
+These Ralph passes targeted high-risk FIX1 review findings that could be
+implemented and validated by source review and hosted CI without physical Ubuntu
+desktop access.
 
 Implemented changes:
 
@@ -40,9 +127,9 @@ Implemented changes:
 - documented the portal lifecycle review and explicitly kept physical portal validation as a separate unreplaced release gate;
 - added `scripts/check-content-leakage.py`;
 - wired the content-leakage source guard into the repository-policy CI job;
-- reconciled the public clipboard error-code checklist by adding `clipboard_unavailable` alongside `clipboard_write_failed`.
+- removed the attempted unused `clipboard_unavailable` path and kept the proven recoverable clipboard warning/error surface as `clipboard_write_failed`.
 
-## 2. Commit list
+## 4. Commit list
 
 ```text
 33255d831cfa35e370a84df2aacdb11882f0490b  refactor: move controller type out of test namespace
@@ -68,29 +155,37 @@ d07a043b7cf20862ffed4a3c66e4cb6f92853934  ci: run content leakage source guard
 babfcce2e5a69ccee92dfa8c70ca59380d3bcaf6  fix: reconcile clipboard public error codes
 5a26fd87f43c0630ec915e7013ac0b4230b6bbba  test: cover immediate clipboard recovery path
 88590e7a896d6b3145eba16ba7d162ac4ab962f5  test: cover bounded Tesseract language probes
+f728afaec324b1642af3abb786c0b23e3c43450a  style: apply rustfmt to GNOME capture cleanup
+c2634ad8e22d202fd5879bf112bac9a2f7916824  style: apply rustfmt to command module
+f32cdbdc4f08372023889eeeae8b1ddb4d7f3a3a  style: apply rustfmt to image pipeline tests
+f3c1968ec76b07b8e9119625976be4b38f923bd6  style: apply rustfmt to Tesseract tests
+5c3e8d1723532e39a588822b3bd2f8b7ec3a08ca  style: apply rustfmt to settings recovery
+4f7b78d988b4f58459d12169519bdac714b084aa  style: apply Prettier to app tests
+b2cdb0662673b0a1f68b3085e0c33e26716fabc1  style: apply Prettier to settings panel
+a85002390f60c918a01bffbbde7431ca2c49e0bc  fix: remove unused clipboard unavailable error variant
+7a1999ee5f651095db39e765baf26187b89cc4a7  docs: record FIX1 evidence reconciliation
 ```
 
-## 3. FIX1 TODO mapping
+## 5. FIX1 TODO mapping after reconciliation
 
 ### F1.1 — Settings UI truthfulness and Settings-page errors
 
-Implemented in source:
+Automated evidence is now green for the implemented scope:
 
 - active notification/start-at-login/close-to-tray controls are disabled with explicit pre-release copy;
 - preserve-whitespace is shown as always-on for terminal/code capture rather than as a misleading active setting;
 - Settings warnings and errors render directly on the Settings tab;
 - save failure preserves unsaved values;
-- frontend tests were added for the above.
+- frontend tests passed in hosted CI.
 
-Remaining before marking the whole milestone complete:
+Still not claimed:
 
-- run frontend format/lint/typecheck/tests/build on the final commit;
-- update user/developer docs if the reserved settings behavior needs more explicit documentation;
-- decide whether to remove schema fields later or keep them reserved.
+- future implementation of notification/autostart/close-to-tray behavior;
+- physical desktop confirmation that all Settings behavior feels correct under installed `.deb` builds.
 
 ### F1.2 — Corrupt settings recovery
 
-Implemented in source:
+Automated evidence is now green for the implemented scope:
 
 - `SettingsLoadResult` and `SettingsRecoveryWarning` exist;
 - corrupt/invalid settings now produce defaults plus a warning instead of silent success;
@@ -98,43 +193,33 @@ Implemented in source:
 - corrupt settings quarantine behavior is preserved;
 - runtime diagnostics record the stable settings-invalid code;
 - frontend displays the warning on the Settings tab;
-- Rust and frontend tests were added.
-
-Remaining before marking the whole milestone complete:
-
-- run Rust/frontend CI gates on the final commit;
-- inspect serialized DTO output in the built app if needed.
+- Rust and frontend tests passed in hosted CI.
 
 ### F1.3 — Immediate-copy clipboard failure recovery
 
-Implemented in source:
+Automated evidence is now green for the selected design:
 
 - selected Option A: return `OcrResult` with `copied = false` plus warning `clipboard_write_failed`;
 - OCR text is preserved in the ordinary result path after immediate-copy clipboard failure;
 - the frontend places the text into the editor, shows the warning, avoids `Text copied`, and allows retry;
 - safe runtime diagnostics record the clipboard failure code;
-- warning helper and frontend recovery tests were added.
-
-Remaining before marking the whole milestone complete:
-
-- add a fuller command-level fake/integration test if feasible;
-- run CI gates.
+- warning helper and frontend recovery tests passed in hosted CI.
 
 ### F1.4 — Capture/OCR progress state
 
-Implemented conservative alternative:
+Only the conservative alternative is implemented and proven:
 
 - status text changed from selection-only copy to `Select a region; OCR continues after selection`.
 
-Remaining:
+Still open:
 
-- full Rust stage events were not implemented in this tranche;
-- `processing` state is still reserved but not driven by backend stage events;
-- stage-event tests remain open.
+- full Rust stage events;
+- frontend stage-event routing;
+- stale stage-event tests.
 
 ### F1.5 — Tesseract probe hardening
 
-Implemented in source:
+Automated evidence is now green for language probing:
 
 - language probe is async and bounded;
 - no shell invocation;
@@ -145,132 +230,114 @@ Implemented in source:
 - child kill/reap used on timeout/cancellation;
 - cancellation token passed through capture language probing;
 - diagnostics path uses the bounded probe;
-- tests added for valid filtering, missing English, pre-cancelled probe, oversized stdout, and hanging-helper timeout.
+- tests passed for valid filtering, missing English, pre-cancelled probe, oversized stdout, and hanging-helper timeout.
 
-Remaining:
+Still open:
 
-- decide and document bounded `tesseract --version` as implemented or deferred;
-- run CI gates.
+- bounded `tesseract --version` remains a deferred/unproven item.
 
 ### F1.6 — Image preprocessing limits and naming
 
-Implemented in source:
+Automated evidence is now green for the implemented scope:
 
 - generated 2x dimensions are checked with checked arithmetic;
 - scaled dimensions are revalidated against max dimensions/pixels before resize;
 - unsafe upscale is skipped;
 - `GrayscaleContrast` renamed to `Grayscale`;
 - unused `Upscale3x` removed/deferred;
-- tests added for grayscale naming and resize-bound policy.
-
-Remaining:
-
-- update any user/developer docs that still mention the old variant names;
-- add broader boundary tests if desired;
-- run CI gates.
+- tests passed for grayscale naming and resize-bound policy.
 
 ### F1.7 — GNOME temp ownership and stale cleanup
 
-Implemented in source:
+Automated evidence is now green for source-level behavior:
 
 - new capture directories receive `.screenshot-ocr-owned` marker files with static content-free text;
 - marker files are created with private permissions where supported;
 - if permission or marker creation fails, the new capture directory is removed before returning failure;
 - startup-time capture-directory creation opportunistically scavenges stale owned directories from the same runtime/temp base;
 - scavenging only considers names beginning `screenshot-ocr-`;
-- scavenging only removes directories that contain the exact valid regular-file marker;
+- scavenging only removes directories with the exact valid regular-file marker;
 - symlink markers are rejected;
 - unmarked directories are left untouched;
-- tests cover marker requirement, unowned directory preservation, and symlink-marker rejection.
+- Rust tests passed.
 
-Remaining:
+Still open:
 
-- run Rustfmt, Clippy, and Rust tests;
-- physically inspect runtime directories after success/cancel/failure on Ubuntu GNOME;
-- decide whether to expose scavenged-count diagnostics later.
+- physical runtime-directory inspection on Ubuntu GNOME.
 
 ### F1.8 — Portal lifecycle review
 
-Implemented in documentation:
+Implemented and documented:
 
-- created `docs/SCREENSHOT_OCR_FIX1_PORTAL_LIFECYCLE_REVIEW_2026-08-02.md`;
-- recorded why FIX1 does not add a source-level request-close hook for the current `ashpd` request usage;
-- recorded that physical portal UI/result lifecycle validation remains mandatory and unclaimed.
-
-Remaining:
-
-- physical GNOME portal validation;
-- targeted source change only if physical testing finds stale prompts/artifacts.
+- `docs/SCREENSHOT_OCR_FIX1_PORTAL_LIFECYCLE_REVIEW_2026-08-02.md` records the source-level lifecycle review;
+- physical portal UI/result lifecycle validation remains mandatory and unclaimed.
 
 ### F1.9 — Frontend production/test boundary
 
-Implemented in source:
+Automated evidence is now green:
 
 - production components import `AppController` from `src/app/controllerTypes.ts`;
-- obsolete `src/test/types.ts` was removed.
+- obsolete `src/test/types.ts` was removed;
+- frontend typecheck and production build passed.
 
-Remaining:
+### F1.10 — Tray, shortcut, startup truthfulness
 
-- run frontend lint/typecheck/tests/build.
+Partially covered only where F1.1 disabled startup and close-to-tray UI overpromise.
+The broader tray/shortcut/startup checklist remains open.
 
 ### F1.11 — Content-leakage guard and OCR fixture foundation
 
-Implemented in source/CI:
+Partially implemented and proven:
 
-- added `scripts/check-content-leakage.py`;
-- repository-policy CI now runs the source guard;
-- the guard rejects obvious first-party debug/logging surfaces such as frontend console logging and Rust print/debug macros.
+- `scripts/check-content-leakage.py` exists;
+- repository-policy CI runs the source guard;
+- source guard passed in hosted CI.
 
-Remaining:
+Still open:
 
-- richer synthetic OCR fixture foundation remains open;
-- fault-injection leakage checks remain open;
-- run CI gates.
+- richer synthetic OCR fixture foundation;
+- fault-injection leakage checks;
+- real OCR fixture/accuracy evidence.
 
 ### F1.12 — Public error-code and CI/security reconciliation
 
-Implemented in source:
+Final reconciled source state:
 
-- added `ClipboardUnavailable` to `ErrorCode` and `AppError`;
-- added public mapping and tests for `clipboard_unavailable` and `clipboard_write_failed`.
+- `clipboard_write_failed` is implemented and proven;
+- the attempted separate `clipboard_unavailable` path was removed at commit `a85002390f60c918a01bffbbde7431ca2c49e0bc` because it was unused dead code under `-D warnings`;
+- final `src-tauri/src/error.rs` does not include `ClipboardUnavailable` in `ErrorCode` or `AppError`.
 
-Remaining:
+Still open:
 
-- full per-error checklist still needs broader test coverage;
-- action SHA pinning/security tooling decisions remain open;
-- run CI gates.
+- action-SHA pinning decision;
+- dependency/security tooling decision.
 
-## 4. Validation status
+## 6. Remaining after this pass
 
-Not yet proven in this document:
+Do not treat these as complete unless separate evidence exists:
 
-- frontend formatting;
-- ESLint;
-- TypeScript checking;
-- frontend tests;
-- production frontend build;
-- Rustfmt;
-- Clippy with `-D warnings`;
-- Rust tests;
-- Rust workspace build;
-- Debian package smoke;
-- package artifact checksum.
+- Ubuntu 22.04 GNOME Wayland physical validation;
+- Ubuntu 22.04 GNOME X11 physical validation;
+- Ubuntu 24.04 GNOME Wayland physical validation;
+- Ubuntu 24.04 GNOME X11 physical validation;
+- real clipboard paste/ownership validation;
+- real tray behavior validation;
+- real GNOME custom shortcut validation;
+- real portal permission/cancellation validation;
+- multi-monitor validation;
+- 125%, 150%, and 200% scaling validation;
+- package install/upgrade/reinstall/removal validation;
+- full OCR regression and accuracy evidence;
+- dependency/license/security review;
+- final v0.1 implementation report;
+- release tag/signoff.
 
-Connector checks performed:
-
-- combined commit status for `88590e7a896d6b3145eba16ba7d162ac4ab962f5` returned no status entries;
-- the GitHub connector did not return workflow runs for `88590e7a896d6b3145eba16ba7d162ac4ab962f5`;
-- compare from `d77b5281975e2773d51afb0ce52d2ff77d966986` to `612226f28df07e11deceb8a02ec9ec1f5828ae30` showed 16 commits touching the expected Rust/frontend files before the cleanup/guard tranches;
-- latest cleanup/guard tranche source/doc commits are recorded above.
-
-Local validation was not run from this environment because the local container could not resolve `github.com` to clone the repository. Do not treat this status file as CI evidence.
-
-## 5. Next Ralph pass
+## 7. Recommended next Ralph pass
 
 Recommended next actions:
 
-1. Inspect the final CI run for `88590e7a896d6b3145eba16ba7d162ac4ab962f5` or later.
-2. Fix any format, lint, typecheck, test, or build failures.
-3. Decide/document bounded `tesseract --version` as implemented or deferred.
-4. Update `docs/SCREENSHOT_OCR_FIX1_TODO_2026-08-02.md` checkboxes only after CI proves the relevant tasks.
-5. Continue with richer F1.11 synthetic fixture/fault-injection leakage coverage and any CI failures.
+1. Inspect whether the documentation-only evidence commits triggered CI and record the result if needed.
+2. Continue with F1.10 tray/shortcut/startup truthfulness.
+3. Continue with F1.11 synthetic OCR fixture/fault-injection leakage coverage.
+4. Decide/document F1.12 action-SHA pinning and dependency/security tooling.
+5. Prepare physical Ubuntu validation checklists and execute them on real Ubuntu 22.04/24.04 GNOME Wayland/X11 machines.
