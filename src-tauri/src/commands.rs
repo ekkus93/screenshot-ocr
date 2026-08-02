@@ -14,18 +14,37 @@ pub async fn start_capture(
     state: State<'_, AppServices>,
     request: CaptureRequest,
 ) -> Result<OcrResult, PublicError> {
+    let job_id = request.job_id;
     let copy_policy = request.copy_policy;
     window
         .hide()
         .map_err(|_| PublicError::from(AppError::Internal))?;
     let capture_result = state.capture(request).await;
+    let result = match capture_result {
+        Ok(mut result) if copy_policy == CopyPolicy::Immediate => {
+            let copy_result = {
+                let mut machine = state.state.lock().await;
+                let copy_result = machine
+                    .ensure_not_cancelled(job_id)
+                    .and_then(|()| write_clipboard(window.app_handle(), &result.text));
+                machine.finish(job_id);
+                copy_result
+            };
+            copy_result.map_err(PublicError::from)?;
+            result.copied = true;
+            Ok(result)
+        }
+        Ok(result) => {
+            state.state.lock().await.finish(job_id);
+            Ok(result)
+        }
+        Err(error) => {
+            state.state.lock().await.finish(job_id);
+            Err(PublicError::from(error))
+        }
+    };
     restore_window(&window).map_err(PublicError::from)?;
-    let mut result = capture_result.map_err(PublicError::from)?;
-    if copy_policy == CopyPolicy::Immediate {
-        write_clipboard(window.app_handle(), &result.text).map_err(PublicError::from)?;
-        result.copied = true;
-    }
-    Ok(result)
+    result
 }
 
 #[tauri::command]
