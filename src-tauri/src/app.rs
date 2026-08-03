@@ -4,11 +4,11 @@ use crate::capture::{
     PortalScreenshotBackend,
 };
 use crate::diagnostics::RuntimeDiagnostics;
-use crate::error::AppError;
+use crate::error::{AppError, ErrorCode, PublicError};
 use crate::image_pipeline::prepare_variants;
 use crate::models::{
     AppActionEvent, CaptureBackendId, CaptureBackendPreference, CaptureJobId, CaptureRequest,
-    OcrEngineId, OcrResult,
+    OcrEngineId, OcrResult, OcrWarning,
 };
 use crate::ocr::{select_best_candidate, TesseractEngine};
 use crate::settings::SettingsStore;
@@ -141,6 +141,14 @@ impl AppServices {
         }
         cancellation.check()?;
         let candidate = select_best_candidate(candidates)?;
+        let mut warnings = candidate.warnings;
+        if captured.cleanup_failed {
+            // The capture succeeded, so the text is returned regardless; surface the
+            // leftover temporary directory as a warning and count it in diagnostics.
+            self.runtime_diagnostics
+                .record(ErrorCode::TemporaryCleanupFailed);
+            warnings.push(temporary_cleanup_warning());
+        }
         Ok(OcrResult {
             job_id,
             text: candidate.text,
@@ -148,10 +156,20 @@ impl AppServices {
             backend: captured.backend,
             engine: OcrEngineId::Tesseract,
             preprocessing_variant: candidate.preprocessing_variant,
-            warnings: candidate.warnings,
+            warnings,
             copied: false,
             elapsed_ms: started.elapsed().as_millis().try_into().unwrap_or(u64::MAX),
         })
+    }
+}
+
+/// Built from `PublicError` so the wording stays static and leak-free, matching
+/// the clipboard-failure warning in `commands.rs`.
+fn temporary_cleanup_warning() -> OcrWarning {
+    let public = PublicError::from(AppError::TemporaryCleanupFailed);
+    OcrWarning {
+        code: "temporary_cleanup_failed".into(),
+        message: format!("{} {}", public.message, public.guidance),
     }
 }
 

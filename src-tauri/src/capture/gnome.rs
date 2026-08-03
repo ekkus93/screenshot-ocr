@@ -83,9 +83,18 @@ impl CaptureBackend for GnomeScreenshotBackend {
         let output = directory.join(format!("capture-{}.png", Uuid::new_v4()));
         let capture_result = self.capture_into(&output, cancellation).await;
         let cleanup_result = cleanup_directory(&directory);
+        // Best-effort cleanup: a successful capture is already decoded in memory, so
+        // failing to remove the temporary directory must never discard it. The failure
+        // travels with the result instead, so the caller can record it in diagnostics
+        // and warn the user. When the capture itself failed, that root-cause error
+        // wins — it is the actionable one, and the scavenger reclaims the directory.
         match (capture_result, cleanup_result) {
-            (_, Err(error)) => Err(error),
-            (result, Ok(())) => result,
+            (Ok(captured), Ok(())) => Ok(captured),
+            (Ok(captured), Err(_)) => Ok(CapturedImage {
+                cleanup_failed: true,
+                ..captured
+            }),
+            (Err(error), _) => Err(error),
         }
     }
 }
@@ -292,6 +301,54 @@ mod tests {
             validate_capture_output(&link),
             Err(AppError::CaptureImageInvalid)
         ));
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn successful_capture_survives_a_cleanup_failure() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let directory = tempdir().expect("tempdir");
+        let source = directory.path().join("source.png");
+        image::DynamicImage::ImageLuma8(image::ImageBuffer::from_pixel(4, 4, image::Luma([255u8])))
+            .save(&source)
+            .expect("write source png");
+
+        // The helper captures successfully, records which directory it used, then
+        // makes that directory unwritable so the post-capture cleanup unlink fails.
+        // Recording the path keeps teardown surgical: this test shares the real
+        // runtime directory with other tests and with any running app, so it must
+        // only ever touch the one directory it caused to be left behind.
+        let used_directory = directory.path().join("used-directory");
+        let helper = directory.path().join("fake-gnome-screenshot");
+        fs::write(
+            &helper,
+            format!(
+                "#!/bin/sh\ncp '{}' \"$3\"\ndirname \"$3\" > '{}'\nchmod 500 \"$(dirname \"$3\")\"\nexit 0\n",
+                source.display(),
+                used_directory.display()
+            ),
+        )
+        .expect("write helper");
+        fs::set_permissions(&helper, fs::Permissions::from_mode(0o700)).expect("chmod helper");
+
+        let result = GnomeScreenshotBackend::new(helper)
+            .capture_region(&CancellationToken::new())
+            .await;
+
+        // Restore and remove before asserting, so a failed assertion cannot leave an
+        // unwritable directory behind for the scavenger or for concurrent tests.
+        if let Ok(path) = fs::read_to_string(&used_directory) {
+            let leftover = PathBuf::from(path.trim());
+            let _ = fs::set_permissions(&leftover, fs::Permissions::from_mode(0o700));
+            let _ = fs::remove_dir_all(&leftover);
+        }
+
+        let captured = result.expect("a successful capture must survive a cleanup failure");
+        assert!(
+            captured.cleanup_failed,
+            "the cleanup failure must still be reported to the caller"
+        );
     }
 
     #[cfg(unix)]

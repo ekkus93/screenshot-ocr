@@ -9,7 +9,8 @@ case "$f" in
   *) exit 0 ;;
 esac
 
-out=$(python3 scripts/check-content-leakage.py 2>&1)
+root=${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}
+out=$(cd "$root" && python3 scripts/check-content-leakage.py 2>&1)
 code=$?
 
 if [ "$code" -ne 0 ]; then

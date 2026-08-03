@@ -6,6 +6,8 @@ use tauri::{AppHandle, Emitter, Manager};
 
 pub const APP_ACTION_AVAILABLE_EVENT: &str = "screenshot-ocr://app-action-available";
 const RESERVATION_TIMEOUT: Duration = Duration::from_secs(10);
+const QUIT_CLEANUP_TIMEOUT: Duration = Duration::from_secs(5);
+const QUIT_POLL_INTERVAL: Duration = Duration::from_millis(50);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AppAction {
@@ -124,13 +126,18 @@ async fn request_quit(app: &AppHandle, services: AppServices) {
 
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
-        loop {
-            if services.state.lock().await.active_job_id().is_none() {
-                app.exit(0);
+        // Cancellation has already been requested; give the active job a bounded
+        // grace period to unwind, then exit regardless. Waiting forever would let a
+        // wedged capture make Quit do nothing at all. Helper processes are spawned
+        // with `kill_on_drop`, so exiting still tears them down.
+        let deadline = tokio::time::Instant::now() + QUIT_CLEANUP_TIMEOUT;
+        while services.state.lock().await.active_job_id().is_some() {
+            if tokio::time::Instant::now() >= deadline {
                 break;
             }
-            tokio::time::sleep(Duration::from_millis(50)).await;
+            tokio::time::sleep(QUIT_POLL_INTERVAL).await;
         }
+        app.exit(0);
     });
 }
 

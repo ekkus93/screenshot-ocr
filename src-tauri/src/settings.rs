@@ -96,10 +96,17 @@ impl SettingsStore {
         }
         let bytes = fs::read(&path).map_err(|_| AppError::SettingsInvalid)?;
         match serde_json::from_slice::<AppSettings>(&bytes) {
-            Ok(settings) => {
-                settings.validate()?;
-                Ok(settings)
-            }
+            // A file that parses but fails validation has to be quarantined just like
+            // an unparseable one. Otherwise `load_for_frontend` keeps masking it with
+            // defaults (so the UI looks healthy) while every capture keeps failing on
+            // `load()`, with nothing to make the state self-heal.
+            Ok(settings) => match settings.validate() {
+                Ok(()) => Ok(settings),
+                Err(error) => {
+                    self.quarantine(&path)?;
+                    Err(error)
+                }
+            },
             Err(_) => {
                 self.quarantine(&path)?;
                 Err(AppError::SettingsInvalid)
@@ -202,6 +209,54 @@ mod tests {
         let store = SettingsStore::new(dir.path().to_path_buf());
         assert!(matches!(store.load(), Err(AppError::SettingsInvalid)));
         assert!(dir.path().join("settings.corrupt.json").exists());
+    }
+
+    #[test]
+    fn parseable_but_invalid_settings_are_quarantined_and_self_heal() {
+        let dir = tempdir().expect("tempdir");
+        // Parses cleanly as JSON and as `AppSettings`, but fails `validate()`.
+        let invalid = AppSettings {
+            schema_version: 2,
+            ..AppSettings::default()
+        };
+        fs::write(
+            dir.path().join(SETTINGS_FILE),
+            serde_json::to_vec(&invalid).expect("serialize invalid settings"),
+        )
+        .expect("write invalid settings");
+        let store = SettingsStore::new(dir.path().to_path_buf());
+
+        // First read reports the problem and quarantines the file...
+        assert!(matches!(store.load(), Err(AppError::SettingsInvalid)));
+        assert!(dir.path().join("settings.corrupt.json").exists());
+        assert!(!dir.path().join(SETTINGS_FILE).exists());
+
+        // ...so the capture path stops failing forever on the next read, instead of
+        // staying broken while `load_for_frontend` masks it with defaults.
+        assert_eq!(
+            store.load().expect("load after quarantine"),
+            AppSettings::default()
+        );
+    }
+
+    #[test]
+    fn frontend_and_capture_load_paths_agree_after_recovery() {
+        let dir = tempdir().expect("tempdir");
+        let invalid = AppSettings {
+            schema_version: 2,
+            ..AppSettings::default()
+        };
+        fs::write(
+            dir.path().join(SETTINGS_FILE),
+            serde_json::to_vec(&invalid).expect("serialize invalid settings"),
+        )
+        .expect("write invalid settings");
+        let store = SettingsStore::new(dir.path().to_path_buf());
+
+        let recovered = store.load_for_frontend().expect("frontend load");
+        assert!(recovered.warning.is_some());
+        // The frontend claims defaults are in use; `load()` must now agree.
+        assert_eq!(store.load().expect("capture load"), recovered.settings);
     }
 
     #[test]

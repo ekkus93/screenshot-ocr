@@ -88,6 +88,10 @@ impl CaptureRequest {
 pub struct CapturedImage {
     pub image: DynamicImage,
     pub backend: CaptureBackendId,
+    /// Set when the backend captured successfully but could not remove its
+    /// temporary directory afterwards. The capture itself is still valid and
+    /// must be returned; the caller records the failure and warns the user.
+    pub cleanup_failed: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
