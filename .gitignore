@@ -7,6 +7,7 @@ coverage/
 # Rust / Tauri
 target/
 src-tauri/target/
+src-tauri/gen/
 
 # Packages and test output
 bundle/

@@ -1,0 +1,23 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/format-on-edit.sh\"",
+            "timeout": 30,
+            "statusMessage": "Formatting edited file..."
+          },
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/content-leakage-check.sh\"",
+            "timeout": 30,
+            "statusMessage": "Checking for content leakage..."
+          }
+        ]
+      }
+    ]
+  }
+}

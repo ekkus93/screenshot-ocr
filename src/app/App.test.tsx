@@ -13,6 +13,12 @@ const mocks = vi.hoisted(() => ({
   copyText: vi.fn(),
   updateSettings: vi.fn(),
   resetSettings: vi.fn(),
+  windowIsMaximized: vi.fn(),
+  windowOnResized: vi.fn(),
+  windowMinimize: vi.fn(),
+  windowToggleMaximize: vi.fn(),
+  windowClose: vi.fn(),
+  windowStartDragging: vi.fn(),
 }));
 
 const settings = {
@@ -46,6 +52,16 @@ const diagnostics = {
 };
 
 vi.mock("@tauri-apps/api/event", () => ({ listen: mocks.listen }));
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({
+    isMaximized: mocks.windowIsMaximized,
+    onResized: mocks.windowOnResized,
+    minimize: mocks.windowMinimize,
+    toggleMaximize: mocks.windowToggleMaximize,
+    close: mocks.windowClose,
+    startDragging: mocks.windowStartDragging,
+  }),
+}));
 vi.mock("../lib/tauri", () => ({
   getSettings: mocks.getSettings,
   getDiagnostics: mocks.getDiagnostics,
@@ -63,6 +79,8 @@ beforeEach(() => {
   mocks.getSettings.mockResolvedValue({ settings, warning: null });
   mocks.getDiagnostics.mockResolvedValue(diagnostics);
   mocks.takePendingAppAction.mockResolvedValue(null);
+  mocks.windowIsMaximized.mockResolvedValue(false);
+  mocks.windowOnResized.mockResolvedValue(vi.fn());
 });
 
 test("renders the primary capture workflow", async () => {
@@ -206,6 +224,7 @@ test("reserved settings controls are visible but not active", async () => {
   await screen.findByText("Ready to capture");
 
   await user.click(screen.getByRole("button", { name: /settings/i }));
+  await user.click(screen.getByRole("button", { name: /reserved/i }));
 
   expect(screen.getByLabelText(/Notify after copy/)).toBeDisabled();
   expect(screen.getByLabelText(/Start at login/)).toBeDisabled();

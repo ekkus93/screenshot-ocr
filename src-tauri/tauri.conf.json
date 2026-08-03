@@ -17,11 +17,12 @@
       {
         "label": "main",
         "title": "Screenshot OCR",
-        "width": 920,
-        "height": 720,
-        "minWidth": 360,
-        "minHeight": 520,
-        "resizable": true
+        "width": 720,
+        "height": 580,
+        "minWidth": 480,
+        "minHeight": 360,
+        "resizable": true,
+        "decorations": false
       }
     ]
   },

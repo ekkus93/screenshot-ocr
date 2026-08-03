@@ -23,9 +23,11 @@ export class ErrorBoundary extends Component<Props, State> {
   public render(): ReactNode {
     if (this.state.failed) {
       return (
-        <main className="mx-auto max-w-xl p-8">
-          <h1 className="text-xl font-semibold">Screenshot OCR could not display its interface</h1>
-          <p className="mt-3 text-slate-600 dark:text-slate-300">
+        <main className="mx-auto max-w-xl bg-paper-50 p-8 font-sans text-ink-950 dark:bg-ink-950 dark:text-paper-50">
+          <h1 className="font-mono text-xl font-semibold tracking-tight">
+            Screenshot OCR could not display its interface
+          </h1>
+          <p className="mt-3 text-steel-600 dark:text-steel-400">
             Restart the application. If this continues, use the safe diagnostics report.
           </p>
         </main>

@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Screenshot OCR app icon: a viewfinder framing a warm phosphor glow, like
+       a CRT terminal caught mid-scan. The corner-bracket reticle is the app's
+       visual signature (see ScanFrame in src/features/capture/CapturePanel.tsx),
+       reused here at icon scale. Colors match tailwind.config.js ink/phosphor/paper. -->
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1b2023" />
+      <stop offset="100%" stop-color="#14181a" />
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#f2a93b" stop-opacity="0.24" />
+      <stop offset="55%" stop-color="#f2a93b" stop-opacity="0.07" />
+      <stop offset="100%" stop-color="#f2a93b" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="sheen" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f1f3ef" stop-opacity="0.10" />
+      <stop offset="100%" stop-color="#f1f3ef" stop-opacity="0" />
+    </linearGradient>
+    <linearGradient id="bracket" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f7b755" />
+      <stop offset="100%" stop-color="#dc9526" />
+    </linearGradient>
+    <clipPath id="squircle">
+      <rect x="10" y="10" width="236" height="236" rx="44" />
+    </clipPath>
+    <filter id="warmShadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="4" />
+      <feOffset dx="0" dy="3" result="off" />
+      <feFlood flood-color="#5c3a10" flood-opacity="0.65" />
+      <feComposite in2="off" operator="in" />
+      <feMerge>
+        <feMergeNode />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <g clip-path="url(#squircle)">
+    <rect x="10" y="10" width="236" height="236" fill="url(#bg)" />
+    <circle cx="128" cy="128" r="118" fill="url(#glow)" />
+    <rect x="10" y="10" width="236" height="132" fill="url(#sheen)" />
+  </g>
+
+  <g
+    fill="none"
+    stroke="url(#bracket)"
+    stroke-width="24"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    filter="url(#warmShadow)"
+  >
+    <path d="M96,46 L46,46 L46,96" />
+    <path d="M160,46 L210,46 L210,96" />
+    <path d="M46,160 L46,210 L96,210" />
+    <path d="M210,160 L210,210 L160,210" />
+  </g>
+
+  <g fill="none" stroke="#f1f3ef" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M104,98 L132,128 L104,158" />
+    <path d="M140,158 L172,158" />
+  </g>
+</svg>

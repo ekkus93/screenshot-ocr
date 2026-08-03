@@ -26,7 +26,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   schemaVersion: 1,
   language: "eng",
   textMode: "terminal",
-  previewBeforeCopy: true,
+  previewBeforeCopy: false,
   preserveWhitespace: true,
   notifyAfterCopy: true,
   startAtLogin: false,
@@ -172,15 +172,17 @@ export function useAppController() {
         });
         throwIfAborted(signal);
 
-        const loadedSettings = await getSettings();
+        // Independent requests — fetch concurrently so one slow round trip
+        // doesn't serialize behind the other and double startup latency.
+        const [loadedSettings, loadedDiagnostics] = await Promise.all([
+          getSettings(),
+          getDiagnostics(),
+        ]);
         throwIfAborted(signal);
         settingsRef.current = loadedSettings.settings;
         setSettings(loadedSettings.settings);
         setSettingsWarning(loadedSettings.warning);
         setSettingsDirty(false);
-
-        const loadedDiagnostics = await getDiagnostics();
-        throwIfAborted(signal);
         setDiagnostics(loadedDiagnostics);
 
         initialized.current = true;

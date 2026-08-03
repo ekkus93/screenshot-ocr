@@ -18,10 +18,27 @@ pub async fn start_capture(
 ) -> Result<OcrResult, PublicError> {
     let job_id = request.job_id;
     let copy_policy = request.copy_policy;
-    window
-        .hide()
-        .map_err(|_| record_error(&state, AppError::Internal))?;
-    let capture_result = state.capture(request).await;
+    // The window is only hidden by this command, for the moment gnome-screenshot needs
+    // the screen clear. Restore it to whatever it was before, rather than forcing it
+    // open — a background (shortcut/tray) capture should stay in the background.
+    let was_visible = window.is_visible().unwrap_or(true);
+    let hide_window = window.clone();
+    let show_window = window.clone();
+    let capture_result = state
+        .capture(
+            request,
+            move || hide_window.hide().map_err(|_| AppError::Internal),
+            move || {
+                if was_visible {
+                    let shown = show_window.show().map_err(|_| AppError::Internal);
+                    let _ = show_window.set_focus();
+                    shown
+                } else {
+                    Ok(())
+                }
+            },
+        )
+        .await;
     let result = match capture_result {
         Ok(mut result) if copy_policy == CopyPolicy::Immediate => {
             let copy_result = {
@@ -55,11 +72,18 @@ pub async fn start_capture(
             Err(record_error(&state, error))
         }
     };
-    let restore_result = restore_window(&window).map_err(|error| record_error(&state, error));
-    match (result, restore_result) {
-        (_, Err(error)) => Err(error),
-        (result, Ok(())) => result,
+    // A silently successful immediate copy is the 99% case and needs no window at
+    // all. Anything that needs the user's attention (an error, a preview that
+    // needs reviewing, or a copy that didn't actually succeed) still raises it.
+    let needs_attention = match &result {
+        Err(_) => true,
+        Ok(outcome) => copy_policy != CopyPolicy::Immediate || !outcome.copied,
+    };
+    if needs_attention {
+        let _ = window.show();
+        let _ = window.set_focus();
     }
+    result
 }
 
 #[tauri::command]
@@ -126,14 +150,22 @@ pub fn reset_settings(state: State<'_, AppServices>) -> Result<AppSettings, Publ
 pub async fn get_diagnostics(state: State<'_, AppServices>) -> Result<Diagnostics, PublicError> {
     let environment = EnvironmentProbe::probe().map_err(|error| record_error(&state, error))?;
     let cancellation = crate::cancellation::CancellationToken::new();
-    let languages = match TesseractEngine::from_environment(&environment) {
-        Ok(engine) => engine
-            .probe_english(&cancellation)
-            .await
-            .unwrap_or_default(),
-        Err(_) => Vec::new(),
+    let languages_probe = async {
+        match TesseractEngine::from_environment(&environment) {
+            Ok(engine) => engine
+                .probe_english(&cancellation)
+                .await
+                .unwrap_or_default(),
+            Err(_) => Vec::new(),
+        }
     };
-    let portal_summary = PortalScreenshotBackend::safe_capability_summary().await;
+    // Independent probes (subprocess vs. D-Bus) — run concurrently so one slow
+    // check (e.g. the portal needing fresh D-Bus activation) doesn't serialize
+    // behind the other and double the worst-case startup latency.
+    let (languages, portal_summary) = tokio::join!(
+        languages_probe,
+        PortalScreenshotBackend::safe_capability_summary()
+    );
     Ok(Diagnostics::from_environment(
         &environment,
         languages,
@@ -146,11 +178,6 @@ fn record_error(state: &AppServices, error: AppError) -> PublicError {
     let public = PublicError::from(error);
     state.runtime_diagnostics.record(public.code);
     public
-}
-
-fn restore_window(window: &WebviewWindow) -> Result<(), AppError> {
-    window.show().map_err(|_| AppError::Internal)?;
-    window.set_focus().map_err(|_| AppError::Internal)
 }
 
 fn write_clipboard(app: &AppHandle, text: &str) -> Result<(), AppError> {

@@ -28,7 +28,7 @@ impl Default for AppSettings {
             schema_version: 1,
             language: "eng".into(),
             text_mode: TextMode::Terminal,
-            preview_before_copy: true,
+            preview_before_copy: false,
             preserve_whitespace: true,
             notify_after_copy: true,
             start_at_login: false,

@@ -66,13 +66,30 @@ impl AppServices {
         }
     }
 
-    pub async fn capture(&self, request: CaptureRequest) -> Result<OcrResult, AppError> {
+    /// `before_region_capture` runs immediately before the external screenshot
+    /// process is invoked and `after_region_capture` immediately after it returns
+    /// (success or failure) — this is the only window during which the caller
+    /// should hide its UI, since every other step (settings/environment/backend
+    /// selection, OCR) runs in-process and never needs the window out of the way.
+    pub async fn capture(
+        &self,
+        request: CaptureRequest,
+        before_region_capture: impl FnOnce() -> Result<(), AppError> + Send,
+        after_region_capture: impl FnOnce() -> Result<(), AppError> + Send,
+    ) -> Result<OcrResult, AppError> {
         if !request.validate() {
             return Err(AppError::SettingsInvalid);
         }
         let job_id = request.job_id;
         let cancellation = self.state.lock().await.begin(job_id)?;
-        self.capture_inner(job_id, request, &cancellation).await
+        self.capture_inner(
+            job_id,
+            request,
+            &cancellation,
+            before_region_capture,
+            after_region_capture,
+        )
+        .await
     }
 
     async fn capture_inner(
@@ -80,6 +97,8 @@ impl AppServices {
         job_id: CaptureJobId,
         request: CaptureRequest,
         cancellation: &CancellationToken,
+        before_region_capture: impl FnOnce() -> Result<(), AppError> + Send,
+        after_region_capture: impl FnOnce() -> Result<(), AppError> + Send,
     ) -> Result<OcrResult, AppError> {
         let started = Instant::now();
         cancellation.check()?;
@@ -87,7 +106,18 @@ impl AppServices {
         let environment = EnvironmentProbe::probe()?;
         let backend =
             select_capture_backend(settings.capture_backend, &environment, cancellation).await?;
-        let captured = backend.capture_region(cancellation).await?;
+        before_region_capture()?;
+        let captured = match backend.capture_region(cancellation).await {
+            Ok(captured) => {
+                // Best-effort: never let a restore failure discard a successful capture.
+                let _ = after_region_capture();
+                captured
+            }
+            Err(error) => {
+                let _ = after_region_capture();
+                return Err(error);
+            }
+        };
         cancellation.check()?;
         let engine = TesseractEngine::from_environment(&environment)?;
         engine.probe_english(cancellation).await?;
