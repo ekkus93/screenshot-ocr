@@ -1,8 +1,10 @@
 # Screenshot OCR
 
+[![CI](https://github.com/ekkus93/screenshot-ocr/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/ekkus93/screenshot-ocr/actions/workflows/ci.yml)
+
 Screenshot OCR is a privacy-first Linux desktop utility for selecting visible screen text, recognizing it locally with Tesseract, and copying it to the clipboard. It is optimized for terminal output, source code, and developer punctuation.
 
-![Screenshot OCR main window, Capture tab, idle state](docs/screenshot.png)
+![Screenshot OCR main window, Capture tab, idle state, dark theme](docs/screenshot-dark.png)
 
 > **Status:** pre-release. Automated development is active; the mandatory Ubuntu 22.04/24.04 Wayland/X11 validation matrix is not yet complete.
 
