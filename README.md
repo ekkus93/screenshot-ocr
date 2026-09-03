@@ -18,6 +18,25 @@ Screenshot OCR is a privacy-first Linux desktop utility for selecting visible sc
 
 Other distributions and desktop environments are unverified.
 
+## Installing the latest tagged release
+
+Each tag pushed to `master` (`vX.Y.Z`) is built by CI and published as a [GitHub release](https://github.com/ekkus93/screenshot-ocr/releases/latest) with the `.deb` package and its `sha256sum` attached.
+
+With the [GitHub CLI](https://cli.github.com/):
+
+```bash
+gh release download --repo ekkus93/screenshot-ocr --pattern '*.deb' --pattern '*.sha256'
+sha256sum ./*.deb   # compare against the hash in package.sha256
+sudo dpkg -i ./*.deb
+sudo apt-get install -f
+```
+
+(GitHub renames release assets by replacing spaces with dots, so the filename in `package.sha256` won't match the downloaded `.deb` exactly — compare the hash values, not `sha256sum --check`.)
+
+Without `gh`, open the [latest release page](https://github.com/ekkus93/screenshot-ocr/releases/latest), download the `.deb` asset, then run the same `dpkg -i` / `apt-get install -f` pair (see [Installing a locally built package](#installing-a-locally-built-package) below for what each step does and how to uninstall).
+
+Releases only exist starting with the first tag pushed after this packaging step was added; earlier tags have no release assets.
+
 ## Architecture
 
 - React, TypeScript, Vite, and Tailwind CSS frontend
@@ -78,7 +97,7 @@ Hosted CI on Ubuntu 22.04 is authoritative for compilation and linting. Physical
 
 `npm run tauri build` produces `src-tauri/target/release/bundle/deb/Screenshot OCR_<version>_amd64.deb`. A separate Playwright suite (`npm run test:layout`) checks that the Capture/Settings/Diagnostics tabs never require scrolling at the app's window size; it runs in CI but is not part of `npm run validate` since it needs a browser install step.
 
-## Installing the built package
+## Installing a locally built package
 
 ```bash
 sudo dpkg -i "./src-tauri/target/release/bundle/deb/Screenshot OCR_0.1.0_amd64.deb"
