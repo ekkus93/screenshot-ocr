@@ -45,7 +45,7 @@ export function App() {
     <main className="flex h-screen flex-col overflow-hidden bg-paper-50 p-5 font-sans text-ink-950 dark:bg-ink-950 dark:text-paper-50">
       <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col overflow-hidden">
         <header
-          data-tauri-drag-region
+          data-tauri-drag-region="deep"
           className="mb-3 flex shrink-0 items-center justify-between gap-4 border-b border-steel-200 pb-3 dark:border-ink-700"
         >
           <span className="font-mono text-sm font-semibold tracking-[0.2em] text-steel-600 dark:text-steel-400">
