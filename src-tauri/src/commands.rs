@@ -1,5 +1,4 @@
 use crate::app::AppServices;
-use crate::capture::{EnvironmentProbe, PortalScreenshotBackend};
 use crate::diagnostics::Diagnostics;
 use crate::error::{AppError, PublicError};
 use crate::models::{
@@ -18,8 +17,8 @@ pub async fn start_capture(
 ) -> Result<OcrResult, PublicError> {
     let job_id = request.job_id;
     let copy_policy = request.copy_policy;
-    // The window is only hidden by this command, for the moment gnome-screenshot needs
-    // the screen clear. Restore it to whatever it was before, rather than forcing it
+    // The window is hidden only for the actual platform region-selection/capture call.
+    // Restore it to whatever it was before, rather than forcing it
     // open — a background (shortcut/tray) capture should stay in the background.
     let was_visible = window.is_visible().unwrap_or(true);
     let hide_window = window.clone();
@@ -148,28 +147,24 @@ pub fn reset_settings(state: State<'_, AppServices>) -> Result<AppSettings, Publ
 
 #[tauri::command]
 pub async fn get_diagnostics(state: State<'_, AppServices>) -> Result<Diagnostics, PublicError> {
-    let environment = EnvironmentProbe::probe().map_err(|error| record_error(&state, error))?;
     let cancellation = crate::cancellation::CancellationToken::new();
     let languages_probe = async {
-        match TesseractEngine::from_environment(&environment) {
-            Ok(engine) => engine
+        match state.platform.resolve_ocr_runtime() {
+            Ok(runtime) => TesseractEngine::new(runtime)
                 .probe_english(&cancellation)
                 .await
                 .unwrap_or_default(),
             Err(_) => Vec::new(),
         }
     };
-    // Independent probes (subprocess vs. D-Bus) — run concurrently so one slow
-    // check (e.g. the portal needing fresh D-Bus activation) doesn't serialize
-    // behind the other and double the worst-case startup latency.
-    let (languages, portal_summary) = tokio::join!(
-        languages_probe,
-        PortalScreenshotBackend::safe_capability_summary()
-    );
-    Ok(Diagnostics::from_environment(
-        &environment,
+    // Platform capability probing may involve native IPC while the OCR probe runs a
+    // bounded subprocess. Run them concurrently without exposing either mechanism
+    // to the shared diagnostics DTO.
+    let (languages, platform) = tokio::join!(languages_probe, state.platform.diagnostics());
+    let platform = platform.map_err(|error| record_error(&state, error))?;
+    Ok(Diagnostics::from_platform(
+        platform,
         languages,
-        portal_summary,
         state.runtime_diagnostics.snapshot(),
     ))
 }

@@ -3,7 +3,7 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [master, ralph/windows-support]
     tags: ["v*"]
   pull_request:
     branches: [master]

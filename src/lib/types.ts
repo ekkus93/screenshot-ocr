@@ -78,12 +78,12 @@ export interface SettingsLoadResult {
 
 export interface Diagnostics {
   appVersion: string;
+  platform: string;
   osRelease: string;
   desktopEnvironment: string;
   sessionType: string;
-  portalSummary: string;
-  gnomeScreenshot: string;
-  tesseract: string;
+  captureSummary: string;
+  ocrRuntime: string;
   installedLanguages: string[];
   clipboardStatus: string;
   trayStatus: string;

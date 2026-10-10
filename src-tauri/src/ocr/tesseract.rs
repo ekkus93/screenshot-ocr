@@ -1,9 +1,9 @@
 use crate::cancellation::CancellationToken;
-use crate::capture::EnvironmentInfo;
 use crate::error::AppError;
 use crate::image_pipeline::{encode_png, PreparedVariant};
 use crate::models::{OcrCandidate, OcrWarning, TextMode};
 use crate::ocr::cleanup::{cleanup_text, score_text};
+use crate::ocr::OcrRuntime;
 use std::process::Stdio;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -17,16 +17,20 @@ const MAX_LANGUAGE_LIST_BYTES: usize = 64 * 1024;
 
 #[derive(Clone, Debug)]
 pub struct TesseractEngine {
-    executable: std::path::PathBuf,
+    runtime: OcrRuntime,
 }
 
 impl TesseractEngine {
-    pub fn from_environment(environment: &EnvironmentInfo) -> Result<Self, AppError> {
-        environment
-            .tesseract
-            .clone()
-            .map(|executable| Self { executable })
-            .ok_or(AppError::OcrEngineUnavailable)
+    pub fn new(runtime: OcrRuntime) -> Self {
+        Self { runtime }
+    }
+
+    fn command(&self) -> Command {
+        let mut command = Command::new(&self.runtime.executable);
+        if let Some(tessdata_dir) = &self.runtime.tessdata_dir {
+            command.env("TESSDATA_PREFIX", tessdata_dir);
+        }
+        command
     }
 
     pub async fn probe_english(
@@ -35,7 +39,8 @@ impl TesseractEngine {
     ) -> Result<Vec<String>, AppError> {
         cancellation.check()?;
         let deadline = Instant::now() + LANGUAGE_PROBE_TIMEOUT;
-        let mut child = Command::new(&self.executable)
+        let mut child = self
+            .command()
             .arg("--list-langs")
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
@@ -129,7 +134,8 @@ impl TesseractEngine {
             TextMode::Document => "3",
             TextMode::SingleLine => "7",
         };
-        let mut child = Command::new(&self.executable)
+        let mut child = self
+            .command()
             .args([
                 "stdin",
                 "stdout",
@@ -278,7 +284,7 @@ mod tests {
             &executable,
             "#!/bin/sh\nif [ \"$1\" = \"--list-langs\" ]; then printf 'List of available languages\neng\nosd\nbad/name\n'; exit 0; fi\nexit 1\n",
         );
-        let engine = TesseractEngine { executable };
+        let engine = TesseractEngine::new(OcrRuntime::new(executable, None));
         let languages = engine
             .probe_english(&CancellationToken::new())
             .await
@@ -297,7 +303,7 @@ mod tests {
             &executable,
             "#!/bin/sh\nif [ \"$1\" = \"--list-langs\" ]; then printf 'osd\n'; exit 0; fi\nexit 1\n",
         );
-        let engine = TesseractEngine { executable };
+        let engine = TesseractEngine::new(OcrRuntime::new(executable, None));
         assert!(matches!(
             engine.probe_english(&CancellationToken::new()).await,
             Err(AppError::OcrLanguageMissing)
@@ -313,7 +319,7 @@ mod tests {
             &executable,
             "#!/bin/sh\nif [ \"$1\" = \"--list-langs\" ]; then head -c 70000 /dev/zero | tr '\\000' a; exit 0; fi\nexit 1\n",
         );
-        let engine = TesseractEngine { executable };
+        let engine = TesseractEngine::new(OcrRuntime::new(executable, None));
         assert!(matches!(
             engine.probe_english(&CancellationToken::new()).await,
             Err(AppError::OcrEngineUnavailable)
@@ -329,7 +335,7 @@ mod tests {
             &executable,
             "#!/bin/sh\nif [ \"$1\" = \"--list-langs\" ]; then sleep 30; fi\nexit 1\n",
         );
-        let engine = TesseractEngine { executable };
+        let engine = TesseractEngine::new(OcrRuntime::new(executable, None));
         let result = timeout(
             LANGUAGE_PROBE_TIMEOUT + Duration::from_secs(2),
             engine.probe_english(&CancellationToken::new()),
@@ -341,9 +347,10 @@ mod tests {
 
     #[tokio::test]
     async fn pre_cancelled_language_probe_exits_before_spawn_requirements() {
-        let engine = TesseractEngine {
-            executable: std::path::PathBuf::from("/definitely/missing/tesseract"),
-        };
+        let engine = TesseractEngine::new(OcrRuntime::new(
+            std::path::PathBuf::from("/definitely/missing/tesseract"),
+            None,
+        ));
         let cancellation = CancellationToken::new();
         cancellation.cancel();
         assert!(matches!(
@@ -358,7 +365,7 @@ mod tests {
         let directory = tempdir().expect("tempdir");
         let executable = directory.path().join("slow-tesseract");
         write_executable(&executable, "#!/bin/sh\nsleep 30\n");
-        let engine = TesseractEngine { executable };
+        let engine = TesseractEngine::new(OcrRuntime::new(executable, None));
         let variant = PreparedVariant {
             image: DynamicImage::new_luma8(1, 1),
             id: PreprocessingVariant::Original,

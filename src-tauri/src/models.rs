@@ -99,6 +99,7 @@ pub struct CapturedImage {
 pub enum CaptureBackendId {
     GnomeScreenshot,
     XdgPortal,
+    WindowsNative,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]

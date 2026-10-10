@@ -1,4 +1,3 @@
-use crate::capture::EnvironmentInfo;
 use crate::error::ErrorCode;
 use serde::Serialize;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -88,16 +87,26 @@ impl RuntimeDiagnostics {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PlatformDiagnostics {
+    pub platform: String,
+    pub os_release: String,
+    pub desktop_environment: String,
+    pub session_type: String,
+    pub capture_summary: String,
+    pub ocr_runtime: String,
+}
+
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Diagnostics {
     pub app_version: String,
+    pub platform: String,
     pub os_release: String,
     pub desktop_environment: String,
     pub session_type: String,
-    pub portal_summary: String,
-    pub gnome_screenshot: String,
-    pub tesseract: String,
+    pub capture_summary: String,
+    pub ocr_runtime: String,
     pub installed_languages: Vec<String>,
     pub clipboard_status: String,
     pub tray_status: String,
@@ -108,20 +117,19 @@ pub struct Diagnostics {
 }
 
 impl Diagnostics {
-    pub fn from_environment(
-        environment: &EnvironmentInfo,
+    pub fn from_platform(
+        platform: PlatformDiagnostics,
         languages: Vec<String>,
-        portal_summary: String,
         runtime: RuntimeDiagnosticsSnapshot,
     ) -> Self {
         Self {
             app_version: env!("CARGO_PKG_VERSION").into(),
-            os_release: environment.os_release.clone(),
-            desktop_environment: environment.desktop_environment.clone(),
-            session_type: environment.session_type.clone(),
-            portal_summary,
-            gnome_screenshot: availability(environment.gnome_screenshot.is_some()),
-            tesseract: availability(environment.tesseract.is_some()),
+            platform: platform.platform,
+            os_release: platform.os_release,
+            desktop_environment: platform.desktop_environment,
+            session_type: platform.session_type,
+            capture_summary: platform.capture_summary,
+            ocr_runtime: platform.ocr_runtime,
             installed_languages: languages,
             clipboard_status: "available through Tauri clipboard manager".into(),
             tray_status: runtime.tray_status,
@@ -130,14 +138,6 @@ impl Diagnostics {
             last_error_code: runtime.last_error_code,
             cleanup_failure_count: runtime.cleanup_failure_count,
         }
-    }
-}
-
-fn availability(available: bool) -> String {
-    if available {
-        "available".into()
-    } else {
-        "unavailable".into()
     }
 }
 
@@ -151,24 +151,19 @@ fn serialized_error_code(code: ErrorCode) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
-
-    fn environment() -> EnvironmentInfo {
-        EnvironmentInfo {
-            os_release: "Ubuntu".into(),
-            desktop_environment: "GNOME".into(),
-            session_type: "wayland".into(),
-            gnome_screenshot: Some(PathBuf::from("/sensitive/path")),
-            tesseract: None,
-        }
-    }
 
     #[test]
-    fn diagnostics_never_include_executable_paths() {
-        let json = serde_json::to_string(&Diagnostics::from_environment(
-            &environment(),
+    fn diagnostics_use_only_safe_platform_summary_values() {
+        let json = serde_json::to_string(&Diagnostics::from_platform(
+            PlatformDiagnostics {
+                platform: "linux".into(),
+                os_release: "Ubuntu".into(),
+                desktop_environment: "GNOME".into(),
+                session_type: "wayland".into(),
+                capture_summary: "portal available; helper available".into(),
+                ocr_runtime: "available".into(),
+            },
             vec!["eng".into()],
-            "Screenshot v3; area target available".into(),
             RuntimeDiagnosticsSnapshot::default(),
         ))
         .expect("serialize");

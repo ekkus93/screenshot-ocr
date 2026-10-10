@@ -1,5 +1,6 @@
 use crate::actions::{spawn_dispatch, ActivationSource, AppAction};
 use crate::app::AppServices;
+use crate::platform::PlatformServices;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::TrayIconBuilder,
@@ -16,9 +17,9 @@ pub fn setup(app: &mut App) {
             .set_tray_status("unavailable; main window remains usable"),
     }
 
-    services
-        .runtime_diagnostics
-        .set_shortcut_status(register_direct_shortcut(app));
+    services.runtime_diagnostics.set_shortcut_status(
+        register_direct_shortcut(app, services.platform.as_ref()),
+    );
 }
 
 fn build_tray(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
@@ -52,52 +53,12 @@ fn build_tray(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn register_direct_shortcut(app: &App) -> &'static str {
-    let Some(shortcut) = direct_shortcut() else {
-        return "deferred; use the GNOME custom shortcut";
+fn register_direct_shortcut(app: &App, platform: &dyn PlatformServices) -> &'static str {
+    let Some(shortcut) = platform.direct_shortcut() else {
+        return platform.shortcut_unavailable_status();
     };
     match app.global_shortcut().register(shortcut) {
         Ok(()) => "registered",
         Err(_) => "registration failed; use the documented platform shortcut",
-    }
-}
-
-#[cfg(target_os = "linux")]
-fn direct_shortcut() -> Option<&'static str> {
-    direct_shortcut_for_session(std::env::var("XDG_SESSION_TYPE").ok().as_deref())
-}
-
-#[cfg(target_os = "linux")]
-fn direct_shortcut_for_session(session: Option<&str>) -> Option<&'static str> {
-    match session {
-        Some(session) if session.eq_ignore_ascii_case("x11") => Some("Super+Shift+O"),
-        _ => None,
-    }
-}
-
-#[cfg(any(target_os = "windows", target_os = "macos"))]
-fn direct_shortcut() -> Option<&'static str> {
-    Some("CmdOrCtrl+Shift+O")
-}
-
-#[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
-fn direct_shortcut() -> Option<&'static str> {
-    None
-}
-
-#[cfg(test)]
-mod tests {
-    #[cfg(target_os = "linux")]
-    use super::direct_shortcut_for_session;
-
-    #[cfg(target_os = "linux")]
-    #[test]
-    fn linux_direct_shortcut_is_x11_only() {
-        assert_eq!(
-            direct_shortcut_for_session(Some("x11")),
-            Some("Super+Shift+O")
-        );
-        assert_eq!(direct_shortcut_for_session(Some("wayland")), None);
-        assert_eq!(direct_shortcut_for_session(None), None);
     }
 }

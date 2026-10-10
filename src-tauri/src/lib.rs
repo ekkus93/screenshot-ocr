@@ -9,6 +9,7 @@ mod error;
 mod image_pipeline;
 mod models;
 mod ocr;
+mod platform;
 mod settings;
 mod state;
 
