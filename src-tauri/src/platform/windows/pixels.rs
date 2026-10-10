@@ -1,5 +1,7 @@
 //! Bounded GDI capture. All native resources are owned and released here.
-use super::geometry::Rect;
+use super::composite;
+use super::geometry::{monitor_tiles, Rect};
+use super::monitors;
 use super::selector;
 use crate::cancellation::CancellationToken;
 use crate::capture::CaptureBackend;
@@ -27,7 +29,7 @@ impl CaptureBackend for NativeCapture {
         tokio::task::spawn_blocking(move || {
             let rectangle = selector::select_region(&cancellation)?;
             cancellation.check()?;
-            let image = capture_pixels(rectangle)?;
+            let image = capture_pixels(rectangle, &cancellation)?;
             cancellation.check()?;
             Ok(CapturedImage {
                 image: DynamicImage::ImageRgba8(image),
@@ -96,7 +98,7 @@ impl Drop for GdiHandles {
     }
 }
 
-fn capture_pixels(rectangle: Rect) -> Result<RgbaImage, AppError> {
+fn capture_tile(rectangle: Rect) -> Result<RgbaImage, AppError> {
     let byte_len = rectangle.rgba_len()?;
     let width = i32::try_from(rectangle.width()).map_err(|_| AppError::CaptureTooLarge)?;
     let height = i32::try_from(rectangle.height()).map_err(|_| AppError::CaptureTooLarge)?;
@@ -151,4 +153,20 @@ fn capture_pixels(rectangle: Rect) -> Result<RgbaImage, AppError> {
         RgbaImage::from_raw(width as u32, height as u32, pixels)
             .ok_or(AppError::CaptureImageInvalid)
     }
+}
+
+fn capture_pixels(selection: Rect, cancellation: &CancellationToken) -> Result<RgbaImage, AppError> {
+    selection.rgba_len()?;
+    let displays = monitors::enumerate()?;
+    let tiles = monitor_tiles(selection, &displays);
+    if tiles.is_empty() {
+        return Err(AppError::CaptureImageInvalid);
+    }
+    let mut captured = Vec::with_capacity(tiles.len());
+    for tile in tiles {
+        cancellation.check()?;
+        captured.push((tile, capture_tile(tile.source)?));
+    }
+    cancellation.check()?;
+    composite::compose(selection, captured)
 }
