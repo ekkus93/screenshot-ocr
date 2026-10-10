@@ -1,8 +1,8 @@
+use super::image::decode_captured_image;
 use crate::cancellation::CancellationToken;
 use crate::capture::CaptureBackend;
 use crate::error::AppError;
 use crate::models::{CaptureBackendId, CapturedImage};
-use super::image::decode_captured_image;
 use async_trait::async_trait;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
