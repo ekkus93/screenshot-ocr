@@ -222,3 +222,7 @@ mod tests {
         ));
     }
 }
+
+#[cfg(test)]
+#[path = "app_portability_tests.rs"]
+mod portability_tests;

@@ -1,0 +1,218 @@
+//! Platform-contract tests exercise the shared orchestration without a real desktop.
+//! Fake services deliberately model Linux and Windows captures identically.
+
+use super::*;
+use crate::capture::CaptureBackend;
+use crate::diagnostics::PlatformDiagnostics;
+use crate::models::{
+    CaptureBackendId, CaptureBackendPreference, CaptureSource, CapturedImage, CopyPolicy, TextMode,
+};
+use async_trait::async_trait;
+use image::DynamicImage;
+use std::sync::{Arc, Mutex};
+use tempfile::tempdir;
+
+#[derive(Clone, Copy)]
+enum FakeOutcome {
+    PrepareUnavailable,
+    CaptureUnavailable,
+    CancelDuringCapture,
+    Captured,
+}
+
+type Events = Arc<Mutex<Vec<&'static str>>>;
+
+fn note(events: &Events, event: &'static str) {
+    events.lock().expect("events lock").push(event);
+}
+
+fn recorded(events: &Events) -> Vec<&'static str> {
+    events.lock().expect("events lock").clone()
+}
+
+struct FakePlatform {
+    outcome: FakeOutcome,
+    backend: CaptureBackendId,
+    events: Events,
+}
+
+struct FakeCapture {
+    outcome: FakeOutcome,
+    backend: CaptureBackendId,
+    events: Events,
+}
+
+#[async_trait]
+impl CaptureBackend for FakeCapture {
+    async fn capture_region(
+        &self,
+        cancellation: &CancellationToken,
+    ) -> Result<CapturedImage, AppError> {
+        note(&self.events, "capture");
+        cancellation.check()?;
+        match self.outcome {
+            FakeOutcome::CaptureUnavailable => Err(AppError::CaptureBackendUnavailable),
+            FakeOutcome::CancelDuringCapture => {
+                cancellation.cancel();
+                Err(AppError::CaptureCancelled)
+            }
+            FakeOutcome::Captured => Ok(CapturedImage {
+                image: DynamicImage::new_rgb8(4, 4),
+                backend: self.backend,
+                cleanup_failed: false,
+            }),
+            FakeOutcome::PrepareUnavailable => unreachable!("preparation rejects this mode"),
+        }
+    }
+}
+
+#[async_trait]
+impl PlatformServices for FakePlatform {
+    async fn prepare_capture(
+        &self,
+        _preference: CaptureBackendPreference,
+        cancellation: &CancellationToken,
+    ) -> Result<Box<dyn CaptureBackend>, AppError> {
+        note(&self.events, "prepare");
+        cancellation.check()?;
+        if matches!(self.outcome, FakeOutcome::PrepareUnavailable) {
+            return Err(AppError::CaptureBackendUnavailable);
+        }
+        Ok(Box::new(FakeCapture {
+            outcome: self.outcome,
+            backend: self.backend,
+            events: self.events.clone(),
+        }))
+    }
+
+    fn resolve_ocr_runtime(&self) -> Result<crate::ocr::OcrRuntime, AppError> {
+        note(&self.events, "runtime");
+        Err(AppError::OcrEngineUnavailable)
+    }
+
+    async fn diagnostics(&self) -> Result<PlatformDiagnostics, AppError> {
+        Ok(PlatformDiagnostics {
+            platform: "test".into(),
+            os_release: "test".into(),
+            desktop_environment: "test".into(),
+            session_type: "test".into(),
+            capture_summary: "available".into(),
+            ocr_runtime: "unavailable".into(),
+        })
+    }
+
+    fn direct_shortcut(&self) -> Option<&'static str> {
+        None
+    }
+}
+
+fn request() -> CaptureRequest {
+    CaptureRequest {
+        job_id: CaptureJobId::new(),
+        mode: TextMode::Terminal,
+        language: "eng".into(),
+        copy_policy: CopyPolicy::Preview,
+        source: CaptureSource::MainWindow,
+    }
+}
+
+async fn run_case(
+    outcome: FakeOutcome,
+    backend: CaptureBackendId,
+) -> (Result<OcrResult, AppError>, Events, CaptureJobId, AppServices) {
+    let events: Events = Arc::new(Mutex::new(Vec::new()));
+    let directory = tempdir().expect("tempdir");
+    let services = AppServices::with_platform(
+        directory.path().to_path_buf(),
+        Arc::new(FakePlatform {
+            outcome,
+            backend,
+            events: events.clone(),
+        }),
+    );
+    let request = request();
+    let job_id = request.job_id;
+    let before = events.clone();
+    let after = events.clone();
+    let result = services
+        .capture(
+            request,
+            move || {
+                note(&before, "hide");
+                Ok(())
+            },
+            move || {
+                note(&after, "restore");
+                Ok(())
+            },
+        )
+        .await;
+    (result, events, job_id, services)
+}
+
+#[tokio::test]
+async fn failed_preparation_never_hides_window() {
+    let (result, events, _, _) =
+        run_case(FakeOutcome::PrepareUnavailable, CaptureBackendId::GnomeScreenshot).await;
+    assert!(matches!(result, Err(AppError::CaptureBackendUnavailable)));
+    assert_eq!(recorded(&events), ["prepare"]);
+}
+
+#[tokio::test]
+async fn failed_region_capture_restores_window_before_returning() {
+    let (result, events, _, _) =
+        run_case(FakeOutcome::CaptureUnavailable, CaptureBackendId::XdgPortal).await;
+    assert!(matches!(result, Err(AppError::CaptureBackendUnavailable)));
+    assert_eq!(recorded(&events), ["prepare", "hide", "capture", "restore"]);
+}
+
+#[tokio::test]
+async fn selection_cancellation_restores_window_and_retains_job_ownership() {
+    let (result, events, job_id, services) =
+        run_case(FakeOutcome::CancelDuringCapture, CaptureBackendId::WindowsNative).await;
+    assert!(matches!(result, Err(AppError::CaptureCancelled)));
+    assert_eq!(recorded(&events), ["prepare", "hide", "capture", "restore"]);
+    let mut state = services.state.lock().await;
+    assert_eq!(state.active_job_id(), Some(job_id));
+    assert!(matches!(
+        state.begin(CaptureJobId::new()),
+        Err(AppError::CaptureAlreadyActive)
+    ));
+    state.finish(job_id);
+    assert!(state.begin(CaptureJobId::new()).is_ok());
+}
+
+#[tokio::test]
+async fn successful_platform_capture_restores_window_before_ocr_runtime_resolution() {
+    for backend in [
+        CaptureBackendId::GnomeScreenshot,
+        CaptureBackendId::XdgPortal,
+        CaptureBackendId::WindowsNative,
+    ] {
+        let (result, events, _, _) = run_case(FakeOutcome::Captured, backend).await;
+        assert!(matches!(result, Err(AppError::OcrEngineUnavailable)));
+        assert_eq!(
+            recorded(&events),
+            ["prepare", "hide", "capture", "restore", "runtime"]
+        );
+    }
+}
+
+#[tokio::test]
+async fn invalid_request_never_calls_platform_services() {
+    let events: Events = Arc::new(Mutex::new(Vec::new()));
+    let directory = tempdir().expect("tempdir");
+    let services = AppServices::with_platform(
+        directory.path().to_path_buf(),
+        Arc::new(FakePlatform {
+            outcome: FakeOutcome::Captured,
+            backend: CaptureBackendId::WindowsNative,
+            events: events.clone(),
+        }),
+    );
+    let mut invalid = request();
+    invalid.language = "not-supported".into();
+    let result = services.capture(invalid, || Ok(()), || Ok(())).await;
+    assert!(matches!(result, Err(AppError::SettingsInvalid)));
+    assert!(recorded(&events).is_empty());
+}
