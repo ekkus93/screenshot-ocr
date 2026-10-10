@@ -233,3 +233,38 @@ test("reserved settings controls are visible but not active", async () => {
     0,
   );
 });
+
+test("Windows UI shows its shortcut and hides Linux-only backend choices", async () => {
+  const user = userEvent.setup();
+  mocks.getDiagnostics.mockResolvedValueOnce({ ...diagnostics, platform: "windows" });
+  mocks.getSettings.mockResolvedValueOnce({
+    settings: { ...settings, captureBackend: "portal" },
+    warning: null,
+  });
+
+  render(<App />);
+  expect(await screen.findByText("Ctrl + Shift + O")).toBeVisible();
+  expect(screen.queryByText("Super + Shift + O")).not.toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: /settings/i }));
+  expect(screen.getByText("Ctrl+Shift+O")).toBeVisible();
+  expect(screen.queryByText(/GNOME shortcut/)).not.toBeInTheDocument();
+  expect(screen.getByLabelText("Capture backend")).toBeDisabled();
+  expect(screen.getByLabelText("Capture backend")).toHaveValue("auto");
+  expect(screen.getByText("Windows native (automatic)")).toBeInTheDocument();
+  expect(screen.queryByText("GNOME screenshot helper")).not.toBeInTheDocument();
+  expect(screen.queryByText("Portal (capability required)")).not.toBeInTheDocument();
+  expect(screen.getByText(/saved Linux capture preference is ignored/)).toBeVisible();
+  expect(mocks.updateSettings).not.toHaveBeenCalled();
+});
+
+test("Linux UI retains selectable GNOME and portal capture backends", async () => {
+  const user = userEvent.setup();
+  render(<App />);
+  await screen.findByText("Ready to capture");
+  await user.click(screen.getByRole("button", { name: /settings/i }));
+  expect(screen.getByLabelText("Capture backend")).toBeEnabled();
+  expect(screen.getByText("GNOME screenshot helper")).toBeInTheDocument();
+  expect(screen.getByText("Portal (capability required)")).toBeInTheDocument();
+  expect(screen.getByText("Super+Shift+O")).toBeVisible();
+});
