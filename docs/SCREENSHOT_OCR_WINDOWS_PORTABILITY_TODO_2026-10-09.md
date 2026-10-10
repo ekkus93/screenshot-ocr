@@ -239,7 +239,6 @@ At minimum inspect:
 - [ ] Keep action semantics in the shared router.
 - [ ] Keep cancellation semantics in shared state.
 
-
 ### W3.5 Contract tests
 
 - [ ] Add fakes/test doubles for platform services where useful.
@@ -481,7 +480,6 @@ The guard should cover at least:
 
 - [ ] Tests protect both behavior and the new architectural boundary.
 
-
 ## 15. W11 — Linux regression qualification
 
 ### W11.1 Automated quality
@@ -720,7 +718,6 @@ For each record:
 - [ ] Record registration success/failure safely.
 - [ ] Do not make registration failure fatal.
 - [ ] Prevent repeat key events from launching overlapping captures.
-
 
 ### W17.3 Tray
 
@@ -962,7 +959,6 @@ On clean Windows test system:
 - [ ] Installer build.
 - [ ] Packaged resource audit.
 - [x] No unresolved Linux library dependency.
-
 
 ### W22 acceptance gate
 
