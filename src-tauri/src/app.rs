@@ -28,10 +28,7 @@ impl AppServices {
         Self::with_platform(config_dir, platform::current())
     }
 
-    pub(crate) fn with_platform(
-        config_dir: PathBuf,
-        platform: Arc<dyn PlatformServices>,
-    ) -> Self {
+    pub(crate) fn with_platform(config_dir: PathBuf, platform: Arc<dyn PlatformServices>) -> Self {
         Self {
             state: Arc::new(Mutex::new(CaptureStateMachine::default())),
             settings: Arc::new(SettingsStore::new(config_dir)),
@@ -224,5 +221,4 @@ mod tests {
             Err(AppError::CaptureAlreadyActive)
         ));
     }
-
 }

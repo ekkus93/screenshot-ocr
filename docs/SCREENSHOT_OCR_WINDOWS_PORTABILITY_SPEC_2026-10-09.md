@@ -193,7 +193,7 @@ The platform adapter owns mechanisms such as:
 
 The required dependency direction is:
 
-~~~text
+```text
 React / TypeScript UI
         |
 Tauri command/event adapters
@@ -204,7 +204,7 @@ Platform service contracts
       /   \
  Linux     Windows
  adapters  adapters
-~~~
+```
 
 The Linux and Windows implementations may depend on the portable contracts.
 
@@ -220,7 +220,7 @@ A Windows capture should produce the same portable captured-image contract consu
 
 The exact filenames may evolve, but the code SHOULD converge on a shape similar to:
 
-~~~text
+```text
 src-tauri/src/
   app.rs
   actions.rs
@@ -251,7 +251,7 @@ src-tauri/src/
       environment.rs
       desktop.rs
       ocr_runtime.rs
-~~~
+```
 
 The project does not need to follow this tree literally. It does need to preserve the boundary.
 
@@ -261,31 +261,31 @@ The Phase 1 audit MUST classify every relevant Rust module and dependency.
 
 The expected classification is:
 
-| Area | Expected classification |
-| --- | --- |
-| Capture job ownership/state machine | Portable core |
-| Cancellation token and cancellation policy | Portable core |
-| Application action enum/router | Portable core |
-| Typed capture/OCR requests and results | Portable core |
-| Image decode, limits, preprocessing | Portable core |
-| OCR cleanup and scoring | Portable core |
-| OCR result selection | Portable core |
-| Settings schema and validation | Portable core |
-| Public error taxonomy | Portable core |
-| Privacy/content-leakage policy | Portable core |
-| Tauri command DTO wiring | Mostly portable adapter |
-| Clipboard policy | Portable; mechanism may use Tauri |
-| Single-instance policy | Portable; mechanism may use Tauri |
-| Tray action policy | Portable; availability/setup may be platform-aware |
-| Shortcut action policy | Portable; registration policy may be platform-aware |
-| GNOME Screenshot | Linux adapter |
-| XDG Desktop Portal | Linux adapter |
-| DISPLAY/XDG/GNOME probing | Linux adapter |
-| Linux helper executable discovery | Linux adapter |
-| Windows region selector/capture | Windows adapter |
-| Windows OS/runtime probing | Windows adapter |
-| Windows OCR resource/executable discovery | Windows adapter |
-| Windows-specific installer/resource paths | Windows adapter/build layer |
+| Area                                       | Expected classification                             |
+| ------------------------------------------ | --------------------------------------------------- |
+| Capture job ownership/state machine        | Portable core                                       |
+| Cancellation token and cancellation policy | Portable core                                       |
+| Application action enum/router             | Portable core                                       |
+| Typed capture/OCR requests and results     | Portable core                                       |
+| Image decode, limits, preprocessing        | Portable core                                       |
+| OCR cleanup and scoring                    | Portable core                                       |
+| OCR result selection                       | Portable core                                       |
+| Settings schema and validation             | Portable core                                       |
+| Public error taxonomy                      | Portable core                                       |
+| Privacy/content-leakage policy             | Portable core                                       |
+| Tauri command DTO wiring                   | Mostly portable adapter                             |
+| Clipboard policy                           | Portable; mechanism may use Tauri                   |
+| Single-instance policy                     | Portable; mechanism may use Tauri                   |
+| Tray action policy                         | Portable; availability/setup may be platform-aware  |
+| Shortcut action policy                     | Portable; registration policy may be platform-aware |
+| GNOME Screenshot                           | Linux adapter                                       |
+| XDG Desktop Portal                         | Linux adapter                                       |
+| DISPLAY/XDG/GNOME probing                  | Linux adapter                                       |
+| Linux helper executable discovery          | Linux adapter                                       |
+| Windows region selector/capture            | Windows adapter                                     |
+| Windows OS/runtime probing                 | Windows adapter                                     |
+| Windows OCR resource/executable discovery  | Windows adapter                                     |
+| Windows-specific installer/resource paths  | Windows adapter/build layer                         |
 
 If an implementation does not fit this table, the implementation must document why.
 
@@ -901,21 +901,21 @@ Phase 2 is complete only when:
 
 At minimum, final acceptance SHOULD cover:
 
-| Area | Required coverage |
-| --- | --- |
+| Area             | Required coverage                                                             |
+| ---------------- | ----------------------------------------------------------------------------- |
 | Windows versions | Windows 11 and at least one supported Windows 10 22H2 environment if feasible |
-| Architecture | x86-64 |
-| Scaling | 100%, 125%, 150%, 200% across the matrix |
-| Displays | single monitor and multi-monitor |
-| Mixed DPI | required physical validation |
-| Capture | light and dark content |
-| Cancellation | selection and OCR |
-| Activation | UI button, shortcut, tray, second instance |
-| Clipboard | success and recoverable failure behavior |
-| Installer | clean install, launch, reinstall/upgrade policy, uninstall |
-| Offline OCR | network disconnected or otherwise proven unnecessary |
-| Diagnostics | no sensitive content |
-| Linux regression | current supported Linux validation remains separate and honest |
+| Architecture     | x86-64                                                                        |
+| Scaling          | 100%, 125%, 150%, 200% across the matrix                                      |
+| Displays         | single monitor and multi-monitor                                              |
+| Mixed DPI        | required physical validation                                                  |
+| Capture          | light and dark content                                                        |
+| Cancellation     | selection and OCR                                                             |
+| Activation       | UI button, shortcut, tray, second instance                                    |
+| Clipboard        | success and recoverable failure behavior                                      |
+| Installer        | clean install, launch, reinstall/upgrade policy, uninstall                    |
+| Offline OCR      | network disconnected or otherwise proven unnecessary                          |
+| Diagnostics      | no sensitive content                                                          |
+| Linux regression | current supported Linux validation remains separate and honest                |
 
 Not every scaling value needs every Windows version, but the combined matrix must cover each required behavior meaningfully.
 

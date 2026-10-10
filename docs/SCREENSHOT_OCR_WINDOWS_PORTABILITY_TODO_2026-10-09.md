@@ -40,7 +40,7 @@ This TODO is complete when:
 
 ## 3. Milestone map
 
-~~~text
+```text
 W0   Baseline, branch policy, and evidence
 W1   Architecture inventory and portability classification
 
@@ -71,7 +71,7 @@ W22  Windows automated qualification
 W23  Physical Windows desktop acceptance
 W24  Documentation and evidence reconciliation
 W25  Final merge-readiness gate
-~~~
+```
 
 ## 4. W0 — Baseline, branch policy, and evidence
 

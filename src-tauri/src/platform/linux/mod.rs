@@ -105,10 +105,8 @@ mod tests {
             gnome_screenshot: Some(std::path::PathBuf::from("/sensitive/gnome-screenshot")),
             tesseract: Some(PathBuf::from("/sensitive/tesseract")),
         };
-        let diagnostics = platform_diagnostics(
-            &environment,
-            "Screenshot v3; area target available".into(),
-        );
+        let diagnostics =
+            platform_diagnostics(&environment, "Screenshot v3; area target available".into());
         let text = format!("{diagnostics:?}");
         assert!(!text.contains("/sensitive/"));
         assert_eq!(diagnostics.ocr_runtime, "available");

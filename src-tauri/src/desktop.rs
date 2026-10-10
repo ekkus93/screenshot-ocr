@@ -17,9 +17,9 @@ pub fn setup(app: &mut App) {
             .set_tray_status("unavailable; main window remains usable"),
     }
 
-    services.runtime_diagnostics.set_shortcut_status(
-        register_direct_shortcut(app, services.platform.as_ref()),
-    );
+    services
+        .runtime_diagnostics
+        .set_shortcut_status(register_direct_shortcut(app, services.platform.as_ref()));
 }
 
 fn build_tray(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
