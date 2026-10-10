@@ -8,19 +8,18 @@ use std::thread;
 use std::time::Duration;
 use windows_sys::Win32::Foundation::{GetLastError, HWND, RECT};
 use windows_sys::Win32::Graphics::Gdi::{
-    BeginPaint, EndPaint, FillRect, FrameRect, GetStockObject, HBRUSH, PAINTSTRUCT, BLACK_BRUSH,
+    BeginPaint, EndPaint, FillRect, FrameRect, GetStockObject, BLACK_BRUSH, HBRUSH, PAINTSTRUCT,
     WHITE_BRUSH,
 };
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetClientRect, GetCursorPos,
     GetSystemMetrics, GetWindowLongPtrW, InvalidateRect, LoadCursorW, PeekMessageW, RegisterClassW,
-    ReleaseCapture, SetCapture, SetForegroundWindow, SetLayeredWindowAttributes,
-    SetWindowLongPtrW, ShowWindow, TranslateMessage, WNDCLASSW, GWLP_USERDATA, IDC_CROSS,
-    LWA_ALPHA, MSG, PM_REMOVE, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN,
-    SM_YVIRTUALSCREEN, SW_SHOW, WM_CAPTURECHANGED, WM_CLOSE, WM_KEYDOWN, WM_LBUTTONDOWN,
-    WM_LBUTTONUP, WM_MOUSEMOVE, WM_PAINT, WM_QUIT, WS_EX_LAYERED, WS_EX_TOOLWINDOW,
-    WS_EX_TOPMOST, WS_POPUP,
+    ReleaseCapture, SetCapture, SetForegroundWindow, SetLayeredWindowAttributes, SetWindowLongPtrW,
+    ShowWindow, TranslateMessage, GWLP_USERDATA, IDC_CROSS, LWA_ALPHA, MSG, PM_REMOVE,
+    SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN, SW_SHOW,
+    WM_CAPTURECHANGED, WM_CLOSE, WM_KEYDOWN, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEMOVE, WM_PAINT,
+    WM_QUIT, WNDCLASSW, WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP,
 };
 
 struct Selection {
@@ -80,7 +79,8 @@ unsafe extern "system" fn window_proc(
         WM_LBUTTONUP => {
             if let Some(selection) = state(hwnd) {
                 if let Some(start) = selection.start.take() {
-                    selection.result = Some(cursor_point().and_then(|end| Rect::from_drag(start, end)));
+                    selection.result =
+                        Some(cursor_point().and_then(|end| Rect::from_drag(start, end)));
                     ReleaseCapture();
                 }
             }
@@ -204,7 +204,11 @@ pub fn select_region(cancellation: &CancellationToken) -> Result<Rect, AppError>
             return Err(AppError::CaptureFailed);
         }
         let overlay = Overlay(hwnd);
-        SetWindowLongPtrW(hwnd, GWLP_USERDATA, &mut selection as *mut Selection as isize);
+        SetWindowLongPtrW(
+            hwnd,
+            GWLP_USERDATA,
+            &mut selection as *mut Selection as isize,
+        );
         if SetLayeredWindowAttributes(hwnd, 0, 95, LWA_ALPHA) == 0 {
             return Err(AppError::CaptureFailed);
         }

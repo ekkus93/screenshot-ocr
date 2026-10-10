@@ -40,7 +40,9 @@ impl PlatformServices for WindowsPlatform {
             os_release: "Windows".into(),
             desktop_environment: "Windows desktop".into(),
             session_type: "desktop".into(),
-            capture_summary: "Windows native region selector installed; physical desktop validation pending".into(),
+            capture_summary:
+                "Windows native region selector installed; physical desktop validation pending"
+                    .into(),
             ocr_runtime: ocr_runtime::packaged_runtime_status(),
         })
     }
@@ -63,7 +65,10 @@ mod tests {
             CaptureBackendPreference::Portal,
         ] {
             let cancellation = CancellationToken::new();
-            assert!(platform.prepare_capture(preference, &cancellation).await.is_ok());
+            assert!(platform
+                .prepare_capture(preference, &cancellation)
+                .await
+                .is_ok());
         }
     }
 
