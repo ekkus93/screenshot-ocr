@@ -23,6 +23,7 @@ pub enum ErrorCode {
     ClipboardWriteFailed,
     SettingsInvalid,
     SettingsWriteFailed,
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     UnsupportedEnvironment,
     InternalError,
 }
