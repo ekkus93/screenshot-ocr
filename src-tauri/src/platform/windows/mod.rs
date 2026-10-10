@@ -1,3 +1,4 @@
+#[cfg(test)]
 mod geometry;
 
 use crate::cancellation::CancellationToken;
