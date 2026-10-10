@@ -1,0 +1,79 @@
+# Read-only audit of the pinned Windows Tesseract distribution.
+# No installer is executed, no system-wide installation is performed, and
+# this script does not publish a redistributable application bundle.
+$ErrorActionPreference = "Stop"
+Set-StrictMode -Version Latest
+
+$uri = "https://digi.bib.uni-mannheim.de/tesseract/tesseract-ocr-w64-setup-5.4.0.20240606.exe"
+$expectedSha256 = "c885fff6998e0608ba4bb8ab51436e1c6775c2bafc2559a19b423e18678b60c9"
+$workspace = Join-Path $env:RUNNER_TEMP "screenshot-ocr-tesseract-audit"
+$setup = Join-Path $workspace "pinned-tesseract-setup.exe"
+$extracted = Join-Path $workspace "extracted"
+New-Item -ItemType Directory -Force -Path $extracted | Out-Null
+
+Write-Output "Downloading checksum-pinned Tesseract build input."
+Invoke-WebRequest -Uri $uri -OutFile $setup -TimeoutSec 240
+$actual = (Get-FileHash -LiteralPath $setup -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($actual -cne $expectedSha256) {
+    throw "Windows Tesseract installer SHA-256 mismatch; refusing extraction."
+}
+Write-Output "Pinned installer SHA-256 verified."
+
+$sevenZip = Join-Path $env:ProgramFiles "7-Zip\7z.exe"
+if (-not (Test-Path -LiteralPath $sevenZip -PathType Leaf)) {
+    $command = Get-Command "7z.exe" -ErrorAction SilentlyContinue
+    if ($null -eq $command) { throw "7-Zip executable unavailable for read-only extraction." }
+    $sevenZip = $command.Source
+}
+
+# 7-Zip extracts the verified NSIS archive as data, without launching setup.
+& $sevenZip x "-o$extracted" -y $setup | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "Pinned installer could not be extracted by 7-Zip." }
+
+$candidates = @(Get-ChildItem -LiteralPath $extracted -Recurse -File -Filter "tesseract.exe")
+if ($candidates.Count -eq 0) { throw "No tesseract.exe found in verified archive." }
+
+$matches = @(
+    foreach ($candidate in $candidates) {
+        $eng = Join-Path $candidate.DirectoryName "tessdata\eng.traineddata"
+        if (Test-Path -LiteralPath $eng -PathType Leaf) {
+            [pscustomobject]@{ Binary = $candidate; English = $eng }
+        }
+    }
+)
+if ($matches.Count -ne 1) {
+    throw "Expected exactly one executable with adjacent English tessdata; found $($matches.Count)."
+}
+$selected = $matches[0]
+$binaryDirectory = $selected.Binary.DirectoryName
+$dlls = @(Get-ChildItem -LiteralPath $binaryDirectory -File -Filter "*.dll" | Sort-Object Name)
+if ($dlls.Count -eq 0) { throw "No adjacent runtime DLLs found; packaging inventory incomplete." }
+
+$entries = @(
+    [pscustomobject]@{
+        name = "tesseract.exe"
+        sha256 = (Get-FileHash -LiteralPath $selected.Binary.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+    }
+    [pscustomobject]@{
+        name = "tessdata/eng.traineddata"
+        sha256 = (Get-FileHash -LiteralPath $selected.English -Algorithm SHA256).Hash.ToLowerInvariant()
+    }
+    foreach ($dll in $dlls) {
+        [pscustomobject]@{
+            name = $dll.Name
+            sha256 = (Get-FileHash -LiteralPath $dll.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+        }
+    }
+)
+$manifest = [ordered]@{
+    schema_version = 1
+    provenance = "University of Mannheim Tesseract 5.4.0.20240606"
+    input_sha256 = $actual
+    binary_count = 1
+    english_data_count = 1
+    adjacent_dll_count = $dlls.Count
+    files = $entries
+    qualification = "input inventory only; transitive DLL/license and physical offline acceptance pending"
+}
+$manifest | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath "windows-ocr-runtime-audit.json" -Encoding utf8
+Write-Output "Verified input inventory: $($dlls.Count) adjacent DLL files; no installer was executed."

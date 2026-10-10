@@ -1,0 +1,31 @@
+name: Windows OCR runtime input audit
+
+on:
+  push:
+    branches: [ralph/windows-support]
+    paths:
+      - "scripts/audit-windows-ocr-runtime.ps1"
+      - ".github/workflows/windows-runtime-audit.yml"
+      - "docs/adr/0005-windows-tesseract-provenance.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pinned-runtime-audit:
+    name: Verify Windows OCR input without executing installer
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+      - name: Verify SHA-256 and inventory extracted files
+        shell: pwsh
+        run: ./scripts/audit-windows-ocr-runtime.ps1
+      - name: Upload manifest only (no third-party binaries)
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-ocr-runtime-input-manifest
+          path: windows-ocr-runtime-audit.json
+          if-no-files-found: error
