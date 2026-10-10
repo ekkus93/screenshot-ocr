@@ -1,8 +1,8 @@
 //! Enumerate physical display rectangles for per-monitor GDI capture.
 use super::geometry::Rect;
 use crate::error::AppError;
-use std::ptr::null_mut;
-use windows_sys::Win32::Foundation::{BOOL, LPARAM, RECT};
+use std::ptr::{null, null_mut};
+use windows_sys::Win32::Foundation::{LPARAM, RECT};
 use windows_sys::Win32::Graphics::Gdi::{EnumDisplayMonitors, HDC, HMONITOR};
 
 unsafe extern "system" fn callback(
@@ -10,7 +10,7 @@ unsafe extern "system" fn callback(
     _dc: HDC,
     rectangle: *mut RECT,
     context: LPARAM,
-) -> BOOL {
+) -> i32 {
     if rectangle.is_null() || context == 0 {
         return 0;
     }
