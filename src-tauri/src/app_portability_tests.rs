@@ -227,3 +227,134 @@ async fn invalid_request_never_calls_platform_services() {
     assert!(matches!(result, Err(AppError::SettingsInvalid)));
     assert!(recorded(&events).is_empty());
 }
+
+
+#[cfg(unix)]
+struct SuccessfulFakePlatform {
+    executable: std::path::PathBuf,
+    events: Events,
+}
+
+#[cfg(unix)]
+struct SuccessfulFakeCapture {
+    events: Events,
+}
+
+#[cfg(unix)]
+#[async_trait]
+impl CaptureBackend for SuccessfulFakeCapture {
+    async fn capture_region(
+        &self,
+        cancellation: &CancellationToken,
+    ) -> Result<CapturedImage, AppError> {
+        note(&self.events, "capture");
+        cancellation.check()?;
+        Ok(CapturedImage {
+            image: DynamicImage::new_rgb8(4, 4),
+            backend: CaptureBackendId::WindowsNative,
+            cleanup_failed: true,
+        })
+    }
+}
+
+#[cfg(unix)]
+#[async_trait]
+impl PlatformServices for SuccessfulFakePlatform {
+    async fn prepare_capture(
+        &self,
+        _preference: CaptureBackendPreference,
+        cancellation: &CancellationToken,
+    ) -> Result<Box<dyn CaptureBackend>, AppError> {
+        note(&self.events, "prepare");
+        cancellation.check()?;
+        Ok(Box::new(SuccessfulFakeCapture {
+            events: self.events.clone(),
+        }))
+    }
+
+    fn resolve_ocr_runtime(&self) -> Result<crate::ocr::OcrRuntime, AppError> {
+        note(&self.events, "runtime");
+        Ok(crate::ocr::OcrRuntime::new(self.executable.clone(), None))
+    }
+
+    async fn diagnostics(&self) -> Result<PlatformDiagnostics, AppError> {
+        Ok(PlatformDiagnostics {
+            platform: "test".into(),
+            os_release: "test".into(),
+            desktop_environment: "test".into(),
+            session_type: "test".into(),
+            capture_summary: "available".into(),
+            ocr_runtime: "available".into(),
+        })
+    }
+
+    fn direct_shortcut(&self) -> Option<&'static str> {
+        None
+    }
+}
+
+#[cfg(unix)]
+fn write_successful_fake_tesseract(path: &std::path::Path) {
+    use std::fs;
+    use std::os::unix::fs::PermissionsExt;
+
+    fs::write(
+        path,
+        "#!/bin/sh\nif [ \"$1\" = \"--list-langs\" ]; then printf 'eng\\n'; exit 0; fi\ncat >/dev/null\nprintf 'portable text\\n'\n",
+    )
+    .expect("write fake tesseract");
+    fs::set_permissions(path, fs::Permissions::from_mode(0o700))
+        .expect("make fake tesseract executable");
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn successful_fake_capture_propagates_cleanup_warning() {
+    let directory = tempdir().expect("tempdir");
+    let executable = directory.path().join("fake-tesseract");
+    write_successful_fake_tesseract(&executable);
+    let events: Events = Arc::new(Mutex::new(Vec::new()));
+    let services = AppServices::with_platform(
+        directory.path().to_path_buf(),
+        Arc::new(SuccessfulFakePlatform {
+            executable,
+            events: events.clone(),
+        }),
+    );
+
+    let result = services
+        .capture(
+            request(),
+            {
+                let events = events.clone();
+                move || {
+                    note(&events, "hide");
+                    Ok(())
+                }
+            },
+            {
+                let events = events.clone();
+                move || {
+                    note(&events, "restore");
+                    Ok(())
+                }
+            },
+        )
+        .await
+        .expect("successful portable capture");
+
+    assert_eq!(result.backend, CaptureBackendId::WindowsNative);
+    assert_eq!(result.text.trim(), "portable text");
+    assert!(result
+        .warnings
+        .iter()
+        .any(|warning| warning.code == "temporary_cleanup_failed"));
+    assert_eq!(
+        services.runtime_diagnostics.snapshot().cleanup_failure_count,
+        1
+    );
+    assert_eq!(
+        recorded(&events),
+        ["prepare", "hide", "capture", "restore", "runtime"]
+    );
+}
