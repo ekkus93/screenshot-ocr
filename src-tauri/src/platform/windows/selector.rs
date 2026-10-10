@@ -33,9 +33,8 @@ struct SelectorDpiContext(DPI_AWARENESS_CONTEXT);
 impl SelectorDpiContext {
     fn enter() -> Result<Self, AppError> {
         // SAFETY: The context switch only affects the current selector worker thread.
-        let previous = unsafe {
-            SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2)
-        };
+        let previous =
+            unsafe { SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) };
         if previous.is_null() {
             Err(AppError::CaptureBackendUnavailable)
         } else {
