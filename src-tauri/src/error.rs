@@ -7,6 +7,7 @@ pub enum ErrorCode {
     CaptureAlreadyActive,
     CaptureCancelled,
     CaptureBackendUnavailable,
+    CaptureFailed,
     CapturePermissionDenied,
     CaptureTimedOut,
     CaptureProcessFailed,
@@ -45,6 +46,8 @@ pub enum AppError {
     CaptureCancelled,
     #[error("capture backend is unavailable")]
     CaptureBackendUnavailable,
+    #[error("native screen capture failed")]
+    CaptureFailed,
     #[cfg(target_os = "linux")]
     #[error("capture permission was denied")]
     CapturePermissionDenied,
@@ -108,6 +111,12 @@ impl From<AppError> for PublicError {
                 ErrorCode::CaptureBackendUnavailable,
                 "No safe region-capture backend is available.",
                 "Check the platform capture support in safe diagnostics and try again.",
+                true,
+            ),
+            AppError::CaptureFailed => (
+                ErrorCode::CaptureFailed,
+                "Screen capture failed.",
+                "Try selecting the region again. The clipboard was unchanged.",
                 true,
             ),
             #[cfg(target_os = "linux")]
@@ -261,6 +270,17 @@ mod tests {
             PublicError::from(AppError::CaptureResultUriInvalid).code,
             ErrorCode::CaptureResultUriInvalid
         );
+    }
+
+    #[test]
+    fn native_capture_failure_maps_to_safe_stable_public_error() {
+        let public = PublicError::from(AppError::CaptureFailed);
+        assert_eq!(public.code, ErrorCode::CaptureFailed);
+        assert!(public.retryable);
+        let json = serde_json::to_string(&public).expect("serialize public error");
+        assert!(!json.contains("C:\\\\Users"));
+        assert!(!json.contains("SYNTHETIC_SECRET_9f33"));
+        assert!(json.contains("clipboard was unchanged"));
     }
 
     #[test]
