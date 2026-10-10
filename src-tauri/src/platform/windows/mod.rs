@@ -1,3 +1,4 @@
+mod composite;
 mod geometry;
 mod ocr_runtime;
 mod pixels;
