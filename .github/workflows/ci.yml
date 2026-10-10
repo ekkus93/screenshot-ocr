@@ -236,6 +236,9 @@ jobs:
       - name: Build frontend
         run: npm run build
 
+      - name: Generate Windows icon resources
+        run: npm run tauri -- icon src-tauri/icons/128x128.png
+
       - name: Check Rust formatting
         run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
 
