@@ -43,6 +43,8 @@ impl Rect {
         i64::from(self.bottom) - i64::from(self.top)
     }
 
+    // Used by the monitor-stitching stage; pure tests already cover edge intersections.
+    #[allow(dead_code)]
     pub fn intersect(self, other: Self) -> Option<Self> {
         let intersection = Self {
             left: self.left.max(other.left),
@@ -79,6 +81,8 @@ pub struct MonitorTile {
 
 /// Intersect the selection with each monitor in physical virtual-screen space.
 /// Uncovered virtual-screen gaps remain transparent in the composite buffer.
+// Planned for native monitor enumeration/compositing; keep behavior unit-tested.
+#[allow(dead_code)]
 pub fn monitor_tiles(selection: Rect, monitors: &[Rect]) -> Vec<MonitorTile> {
     monitors
         .iter()
@@ -98,6 +102,9 @@ pub fn monitor_tiles(selection: Rect, monitors: &[Rect]) -> Vec<MonitorTile> {
 
 /// Round logical pixels to physical pixels, half away from zero.
 /// Selector pointer events must not be passed through this conversion.
+// The selector currently takes physical pointer events; this helper is for
+// explicit logical inputs in a later integration and is covered by unit tests.
+#[allow(dead_code)]
 pub fn logical_to_physical(value: i32, scale_percent: u32) -> Result<i32, AppError> {
     if !(100..=400).contains(&scale_percent) {
         return Err(AppError::CaptureImageInvalid);
