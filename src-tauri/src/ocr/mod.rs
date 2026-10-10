@@ -14,6 +14,7 @@ pub struct OcrRuntime {
 }
 
 impl OcrRuntime {
+    #[cfg(target_os = "linux")]
     pub fn new(executable: PathBuf, tessdata_dir: Option<PathBuf>) -> Self {
         Self {
             executable,
