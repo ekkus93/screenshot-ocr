@@ -119,7 +119,12 @@ fn request() -> CaptureRequest {
 async fn run_case(
     outcome: FakeOutcome,
     backend: CaptureBackendId,
-) -> (Result<OcrResult, AppError>, Events, CaptureJobId, AppServices) {
+) -> (
+    Result<OcrResult, AppError>,
+    Events,
+    CaptureJobId,
+    AppServices,
+) {
     let events: Events = Arc::new(Mutex::new(Vec::new()));
     let directory = tempdir().expect("tempdir");
     let services = AppServices::with_platform(
@@ -152,8 +157,11 @@ async fn run_case(
 
 #[tokio::test]
 async fn failed_preparation_never_hides_window() {
-    let (result, events, _, _) =
-        run_case(FakeOutcome::PrepareUnavailable, CaptureBackendId::GnomeScreenshot).await;
+    let (result, events, _, _) = run_case(
+        FakeOutcome::PrepareUnavailable,
+        CaptureBackendId::GnomeScreenshot,
+    )
+    .await;
     assert!(matches!(result, Err(AppError::CaptureBackendUnavailable)));
     assert_eq!(recorded(&events), ["prepare"]);
 }
@@ -168,8 +176,11 @@ async fn failed_region_capture_restores_window_before_returning() {
 
 #[tokio::test]
 async fn selection_cancellation_restores_window_and_retains_job_ownership() {
-    let (result, events, job_id, services) =
-        run_case(FakeOutcome::CancelDuringCapture, CaptureBackendId::WindowsNative).await;
+    let (result, events, job_id, services) = run_case(
+        FakeOutcome::CancelDuringCapture,
+        CaptureBackendId::WindowsNative,
+    )
+    .await;
     assert!(matches!(result, Err(AppError::CaptureCancelled)));
     assert_eq!(recorded(&events), ["prepare", "hide", "capture", "restore"]);
     let mut state = services.state.lock().await;
