@@ -87,6 +87,25 @@ mod tests {
         ));
     }
 
+    #[test]
+    fn windows_native_errors_have_stable_public_codes() {
+        use crate::error::{ErrorCode, PublicError};
+        for (error, expected) in [
+            (AppError::CaptureCancelled, ErrorCode::CaptureCancelled),
+            (AppError::CaptureBackendUnavailable, ErrorCode::CaptureBackendUnavailable),
+            (AppError::CaptureFailed, ErrorCode::CaptureFailed),
+            (AppError::CaptureImageInvalid, ErrorCode::CaptureImageInvalid),
+            (AppError::CaptureTooLarge, ErrorCode::CaptureTooLarge),
+            (AppError::OcrEngineUnavailable, ErrorCode::OcrEngineUnavailable),
+            (AppError::OcrLanguageMissing, ErrorCode::OcrLanguageMissing),
+            (AppError::ClipboardWriteFailed, ErrorCode::ClipboardWriteFailed),
+        ] {
+            let public = PublicError::from(error);
+            assert_eq!(public.code, expected);
+            assert!(public.retryable);
+        }
+    }
+
     #[tokio::test]
     async fn windows_capability_status_does_not_claim_native_capture_ready() {
         let diagnostics = WindowsPlatform.diagnostics().await.unwrap();
