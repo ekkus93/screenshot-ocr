@@ -76,6 +76,7 @@ pub enum AppError {
     SettingsInvalid,
     #[error("settings write failed")]
     SettingsWriteFailed,
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     #[error("operating environment is unsupported")]
     UnsupportedEnvironment,
     #[error("internal operation failed")]
@@ -199,6 +200,7 @@ impl From<AppError> for PublicError {
                 "Check configuration-directory permissions and try again.",
                 true,
             ),
+            #[cfg(not(any(target_os = "linux", target_os = "windows")))]
             AppError::UnsupportedEnvironment => (
                 ErrorCode::UnsupportedEnvironment,
                 "This desktop environment is not supported.",
