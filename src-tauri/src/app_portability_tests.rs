@@ -228,7 +228,6 @@ async fn invalid_request_never_calls_platform_services() {
     assert!(recorded(&events).is_empty());
 }
 
-
 #[cfg(unix)]
 struct SuccessfulFakePlatform {
     executable: std::path::PathBuf,
@@ -350,7 +349,10 @@ async fn successful_fake_capture_propagates_cleanup_warning() {
         .iter()
         .any(|warning| warning.code == "temporary_cleanup_failed"));
     assert_eq!(
-        services.runtime_diagnostics.snapshot().cleanup_failure_count,
+        services
+            .runtime_diagnostics
+            .snapshot()
+            .cleanup_failure_count,
         1
     );
     assert_eq!(

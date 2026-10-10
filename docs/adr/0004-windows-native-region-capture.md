@@ -26,18 +26,18 @@ The Windows adapter remains behind the existing `PlatformServices` / `CaptureBac
 
 ## Feasibility comparison
 
-| Criterion | Windows Graphics Capture | GDI / BitBlt | DXGI Desktop Duplication |
-| --- | --- | --- | --- |
-| Arbitrary rectangle | Requires app-side crop after choosing/capturing a window or display | Direct rectangle source coordinates | Requires app-side crop from duplicated output |
-| Built-in picker | System picker selects a display or application window, not arbitrary OCR rectangle | No; app owns selector | No; app owns selector |
-| Windows 10/11 | Supported on desktop Windows with capability check | Long-standing Win32 desktop API | Windows 8+ desktop API |
-| Multi-monitor | Capture item is window/display oriented | Virtual-screen coordinates and monitor enumeration are native Win32 concepts | One duplication interface per active output; whole-desktop capture requires combining outputs |
-| Mixed DPI | App must still map selector coordinates correctly | Explicit physical-pixel contract under Per-Monitor-v2 awareness | App must still map selector coordinates and output surfaces correctly |
-| Negative virtual coordinates | App-side coordinate handling required | Directly represented by virtual-screen metrics / monitor rectangles | App-side output-to-virtual-desktop mapping required |
-| Cancellation | Picker/session lifecycle plus selector lifecycle | Selector message-loop cancellation is under app control | Frame acquisition plus selector lifecycle |
-| Pixel format | GPU/WinRT frame surfaces | GDI bitmap converted to RGBA | BGRA DXGI surface |
-| Dependency footprint | WinRT + graphics capture APIs | User32/GDI32 only | D3D11 + DXGI |
-| Complexity for one-shot OCR | Higher than needed | Lowest of the viable options | Highest; optimized for frame-by-frame duplication/streaming |
+| Criterion                    | Windows Graphics Capture                                                           | GDI / BitBlt                                                                 | DXGI Desktop Duplication                                                                      |
+| ---------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Arbitrary rectangle          | Requires app-side crop after choosing/capturing a window or display                | Direct rectangle source coordinates                                          | Requires app-side crop from duplicated output                                                 |
+| Built-in picker              | System picker selects a display or application window, not arbitrary OCR rectangle | No; app owns selector                                                        | No; app owns selector                                                                         |
+| Windows 10/11                | Supported on desktop Windows with capability check                                 | Long-standing Win32 desktop API                                              | Windows 8+ desktop API                                                                        |
+| Multi-monitor                | Capture item is window/display oriented                                            | Virtual-screen coordinates and monitor enumeration are native Win32 concepts | One duplication interface per active output; whole-desktop capture requires combining outputs |
+| Mixed DPI                    | App must still map selector coordinates correctly                                  | Explicit physical-pixel contract under Per-Monitor-v2 awareness              | App must still map selector coordinates and output surfaces correctly                         |
+| Negative virtual coordinates | App-side coordinate handling required                                              | Directly represented by virtual-screen metrics / monitor rectangles          | App-side output-to-virtual-desktop mapping required                                           |
+| Cancellation                 | Picker/session lifecycle plus selector lifecycle                                   | Selector message-loop cancellation is under app control                      | Frame acquisition plus selector lifecycle                                                     |
+| Pixel format                 | GPU/WinRT frame surfaces                                                           | GDI bitmap converted to RGBA                                                 | BGRA DXGI surface                                                                             |
+| Dependency footprint         | WinRT + graphics capture APIs                                                      | User32/GDI32 only                                                            | D3D11 + DXGI                                                                                  |
+| Complexity for one-shot OCR  | Higher than needed                                                                 | Lowest of the viable options                                                 | Highest; optimized for frame-by-frame duplication/streaming                                   |
 
 Microsoft documents WGC's standard `GraphicsCapturePicker` as selecting a display or application window. That does not replace Screenshot OCR's arbitrary rectangular selection UX.
 

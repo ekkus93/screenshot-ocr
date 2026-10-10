@@ -251,7 +251,6 @@ jobs:
       - name: Link Windows Tauri application
         run: npm run tauri -- build --no-bundle
 
-
   packaging:
     name: Debian package smoke
     needs: [frontend-quality, layout-regression, rust-quality]
