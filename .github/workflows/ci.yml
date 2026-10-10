@@ -284,7 +284,7 @@ jobs:
         run: ./scripts/audit-windows-ocr-runtime.ps1 -StageRuntime
 
       - name: Build Windows NSIS smoke installer
-        run: npm run tauri -- build --bundles nsis
+        run: npm run tauri -- build --bundles nsis --config src-tauri/tauri.nsis.conf.json
 
       - name: Verify NSIS payload and generate local checksum
         shell: pwsh

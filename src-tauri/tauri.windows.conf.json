@@ -3,9 +3,6 @@
     "beforeBuildCommand": "npm run tauri -- icon src-tauri/icons/128x128.png && npm run build"
   },
   "bundle": {
-    "targets": ["nsis"],
-    "resources": {
-      "windows-ocr-runtime/": "resources/ocr/"
-    }
+    "targets": ["nsis"]
   }
 }
