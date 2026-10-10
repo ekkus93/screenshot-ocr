@@ -84,7 +84,8 @@ pub fn monitor_tiles(selection: Rect, monitors: &[Rect]) -> Vec<MonitorTile> {
         .iter()
         .filter_map(|monitor| {
             let source = selection.intersect(*monitor)?;
-            let offset_x = u32::try_from(i64::from(source.left) - i64::from(selection.left)).ok()?;
+            let offset_x =
+                u32::try_from(i64::from(source.left) - i64::from(selection.left)).ok()?;
             let offset_y = u32::try_from(i64::from(source.top) - i64::from(selection.top)).ok()?;
             Some(MonitorTile {
                 source,
@@ -201,10 +202,7 @@ mod tests {
 
     #[test]
     fn selection_and_monitor_edges_are_half_open() {
-        assert_eq!(
-            rect(0, 0, 100, 100).intersect(rect(100, 0, 200, 100)),
-            None
-        );
+        assert_eq!(rect(0, 0, 100, 100).intersect(rect(100, 0, 200, 100)), None);
         assert_eq!(
             rect(0, 0, 100, 100).intersect(rect(99, 99, 200, 200)),
             Some(rect(99, 99, 100, 100))
