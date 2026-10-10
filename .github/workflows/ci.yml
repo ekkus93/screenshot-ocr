@@ -209,6 +209,49 @@ jobs:
       - name: Build Rust workspace
         run: cargo build --manifest-path src-tauri/Cargo.toml --workspace --all-features --locked
 
+  windows-quality:
+    name: Windows quality gates
+    runs-on: windows-2022
+    timeout-minutes: 50
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.88.0
+          components: clippy, rustfmt
+
+      - name: Install locked frontend dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+
+      - name: Run Windows Clippy with warnings denied
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --workspace --all-targets --locked -- -D warnings
+
+      - name: Run Windows Rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml --workspace --locked
+
+      - name: Build Windows Rust workspace
+        run: cargo build --manifest-path src-tauri/Cargo.toml --workspace --locked
+
+      - name: Link Windows Tauri application
+        run: npm run tauri -- build --no-bundle
+
+
   packaging:
     name: Debian package smoke
     needs: [frontend-quality, layout-regression, rust-quality]
