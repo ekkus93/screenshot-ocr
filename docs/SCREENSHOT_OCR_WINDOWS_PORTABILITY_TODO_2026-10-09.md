@@ -8,6 +8,7 @@
 **Baseline commit:** bbfd605d5c65b83735a9795622d92062c6c9c59d  
 **Status:** authoritative implementation checklist for the portable-core refactor and Windows application port
 
+**Evidence reconciliation (2026-10-10):** Baseline master `bbfd605d5c65b83735a9795622d92062c6c9c59d` passed run `33818790571`. The Windows-portability branch passed Linux/frontend/Windows compile and Debian smoke CI at `d89c6e399a93f956e296a8628402f4e4ebae8bba` (run `38074489534`). The native Windows selector, bundled Tesseract installer, and physical Windows acceptance are not complete. This checklist reconciliation itself requires a fresh exact-head CI run.\n
 ## 1. Rules for this TODO
 
 - [ ] means not implemented or not proven.
@@ -77,33 +78,33 @@ W25  Final merge-readiness gate
 
 ### W0.1 Confirm branch identity
 
-- [ ] Confirm ralph/windows-support exists.
-- [ ] Confirm it was created from bbfd605d5c65b83735a9795622d92062c6c9c59d.
-- [ ] Record current branch head before implementation begins.
-- [ ] Confirm master has not been modified by this portability project.
-- [ ] Read docs/SCREENSHOT_OCR_WINDOWS_PORTABILITY_SPEC_2026-10-09.md.
-- [ ] Read docs/ARCHITECTURE.md.
-- [ ] Read docs/adr/0002-cross-platform-activation-and-cancellation.md.
-- [ ] Read current privacy and threat-model documents.
-- [ ] Inspect current CI state for the baseline commit.
+- [x] Confirm ralph/windows-support exists.
+- [x] Confirm it was created from bbfd605d5c65b83735a9795622d92062c6c9c59d.
+- [x] Record current branch head before implementation begins.
+- [x] Confirm master has not been modified by this portability project.
+- [x] Read docs/SCREENSHOT_OCR_WINDOWS_PORTABILITY_SPEC_2026-10-09.md.
+- [x] Read docs/ARCHITECTURE.md.
+- [x] Read docs/adr/0002-cross-platform-activation-and-cancellation.md.
+- [x] Read current privacy and threat-model documents.
+- [x] Inspect current CI state for the baseline commit.
 
 ### W0.2 Preserve non-negotiable behavior
 
-- [ ] Preserve one-active-capture ownership.
-- [ ] Preserve Rust-authoritative cancellation.
-- [ ] Preserve no-shell invocation.
-- [ ] Preserve bounded Tesseract subprocesses.
-- [ ] Preserve no OCR history.
-- [ ] Preserve content-free diagnostics.
-- [ ] Preserve no broad Tauri filesystem/shell capability.
-- [ ] Preserve clipboard-failure recovery.
-- [ ] Preserve settings recovery behavior.
-- [ ] Preserve Linux GNOME and portal support.
+- [x] Preserve one-active-capture ownership.
+- [x] Preserve Rust-authoritative cancellation.
+- [x] Preserve no-shell invocation.
+- [x] Preserve bounded Tesseract subprocesses.
+- [x] Preserve no OCR history.
+- [x] Preserve content-free diagnostics.
+- [x] Preserve no broad Tauri filesystem/shell capability.
+- [x] Preserve clipboard-failure recovery.
+- [x] Preserve settings recovery behavior.
+- [x] Preserve Linux GNOME and portal support.
 
 ### W0 acceptance gate
 
-- [ ] Baseline and branch policy are verified.
-- [ ] No implementation work has touched master.
+- [x] Baseline and branch policy are verified.
+- [x] No implementation work has touched master.
 
 ## 5. W1 — Architecture inventory and portability classification
 
@@ -113,24 +114,24 @@ Classify every module as portable, platform contract/composition, Linux-specific
 
 At minimum inspect:
 
-- [ ] src-tauri/src/app.rs
-- [ ] src-tauri/src/actions.rs
-- [ ] src-tauri/src/cancellation.rs
-- [ ] src-tauri/src/capture/mod.rs
-- [ ] src-tauri/src/capture/environment.rs
-- [ ] src-tauri/src/capture/gnome.rs
-- [ ] src-tauri/src/capture/portal.rs
-- [ ] src-tauri/src/commands.rs
-- [ ] src-tauri/src/desktop.rs
-- [ ] src-tauri/src/diagnostics.rs
-- [ ] src-tauri/src/error.rs
-- [ ] src-tauri/src/image_pipeline/
-- [ ] src-tauri/src/models.rs
-- [ ] src-tauri/src/ocr/
-- [ ] src-tauri/src/settings.rs
-- [ ] src-tauri/src/state.rs
-- [ ] src-tauri/src/lib.rs
-- [ ] src-tauri/src/main.rs
+- [x] src-tauri/src/app.rs
+- [x] src-tauri/src/actions.rs
+- [x] src-tauri/src/cancellation.rs
+- [x] src-tauri/src/capture/mod.rs
+- [x] src-tauri/src/capture/environment.rs
+- [x] src-tauri/src/capture/gnome.rs
+- [x] src-tauri/src/capture/portal.rs
+- [x] src-tauri/src/commands.rs
+- [x] src-tauri/src/desktop.rs
+- [x] src-tauri/src/diagnostics.rs
+- [x] src-tauri/src/error.rs
+- [x] src-tauri/src/image_pipeline/
+- [x] src-tauri/src/models.rs
+- [x] src-tauri/src/ocr/
+- [x] src-tauri/src/settings.rs
+- [x] src-tauri/src/state.rs
+- [x] src-tauri/src/lib.rs
+- [x] src-tauri/src/main.rs
 
 ### W1.2 Inventory platform assumptions
 
@@ -148,17 +149,17 @@ At minimum inspect:
 
 ### W1.3 Inventory frontend assumptions
 
-- [ ] Identify visible Linux-only wording.
-- [ ] Identify Linux-only capture backend choices.
-- [ ] Identify shortcut copy that must vary by platform.
-- [ ] Identify diagnostics labels that must vary by platform.
-- [ ] Confirm OCR review/copy/settings/job-state UI is otherwise portable.
+- [x] Identify visible Linux-only wording.
+- [x] Identify Linux-only capture backend choices.
+- [x] Identify shortcut copy that must vary by platform.
+- [x] Identify diagnostics labels that must vary by platform.
+- [x] Confirm OCR review/copy/settings/job-state UI is otherwise portable.
 
 ### W1.4 Produce architecture classification note
 
-- [ ] Record the final classification in architecture docs or an implementation status note.
-- [ ] Identify each mixed module that must be split or redirected.
-- [ ] Avoid inventing abstractions for components already portable.
+- [x] Record the final classification in architecture docs or an implementation status note.
+- [x] Identify each mixed module that must be split or redirected.
+- [x] Avoid inventing abstractions for components already portable.
 
 ### W1 acceptance gate
 
@@ -482,24 +483,24 @@ The guard should cover at least:
 
 ### W11.1 Automated quality
 
-- [ ] npm ci
-- [ ] npm run format:check
-- [ ] npm run lint
-- [ ] npm run typecheck
-- [ ] npm run test
-- [ ] npm run build
-- [ ] cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
-- [ ] cargo clippy --manifest-path src-tauri/Cargo.toml --workspace --all-targets --locked -- -D warnings
-- [ ] cargo test --manifest-path src-tauri/Cargo.toml --workspace --locked
-- [ ] cargo build --manifest-path src-tauri/Cargo.toml --workspace --locked
-- [ ] python3 scripts/check-content-leakage.py
+- [x] npm ci
+- [x] npm run format:check
+- [x] npm run lint
+- [x] npm run typecheck
+- [x] npm run test
+- [x] npm run build
+- [x] cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+- [x] cargo clippy --manifest-path src-tauri/Cargo.toml --workspace --all-targets --locked -- -D warnings
+- [x] cargo test --manifest-path src-tauri/Cargo.toml --workspace --locked
+- [x] cargo build --manifest-path src-tauri/Cargo.toml --workspace --locked
+- [x] python3 scripts/check-content-leakage.py
 
 ### W11.2 Debian packaging
 
-- [ ] Build .deb using the same intended release path.
+- [x] Build .deb using the same intended release path.
 - [ ] Confirm Debian dependency metadata still includes required Linux runtime packages.
-- [ ] Inspect package metadata.
-- [ ] Generate checksum where existing process expects it.
+- [x] Inspect package metadata.
+- [x] Generate checksum where existing process expects it.
 
 ### W11.3 Linux behavior evidence
 
@@ -526,21 +527,21 @@ Do not invent physical evidence if it was not run.
 
 ### W12.1 Core audit
 
-- [ ] Portable core contains no concrete Linux capture implementation.
-- [ ] Portable core contains no Linux environment-variable parsing.
-- [ ] Portable core contains no hard-coded Linux helper path policy.
-- [ ] Shared OCR engine accepts platform-resolved runtime.
-- [ ] Platform composition is localized.
-- [ ] Linux dependencies are target-scoped.
-- [ ] Shared frontend behavior is unchanged except truthful portability adjustments.
+- [x] Portable core contains no concrete Linux capture implementation.
+- [x] Portable core contains no Linux environment-variable parsing.
+- [x] Portable core contains no hard-coded Linux helper path policy.
+- [x] Shared OCR engine accepts platform-resolved runtime.
+- [x] Platform composition is localized.
+- [x] Linux dependencies are target-scoped.
+- [x] Shared frontend behavior is unchanged except truthful portability adjustments.
 
 ### W12.2 Documentation
 
-- [ ] Update docs/ARCHITECTURE.md.
-- [ ] Add/update ADR if the platform-service boundary is a material architectural decision.
-- [ ] Record Phase 1 exact commit SHA.
-- [ ] Record Phase 1 CI run IDs.
-- [ ] Record any explicitly deferred issue.
+- [x] Update docs/ARCHITECTURE.md.
+- [x] Add/update ADR if the platform-service boundary is a material architectural decision.
+- [x] Record Phase 1 exact commit SHA.
+- [x] Record Phase 1 CI run IDs.
+- [x] Record any explicitly deferred issue.
 
 ### W12.3 Hard Phase 1 gate
 
@@ -556,11 +557,11 @@ Do not invent physical evidence if it was not run.
 ### W13.1 Compile target
 
 - [ ] Add target-specific Windows dependencies only as needed.
-- [ ] Ensure Rust code compiles on a Windows runner.
-- [ ] Ensure frontend builds on Windows.
-- [ ] Ensure Tauri app links on Windows.
+- [x] Ensure Rust code compiles on a Windows runner.
+- [x] Ensure frontend builds on Windows.
+- [x] Ensure Tauri app links on Windows.
 - [ ] Resolve any path-separator assumptions.
-- [ ] Resolve any Unix-only std::os imports.
+- [x] Resolve any Unix-only std::os imports.
 - [ ] Resolve any Linux-only build-script assumptions.
 
 ### W13.2 Windows product metadata
@@ -609,11 +610,11 @@ For each record:
 
 ### W14.2 Choose mechanism
 
-- [ ] Select one primary capture mechanism.
-- [ ] Decide whether a fallback is necessary.
-- [ ] Document why.
-- [ ] Add ADR or architecture note.
-- [ ] Define testable coordinate contract.
+- [x] Select one primary capture mechanism.
+- [x] Decide whether a fallback is necessary.
+- [x] Document why.
+- [x] Add ADR or architecture note.
+- [x] Define testable coordinate contract.
 
 ### W14 acceptance gate
 
@@ -887,33 +888,33 @@ On clean Windows test system:
 
 ### W21.1 Branch triggers
 
-- [ ] Ensure meaningful CI runs on ralph/windows-support pushes.
-- [ ] Preserve master CI behavior.
-- [ ] Avoid cancelling unrelated platform jobs incorrectly.
+- [x] Ensure meaningful CI runs on ralph/windows-support pushes.
+- [x] Preserve master CI behavior.
+- [x] Avoid cancelling unrelated platform jobs incorrectly.
 
 ### W21.2 Linux jobs
 
-- [ ] Repository policy.
-- [ ] Content-leakage guard.
-- [ ] Frontend quality.
-- [ ] Layout regression where applicable.
-- [ ] Rust formatting.
-- [ ] Rust Clippy.
-- [ ] Rust tests.
-- [ ] Rust build.
-- [ ] Debian packaging path remains valid.
+- [x] Repository policy.
+- [x] Content-leakage guard.
+- [x] Frontend quality.
+- [x] Layout regression where applicable.
+- [x] Rust formatting.
+- [x] Rust Clippy.
+- [x] Rust tests.
+- [x] Rust build.
+- [x] Debian packaging path remains valid.
 
 ### W21.3 Windows jobs
 
-- [ ] Set up Node.
-- [ ] Set up pinned Rust.
-- [ ] npm ci.
-- [ ] Frontend build or required shared frontend checks.
-- [ ] cargo fmt check or shared formatting gate.
-- [ ] cargo clippy for Windows-relevant targets.
-- [ ] cargo test.
-- [ ] cargo build.
-- [ ] Tauri Windows build.
+- [x] Set up Node.
+- [x] Set up pinned Rust.
+- [x] npm ci.
+- [x] Frontend build or required shared frontend checks.
+- [x] cargo fmt check or shared formatting gate.
+- [x] cargo clippy for Windows-relevant targets.
+- [x] cargo test.
+- [x] cargo build.
+- [x] Tauri Windows build.
 - [ ] NSIS installer build.
 - [ ] Verify bundled OCR files.
 - [ ] Generate SHA-256.
@@ -934,29 +935,29 @@ On clean Windows test system:
 
 ### W22.1 Rust tests
 
-- [ ] Portable orchestration tests pass on Windows.
-- [ ] Windows coordinate tests pass.
-- [ ] Windows runtime resolver tests pass.
+- [x] Portable orchestration tests pass on Windows.
+- [x] Windows coordinate tests pass.
+- [x] Windows runtime resolver tests pass.
 - [ ] Windows error-mapping tests pass.
-- [ ] Cancellation/state-machine tests pass.
-- [ ] Settings tests pass.
+- [x] Cancellation/state-machine tests pass.
+- [x] Settings tests pass.
 
 ### W22.2 Frontend tests
 
-- [ ] Platform-specific shortcut label tests.
-- [ ] Platform-specific capture backend choice tests.
-- [ ] Shared review/copy tests.
+- [x] Platform-specific shortcut label tests.
+- [x] Platform-specific capture backend choice tests.
+- [x] Shared review/copy tests.
 - [ ] Shared cancellation UI tests.
-- [ ] Shared settings error tests.
-- [ ] No Linux-only copy shown as actionable Windows behavior.
+- [x] Shared settings error tests.
+- [x] No Linux-only copy shown as actionable Windows behavior.
 
 ### W22.3 Build tests
 
-- [ ] Debug Windows build.
+- [x] Debug Windows build.
 - [ ] Release Windows build.
 - [ ] Installer build.
 - [ ] Packaged resource audit.
-- [ ] No unresolved Linux library dependency.
+- [x] No unresolved Linux library dependency.
 
 ### W22 acceptance gate
 
