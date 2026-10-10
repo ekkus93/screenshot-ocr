@@ -8,14 +8,16 @@ use std::thread;
 use std::time::Duration;
 use windows_sys::Win32::Foundation::{GetLastError, HWND, RECT};
 use windows_sys::Win32::Graphics::Gdi::{
-    BeginPaint, EndPaint, FillRect, FrameRect, GetStockObject, BLACK_BRUSH, HBRUSH, PAINTSTRUCT,
+    BeginPaint, EndPaint, FillRect, FrameRect, GetStockObject, InvalidateRect, BLACK_BRUSH, HBRUSH,
+    PAINTSTRUCT,
     WHITE_BRUSH,
 };
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::{ReleaseCapture, SetCapture};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetClientRect, GetCursorPos,
-    GetSystemMetrics, GetWindowLongPtrW, InvalidateRect, LoadCursorW, PeekMessageW, RegisterClassW,
-    ReleaseCapture, SetCapture, SetForegroundWindow, SetLayeredWindowAttributes, SetWindowLongPtrW,
+    GetSystemMetrics, GetWindowLongPtrW, LoadCursorW, PeekMessageW, RegisterClassW,
+    SetForegroundWindow, SetLayeredWindowAttributes, SetWindowLongPtrW,
     ShowWindow, TranslateMessage, GWLP_USERDATA, IDC_CROSS, LWA_ALPHA, MSG, PM_REMOVE,
     SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN, SW_SHOW,
     WM_CAPTURECHANGED, WM_CLOSE, WM_KEYDOWN, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEMOVE, WM_PAINT,
