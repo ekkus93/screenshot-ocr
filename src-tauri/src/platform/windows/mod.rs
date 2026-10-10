@@ -1,3 +1,5 @@
+mod geometry;
+
 use crate::cancellation::CancellationToken;
 use crate::capture::CaptureBackend;
 use crate::diagnostics::PlatformDiagnostics;
