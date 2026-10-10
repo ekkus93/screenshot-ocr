@@ -72,6 +72,12 @@ impl CaptureBackend for NativeCapture {
     }
 }
 
+// Win32 SelectObject returns NULL or HGDI_ERROR (the -1 pointer sentinel)
+// on failure, depending on the selected object type.
+fn selected_object_succeeded(handle: HGDIOBJ) -> bool {
+    !handle.is_null() && handle as isize != -1
+}
+
 struct GdiHandles {
     screen: HDC,
     memory: HDC,
@@ -100,10 +106,13 @@ impl GdiHandles {
             if handles.bitmap.is_null() {
                 return Err(AppError::CaptureFailed);
             }
-            handles.previous = SelectObject(handles.memory, handles.bitmap as HGDIOBJ);
-            if handles.previous.is_null() {
+            // SelectObject reports either NULL or HGDI_ERROR (-1) on failure.
+            // Do not retain the invalid sentinel as a restorable GDI handle.
+            let previous = SelectObject(handles.memory, handles.bitmap as HGDIOBJ);
+            if !selected_object_succeeded(previous) {
                 return Err(AppError::CaptureFailed);
             }
+            handles.previous = previous;
         }
         Ok(handles)
     }
@@ -149,7 +158,7 @@ fn capture_tile(rectangle: Rect) -> Result<RgbaImage, AppError> {
             return Err(AppError::CaptureFailed);
         }
         // GetDIBits requires the bitmap to be deselected from the memory DC.
-        if SelectObject(handles.memory, handles.previous).is_null() {
+        if !selected_object_succeeded(SelectObject(handles.memory, handles.previous)) {
             return Err(AppError::CaptureFailed);
         }
         handles.previous = null_mut();
@@ -202,4 +211,17 @@ fn capture_pixels(
     }
     cancellation.check()?;
     composite::compose(selection, captured)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::selected_object_succeeded;
+    use windows_sys::Win32::Graphics::Gdi::HGDIOBJ;
+
+    #[test]
+    fn select_object_failure_sentinels_are_rejected() {
+        assert!(!selected_object_succeeded(std::ptr::null_mut()));
+        assert!(!selected_object_succeeded(-1isize as HGDIOBJ));
+        assert!(selected_object_succeeded(1isize as HGDIOBJ));
+    }
 }
