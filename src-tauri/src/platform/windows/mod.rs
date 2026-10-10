@@ -1,6 +1,7 @@
-#[cfg(test)]
 mod geometry;
 mod ocr_runtime;
+mod pixels;
+mod selector;
 
 use crate::cancellation::CancellationToken;
 use crate::capture::CaptureBackend;
@@ -26,7 +27,7 @@ impl PlatformServices for WindowsPlatform {
         // honor them: its adapter owns one native capture mechanism, and the
         // Windows UI will expose only truthful choices.
         cancellation.check()?;
-        Err(AppError::CaptureBackendUnavailable)
+        Ok(Box::new(pixels::NativeCapture))
     }
 
     fn resolve_ocr_runtime(&self) -> Result<OcrRuntime, AppError> {
@@ -39,7 +40,7 @@ impl PlatformServices for WindowsPlatform {
             os_release: "Windows".into(),
             desktop_environment: "Windows desktop".into(),
             session_type: "desktop".into(),
-            capture_summary: "Windows capture adapter not implemented yet".into(),
+            capture_summary: "Windows native region selector installed; physical desktop validation pending".into(),
             ocr_runtime: ocr_runtime::packaged_runtime_status(),
         })
     }
@@ -54,7 +55,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn migrated_linux_preferences_do_not_enable_linux_capture() {
+    async fn migrated_linux_preferences_use_the_single_windows_backend() {
         let platform = WindowsPlatform;
         for preference in [
             CaptureBackendPreference::Auto,
@@ -62,10 +63,7 @@ mod tests {
             CaptureBackendPreference::Portal,
         ] {
             let cancellation = CancellationToken::new();
-            assert!(matches!(
-                platform.prepare_capture(preference, &cancellation).await,
-                Err(AppError::CaptureBackendUnavailable)
-            ));
+            assert!(platform.prepare_capture(preference, &cancellation).await.is_ok());
         }
     }
 
@@ -86,7 +84,7 @@ mod tests {
     async fn windows_capability_status_does_not_claim_native_capture_ready() {
         let diagnostics = WindowsPlatform.diagnostics().await.unwrap();
         assert_eq!(diagnostics.platform, "windows");
-        assert!(diagnostics.capture_summary.contains("not implemented"));
+        assert!(diagnostics.capture_summary.contains("validation pending"));
         assert_eq!(WindowsPlatform.direct_shortcut(), Some("Control+Shift+O"));
     }
 }
