@@ -27,6 +27,9 @@ impl TesseractEngine {
 
     fn command(&self) -> Command {
         let mut command = Command::new(&self.runtime.executable);
+        if let Some(directory) = &self.runtime.working_directory {
+            command.current_dir(directory);
+        }
         if let Some(tessdata_dir) = &self.runtime.tessdata_dir {
             command.env("TESSDATA_PREFIX", tessdata_dir);
         }

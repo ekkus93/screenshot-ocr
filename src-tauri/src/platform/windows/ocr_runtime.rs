@@ -20,7 +20,7 @@ fn resolve_at(executable: &Path) -> Result<OcrRuntime, AppError> {
     if !tessdata.join("eng.traineddata").is_file() {
         return Err(AppError::OcrLanguageMissing);
     }
-    Ok(OcrRuntime::new(binary, Some(tessdata)))
+    Ok(OcrRuntime::new(binary, Some(tessdata)).with_working_directory(root))
 }
 
 pub fn resolve_packaged_runtime() -> Result<OcrRuntime, AppError> {
@@ -61,6 +61,7 @@ mod tests {
         let runtime = resolve_at(&executable).unwrap();
         assert_eq!(runtime.executable, ocr.join("tesseract.exe"));
         assert_eq!(runtime.tessdata_dir, Some(ocr.join("tessdata")));
+        assert_eq!(runtime.working_directory, Some(ocr));
     }
 
     #[test]
