@@ -92,13 +92,25 @@ mod tests {
         use crate::error::{ErrorCode, PublicError};
         for (error, expected) in [
             (AppError::CaptureCancelled, ErrorCode::CaptureCancelled),
-            (AppError::CaptureBackendUnavailable, ErrorCode::CaptureBackendUnavailable),
+            (
+                AppError::CaptureBackendUnavailable,
+                ErrorCode::CaptureBackendUnavailable,
+            ),
             (AppError::CaptureFailed, ErrorCode::CaptureFailed),
-            (AppError::CaptureImageInvalid, ErrorCode::CaptureImageInvalid),
+            (
+                AppError::CaptureImageInvalid,
+                ErrorCode::CaptureImageInvalid,
+            ),
             (AppError::CaptureTooLarge, ErrorCode::CaptureTooLarge),
-            (AppError::OcrEngineUnavailable, ErrorCode::OcrEngineUnavailable),
+            (
+                AppError::OcrEngineUnavailable,
+                ErrorCode::OcrEngineUnavailable,
+            ),
             (AppError::OcrLanguageMissing, ErrorCode::OcrLanguageMissing),
-            (AppError::ClipboardWriteFailed, ErrorCode::ClipboardWriteFailed),
+            (
+                AppError::ClipboardWriteFailed,
+                ErrorCode::ClipboardWriteFailed,
+            ),
         ] {
             let public = PublicError::from(error);
             assert_eq!(public.code, expected);
