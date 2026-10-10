@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod geometry;
+mod ocr_runtime;
 
 use crate::cancellation::CancellationToken;
 use crate::capture::CaptureBackend;
@@ -29,7 +30,7 @@ impl PlatformServices for WindowsPlatform {
     }
 
     fn resolve_ocr_runtime(&self) -> Result<OcrRuntime, AppError> {
-        Err(AppError::OcrEngineUnavailable)
+        ocr_runtime::resolve_packaged_runtime()
     }
 
     async fn diagnostics(&self) -> Result<PlatformDiagnostics, AppError> {
@@ -39,7 +40,7 @@ impl PlatformServices for WindowsPlatform {
             desktop_environment: "Windows desktop".into(),
             session_type: "desktop".into(),
             capture_summary: "Windows capture adapter not implemented yet".into(),
-            ocr_runtime: "unavailable".into(),
+            ocr_runtime: ocr_runtime::packaged_runtime_status(),
         })
     }
 
