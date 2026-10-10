@@ -275,4 +275,24 @@ mod tests {
         assert!(!json.contains("SYNTHETIC_SECRET_9f33"));
         assert!(!json.contains("/tmp/private"));
     }
+
+    #[test]
+    fn linux_capture_preferences_remain_valid_for_cross_platform_profile_migration() {
+        for capture_backend in [
+            CaptureBackendPreference::Auto,
+            CaptureBackendPreference::Gnome,
+            CaptureBackendPreference::Portal,
+        ] {
+            let settings = AppSettings {
+                capture_backend,
+                ..AppSettings::default()
+            };
+            let serialized = serde_json::to_vec(&settings).expect("serialize settings");
+            let parsed: AppSettings =
+                serde_json::from_slice(&serialized).expect("parse migrated settings");
+            assert_eq!(parsed.capture_backend, capture_backend);
+            assert!(parsed.validate().is_ok());
+        }
+    }
+
 }

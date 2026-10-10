@@ -17,6 +17,10 @@ impl PlatformServices for WindowsPlatform {
         _preference: CaptureBackendPreference,
         cancellation: &CancellationToken,
     ) -> Result<Box<dyn CaptureBackend>, AppError> {
+        // Historical Linux-specific backend preferences remain parseable when a
+        // settings profile is migrated to Windows. Windows never attempts to
+        // honor them: its adapter owns one native capture mechanism, and the
+        // Windows UI will expose only truthful choices.
         cancellation.check()?;
         Err(AppError::CaptureBackendUnavailable)
     }
