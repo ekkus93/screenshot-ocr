@@ -14,7 +14,9 @@ pub struct OcrRuntime {
 }
 
 impl OcrRuntime {
-    #[cfg(target_os = "linux")]
+    // Windows uses the packaged descriptor directly; tests still exercise this
+    // portable constructor until the native capture adapter is available.
+    #[cfg_attr(target_os = "windows", allow(dead_code))]
     pub fn new(executable: PathBuf, tessdata_dir: Option<PathBuf>) -> Self {
         Self {
             executable,
