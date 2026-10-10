@@ -104,11 +104,7 @@ mod tests {
 
         let directory = tempdir().expect("tempdir");
         let candidate = directory.path().join("tool");
-        fs::write(
-            &candidate,
-            b"#!/bin/sh\n",
-        )
-        .expect("write tool");
+        fs::write(&candidate, b"#!/bin/sh\n").expect("write tool");
         fs::set_permissions(&candidate, fs::Permissions::from_mode(0o600))
             .expect("set non-executable mode");
         assert!(find_executable_in("tool", [directory.path()]).is_none());
