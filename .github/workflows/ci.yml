@@ -68,6 +68,9 @@ jobs:
       - name: Check content-leakage source guard
         run: python3 scripts/check-content-leakage.py
 
+      - name: Check portable-core platform boundary
+        run: python3 scripts/check-platform-boundaries.py
+
       - name: Ensure no broad Tauri capability wildcard
         shell: bash
         run: |
