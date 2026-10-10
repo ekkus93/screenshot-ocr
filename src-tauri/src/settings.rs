@@ -294,5 +294,4 @@ mod tests {
             assert!(parsed.validate().is_ok());
         }
     }
-
 }
