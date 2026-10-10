@@ -1,5 +1,6 @@
 mod composite;
 mod geometry;
+mod monitors;
 mod ocr_runtime;
 mod pixels;
 mod selector;
