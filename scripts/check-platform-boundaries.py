@@ -19,7 +19,12 @@ FORBIDDEN_PORTABLE_PATTERNS = {
     'std::env::var("WAYLAND_DISPLAY': "portable code reads a Wayland environment variable",
     'std::env::var("DISPLAY': "portable code reads an X11 environment variable",
     '"/usr/bin"': "portable code hard-codes a Linux executable directory",
+    'std::env::var_os("WAYLAND_DISPLAY': "portable code reads a Wayland environment variable",
+    'std::env::var_os("DISPLAY': "portable code reads an X11 environment variable",
+    'std::env::var("GNOME_': "portable code reads a GNOME environment variable",
+    'std::env::var_os("GNOME_': "portable code reads a GNOME environment variable",
     "windows::Win32": "portable code imports a concrete Windows API",
+    "windows_sys::Win32": "portable code imports a concrete Windows API",
 }
 
 ALLOWED_NON_PLATFORM_FILES = {
