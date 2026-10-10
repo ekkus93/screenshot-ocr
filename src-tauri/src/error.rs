@@ -46,6 +46,8 @@ pub enum AppError {
     CaptureCancelled,
     #[error("capture backend is unavailable")]
     CaptureBackendUnavailable,
+    // The Windows selector will construct this variant when its native adapter is wired.
+    #[allow(dead_code)]
     #[error("native screen capture failed")]
     CaptureFailed,
     #[cfg(target_os = "linux")]
