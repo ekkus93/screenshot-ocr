@@ -12,6 +12,9 @@ use windows_sys::Win32::Graphics::Gdi::{
     PAINTSTRUCT, WHITE_BRUSH,
 };
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
+use windows_sys::Win32::UI::HiDpi::{
+    SetThreadDpiAwarenessContext, DPI_AWARENESS_CONTEXT, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2,
+};
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{ReleaseCapture, SetCapture};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetClientRect, GetCursorPos,
@@ -22,6 +25,31 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     WM_KEYDOWN, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEMOVE, WM_PAINT, WM_QUIT, WNDCLASSW,
     WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP,
 };
+
+/// The dedicated native selector worker must use physical virtual-screen pixels.
+/// Restore the original DPI context before the worker thread returns.
+struct SelectorDpiContext(DPI_AWARENESS_CONTEXT);
+
+impl SelectorDpiContext {
+    fn enter() -> Result<Self, AppError> {
+        // SAFETY: The context switch only affects the current selector worker thread.
+        let previous = unsafe {
+            SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2)
+        };
+        if previous.is_null() {
+            Err(AppError::CaptureBackendUnavailable)
+        } else {
+            Ok(Self(previous))
+        }
+    }
+}
+
+impl Drop for SelectorDpiContext {
+    fn drop(&mut self) {
+        // SAFETY: The guard is not moved between threads and owns this context.
+        unsafe { SetThreadDpiAwarenessContext(self.0) };
+    }
+}
 
 struct Selection {
     origin: Point,
@@ -119,10 +147,10 @@ unsafe extern "system" fn window_proc(
                     if let Some(start) = selection.start {
                         let end = selection.current;
                         let border = RECT {
-                            left: start.x.min(end.x) - selection.origin.x,
-                            top: start.y.min(end.y) - selection.origin.y,
-                            right: start.x.max(end.x) - selection.origin.x,
-                            bottom: start.y.max(end.y) - selection.origin.y,
+                            left: start.x.min(end.x).saturating_sub(selection.origin.x),
+                            top: start.y.min(end.y).saturating_sub(selection.origin.y),
+                            right: start.x.max(end.x).saturating_sub(selection.origin.x),
+                            bottom: start.y.max(end.y).saturating_sub(selection.origin.y),
                         };
                         FrameRect(dc, &border, GetStockObject(WHITE_BRUSH) as HBRUSH);
                     }
@@ -152,6 +180,7 @@ impl Drop for Overlay {
 /// that thread and is pumped frequently enough to observe shared cancellation.
 pub fn select_region(cancellation: &CancellationToken) -> Result<Rect, AppError> {
     cancellation.check()?;
+    let _dpi_context = SelectorDpiContext::enter()?;
     let mut selection = Selection {
         origin: Point { x: 0, y: 0 },
         start: None,
