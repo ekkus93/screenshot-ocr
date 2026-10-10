@@ -254,6 +254,69 @@ jobs:
       - name: Link Windows Tauri application
         run: npm run tauri -- build --no-bundle
 
+  windows-packaging-smoke:
+    name: Windows NSIS packaging smoke (not published)
+    needs: [windows-quality]
+    if: github.ref == 'refs/heads/ralph/windows-support'
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.88.0
+
+      - name: Install locked frontend dependencies
+        run: npm ci
+
+      - name: Stage checksum-verified OCR runtime without executing setup
+        shell: pwsh
+        run: ./scripts/audit-windows-ocr-runtime.ps1 -StageRuntime
+
+      - name: Build Windows NSIS smoke installer
+        run: npm run tauri -- build --bundles nsis
+
+      - name: Verify NSIS payload and generate local checksum
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $installers = @(Get-ChildItem -Path "src-tauri/target/release/bundle/nsis" -Filter "*-setup.exe" -File)
+          if ($installers.Count -ne 1) { throw "Expected one NSIS installer, found $($installers.Count)." }
+          $sevenZip = Join-Path $env:ProgramFiles "7-Zip/7z.exe"
+          if (-not (Test-Path -LiteralPath $sevenZip)) { throw "7-Zip unavailable." }
+          $extracted = Join-Path $env:RUNNER_TEMP "screenshot-ocr-nsis-smoke"
+          New-Item -ItemType Directory -Force -Path $extracted | Out-Null
+          & $sevenZip x "-o$extracted" -y $installers[0].FullName | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "NSIS payload extraction failed." }
+          $runtime = @(Get-ChildItem -LiteralPath $extracted -Recurse -File -Filter "tesseract.exe")
+          $english = @(Get-ChildItem -LiteralPath $extracted -Recurse -File -Filter "eng.traineddata")
+          if ($runtime.Count -ne 1 -or $english.Count -ne 1) {
+            throw "NSIS payload missing bundled Tesseract or English data."
+          }
+          $manifest = Get-Content -LiteralPath "windows-ocr-runtime-audit.json" -Raw | ConvertFrom-Json
+          foreach ($item in @(
+            @{ file = $runtime[0]; name = "tesseract.exe" },
+            @{ file = $english[0]; name = "tessdata/eng.traineddata" }
+          )) {
+            $expected = @($manifest.files | Where-Object { $_.name -eq $item.name })
+            if ($expected.Count -ne 1) { throw "Missing expected runtime manifest entry." }
+            $actual = (Get-FileHash -LiteralPath $item.file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actual -cne $expected[0].sha256) { throw "NSIS bundled runtime digest mismatch." }
+          }
+          $checksum = (Get-FileHash -LiteralPath $installers[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          Write-Output "NSIS smoke payload verified; SHA-256: $checksum"
+          Write-Output "Not publishing: dependency-license and physical desktop acceptance pending."
+
   packaging:
     name: Debian package smoke
     needs: [frontend-quality, layout-regression, rust-quality]

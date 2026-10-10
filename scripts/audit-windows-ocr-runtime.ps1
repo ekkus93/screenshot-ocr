@@ -1,6 +1,8 @@
 # Read-only audit of the pinned Windows Tesseract distribution.
 # No installer is executed, no system-wide installation is performed, and
 # this script does not publish a redistributable application bundle.
+param([switch]$StageRuntime)
+
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
@@ -77,3 +79,20 @@ $manifest = [ordered]@{
 }
 $manifest | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath "windows-ocr-runtime-audit.json" -Encoding utf8
 Write-Output "Verified input inventory: $($dlls.Count) adjacent DLL files; no installer was executed."
+
+if ($StageRuntime) {
+    # Stage only for CI packaging qualification. Do not publish this bundle
+    # until the transitive DLL/license review and physical acceptance pass.
+    $stage = Join-Path $PSScriptRoot "..\src-tauri\windows-ocr-runtime"
+    if (Test-Path -LiteralPath $stage) {
+        Remove-Item -LiteralPath $stage -Recurse -Force
+    }
+    New-Item -ItemType Directory -Force -Path (Join-Path $stage "tessdata") | Out-Null
+    Copy-Item -LiteralPath $selected.Binary.FullName -Destination (Join-Path $stage "tesseract.exe")
+    Copy-Item -LiteralPath $selected.English -Destination (Join-Path $stage "tessdata\eng.traineddata")
+    foreach ($dll in $dlls) {
+        Copy-Item -LiteralPath $dll.FullName -Destination (Join-Path $stage $dll.Name)
+    }
+    Write-Output "Staged checksum-verified runtime for non-published NSIS smoke build."
+}
+
