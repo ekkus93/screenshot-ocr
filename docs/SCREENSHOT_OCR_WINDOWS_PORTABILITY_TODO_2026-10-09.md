@@ -8,6 +8,8 @@
 **Baseline commit:** bbfd605d5c65b83735a9795622d92062c6c9c59d  
 **Status:** authoritative implementation checklist for the portable-core refactor and Windows application port
 
+**Windows packaging evidence (2026-10-10):** `ralph/windows-support` exact head `0ef4c25843a02e19553c91cff2267eeb3176bbc0` passed CI run `38092903351`, including Windows Clippy/tests/link, Linux tests/Debian package smoke, and Windows NSIS smoke. The smoke extracted the NSIS archive without executing it, checked packaged `tesseract.exe` and `tessdata/eng.traineddata` against the pinned manifest, and generated the installer SHA-256 in CI logs. The CI smoke does **not** yet validate every adjacent runtime DLL, publish the installer, complete transitive native-dependency/license review, or demonstrate physical Windows desktop behavior. Those items remain unchecked. Final exact-head qualification must be repeated after subsequent commits.
+
 **Evidence reconciliation (2026-10-10):** Baseline master `bbfd605d5c65b83735a9795622d92062c6c9c59d` passed run `33818790571`. The Windows-portability branch passed Linux/frontend/Windows compile and Debian smoke CI at `d89c6e399a93f956e296a8628402f4e4ebae8bba` (run `38074489534`). The native Windows selector, bundled Tesseract installer, and physical Windows acceptance are not complete. This checklist reconciliation itself requires a fresh exact-head CI run.
 
 ## 1. Rules for this TODO
@@ -916,9 +918,9 @@ On clean Windows test system:
 - [x] cargo test.
 - [x] cargo build.
 - [x] Tauri Windows build.
-- [ ] NSIS installer build.
+- [x] NSIS installer build.
 - [ ] Verify bundled OCR files.
-- [ ] Generate SHA-256.
+- [x] Generate SHA-256.
 - [ ] Upload installer/checksum artifact.
 
 ### W21.4 Exact-head qualification
@@ -955,8 +957,8 @@ On clean Windows test system:
 ### W22.3 Build tests
 
 - [x] Debug Windows build.
-- [ ] Release Windows build.
-- [ ] Installer build.
+- [x] Release Windows build.
+- [x] Installer build.
 - [ ] Packaged resource audit.
 - [x] No unresolved Linux library dependency.
 
