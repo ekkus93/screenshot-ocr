@@ -16,6 +16,33 @@ use windows_sys::Win32::Graphics::Gdi::{
     ReleaseDC, SelectObject, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, CAPTUREBLT, DIB_RGB_COLORS,
     HBITMAP, HDC, HGDIOBJ, SRCCOPY,
 };
+use windows_sys::Win32::UI::HiDpi::{
+    SetThreadDpiAwarenessContext, DPI_AWARENESS_CONTEXT, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2,
+};
+
+/// Keep native monitor enumeration and GDI pixel readback in the same physical
+/// coordinate space as the region selector, including on mixed-DPI desktops.
+struct CaptureDpiContext(DPI_AWARENESS_CONTEXT);
+
+impl CaptureDpiContext {
+    fn enter() -> Result<Self, AppError> {
+        // SAFETY: Only the current blocking capture worker's DPI context changes.
+        let previous =
+            unsafe { SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) };
+        if previous.is_null() {
+            Err(AppError::CaptureBackendUnavailable)
+        } else {
+            Ok(Self(previous))
+        }
+    }
+}
+
+impl Drop for CaptureDpiContext {
+    fn drop(&mut self) {
+        // SAFETY: This guard stays on the same dedicated blocking worker.
+        unsafe { SetThreadDpiAwarenessContext(self.0) };
+    }
+}
 
 pub struct NativeCapture;
 
@@ -27,6 +54,9 @@ impl CaptureBackend for NativeCapture {
     ) -> Result<CapturedImage, AppError> {
         let cancellation = cancellation.clone();
         tokio::task::spawn_blocking(move || {
+            // The selector temporarily enters this same DPI context, then
+            // restores this outer context before capture begins.
+            let _dpi_context = CaptureDpiContext::enter()?;
             let rectangle = selector::select_region(&cancellation)?;
             cancellation.check()?;
             let image = capture_pixels(rectangle, &cancellation)?;
