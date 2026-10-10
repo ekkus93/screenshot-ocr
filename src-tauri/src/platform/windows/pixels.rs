@@ -155,7 +155,10 @@ fn capture_tile(rectangle: Rect) -> Result<RgbaImage, AppError> {
     }
 }
 
-fn capture_pixels(selection: Rect, cancellation: &CancellationToken) -> Result<RgbaImage, AppError> {
+fn capture_pixels(
+    selection: Rect,
+    cancellation: &CancellationToken,
+) -> Result<RgbaImage, AppError> {
     selection.rgba_len()?;
     let displays = monitors::enumerate()?;
     let tiles = monitor_tiles(selection, &displays);
