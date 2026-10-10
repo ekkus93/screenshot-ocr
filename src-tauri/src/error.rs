@@ -45,14 +45,18 @@ pub enum AppError {
     CaptureCancelled,
     #[error("capture backend is unavailable")]
     CaptureBackendUnavailable,
+    #[cfg(target_os = "linux")]
     #[error("capture permission was denied")]
     CapturePermissionDenied,
     #[error("capture operation timed out")]
     CaptureTimedOut,
+    #[cfg(target_os = "linux")]
     #[error("capture helper failed")]
     CaptureProcessFailed,
+    #[cfg(target_os = "linux")]
     #[error("capture output is missing")]
     CaptureResultMissing,
+    #[cfg(target_os = "linux")]
     #[error("capture result URI is invalid")]
     CaptureResultUriInvalid,
     #[error("captured image is invalid")]
@@ -105,6 +109,7 @@ impl From<AppError> for PublicError {
                 "Check the platform capture support in safe diagnostics and try again.",
                 true,
             ),
+            #[cfg(target_os = "linux")]
             AppError::CapturePermissionDenied => (
                 ErrorCode::CapturePermissionDenied,
                 "Screen-capture permission was denied.",
@@ -117,18 +122,21 @@ impl From<AppError> for PublicError {
                 "Start another capture and complete or cancel the selector. The clipboard was unchanged.",
                 true,
             ),
+            #[cfg(target_os = "linux")]
             AppError::CaptureProcessFailed => (
                 ErrorCode::CaptureProcessFailed,
                 "The screen-selection service failed.",
                 "Try again and inspect safe diagnostics if it continues.",
                 true,
             ),
+            #[cfg(target_os = "linux")]
             AppError::CaptureResultMissing => (
                 ErrorCode::CaptureResultMissing,
                 "The selector did not produce an image.",
                 "Try selecting a region again.",
                 true,
             ),
+            #[cfg(target_os = "linux")]
             AppError::CaptureResultUriInvalid => (
                 ErrorCode::CaptureResultUriInvalid,
                 "The screen-selection service returned an unsupported result.",
@@ -236,6 +244,7 @@ mod tests {
         assert!(!json.contains("/tmp/"));
     }
 
+    #[cfg(target_os = "linux")]
     #[test]
     fn portal_errors_have_stable_public_codes() {
         assert_eq!(

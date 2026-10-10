@@ -261,10 +261,15 @@ async fn terminate_child(child: &mut Child) -> Result<(), AppError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
     use crate::models::PreprocessingVariant;
+    #[cfg(unix)]
     use image::DynamicImage;
+    #[cfg(unix)]
     use std::fs;
+    #[cfg(unix)]
     use tempfile::tempdir;
+    #[cfg(unix)]
     use tokio::time::{sleep, timeout};
 
     #[cfg(unix)]
