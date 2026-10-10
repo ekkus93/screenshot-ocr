@@ -48,3 +48,45 @@ impl PlatformServices for WindowsPlatform {
         Some("Control+Shift+O")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn migrated_linux_preferences_do_not_enable_linux_capture() {
+        let platform = WindowsPlatform;
+        for preference in [
+            CaptureBackendPreference::Auto,
+            CaptureBackendPreference::Gnome,
+            CaptureBackendPreference::Portal,
+        ] {
+            let cancellation = CancellationToken::new();
+            assert!(matches!(
+                platform.prepare_capture(preference, &cancellation).await,
+                Err(AppError::CaptureBackendUnavailable)
+            ));
+        }
+    }
+
+    #[tokio::test]
+    async fn cancelled_windows_capture_request_stays_cancelled() {
+        let platform = WindowsPlatform;
+        let cancellation = CancellationToken::new();
+        cancellation.cancel();
+        assert!(matches!(
+            platform
+                .prepare_capture(CaptureBackendPreference::Auto, &cancellation)
+                .await,
+            Err(AppError::CaptureCancelled)
+        ));
+    }
+
+    #[tokio::test]
+    async fn windows_capability_status_does_not_claim_native_capture_ready() {
+        let diagnostics = WindowsPlatform.diagnostics().await.unwrap();
+        assert_eq!(diagnostics.platform, "windows");
+        assert!(diagnostics.capture_summary.contains("not implemented"));
+        assert_eq!(WindowsPlatform.direct_shortcut(), Some("Control+Shift+O"));
+    }
+}
