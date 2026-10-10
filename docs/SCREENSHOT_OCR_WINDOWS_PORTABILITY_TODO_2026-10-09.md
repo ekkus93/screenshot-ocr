@@ -9,6 +9,7 @@
 **Status:** authoritative implementation checklist for the portable-core refactor and Windows application port
 
 **Evidence reconciliation (2026-10-10):** Baseline master `bbfd605d5c65b83735a9795622d92062c6c9c59d` passed run `33818790571`. The Windows-portability branch passed Linux/frontend/Windows compile and Debian smoke CI at `d89c6e399a93f956e296a8628402f4e4ebae8bba` (run `38074489534`). The native Windows selector, bundled Tesseract installer, and physical Windows acceptance are not complete. This checklist reconciliation itself requires a fresh exact-head CI run.
+
 ## 1. Rules for this TODO
 
 - [ ] means not implemented or not proven.
@@ -237,6 +238,7 @@ At minimum inspect:
 - [ ] Isolate only genuinely platform-specific setup/policy.
 - [ ] Keep action semantics in the shared router.
 - [ ] Keep cancellation semantics in shared state.
+
 
 ### W3.5 Contract tests
 
@@ -479,6 +481,7 @@ The guard should cover at least:
 
 - [ ] Tests protect both behavior and the new architectural boundary.
 
+
 ## 15. W11 — Linux regression qualification
 
 ### W11.1 Automated quality
@@ -717,6 +720,7 @@ For each record:
 - [ ] Record registration success/failure safely.
 - [ ] Do not make registration failure fatal.
 - [ ] Prevent repeat key events from launching overlapping captures.
+
 
 ### W17.3 Tray
 
@@ -958,6 +962,7 @@ On clean Windows test system:
 - [ ] Installer build.
 - [ ] Packaged resource audit.
 - [x] No unresolved Linux library dependency.
+
 
 ### W22 acceptance gate
 
