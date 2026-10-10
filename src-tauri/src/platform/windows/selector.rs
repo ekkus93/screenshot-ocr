@@ -253,6 +253,7 @@ pub fn select_region(cancellation: &CancellationToken) -> Result<Rect, AppError>
             let mut message: MSG = zeroed();
             while PeekMessageW(&mut message, null_mut(), 0, 0, PM_REMOVE) != 0 {
                 if message.message == WM_QUIT {
+                    selection.result = Some(Err(AppError::CaptureCancelled));
                     break;
                 }
                 TranslateMessage(&message);
