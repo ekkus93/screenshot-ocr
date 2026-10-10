@@ -48,6 +48,7 @@ pub enum AppError {
     #[cfg(target_os = "linux")]
     #[error("capture permission was denied")]
     CapturePermissionDenied,
+    #[cfg(target_os = "linux")]
     #[error("capture operation timed out")]
     CaptureTimedOut,
     #[cfg(target_os = "linux")]
@@ -116,6 +117,7 @@ impl From<AppError> for PublicError {
                 "Allow screen capture in the desktop prompt and try again.",
                 true,
             ),
+            #[cfg(target_os = "linux")]
             AppError::CaptureTimedOut => (
                 ErrorCode::CaptureTimedOut,
                 "Screen selection took too long and was stopped.",

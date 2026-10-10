@@ -21,10 +21,4 @@ impl OcrRuntime {
             working_directory: None,
         }
     }
-
-    /// Keep subprocess lookup rooted in an application-controlled directory.
-    pub fn with_working_directory(mut self, directory: PathBuf) -> Self {
-        self.working_directory = Some(directory);
-        self
-    }
 }

@@ -1,4 +1,5 @@
 mod gnome;
+mod image;
 mod portal;
 
 use super::environment::LinuxEnvironmentInfo;

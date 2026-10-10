@@ -1,8 +1,8 @@
 use crate::cancellation::CancellationToken;
 use crate::capture::CaptureBackend;
 use crate::error::AppError;
-use crate::image_pipeline::decode_captured_image;
 use crate::models::{CaptureBackendId, CapturedImage};
+use super::image::decode_captured_image;
 use ashpd::desktop::{
     screenshot::{AvailableTargets, Screenshot, ScreenshotProxy},
     ResponseError,

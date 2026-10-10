@@ -20,7 +20,11 @@ fn resolve_at(executable: &Path) -> Result<OcrRuntime, AppError> {
     if !tessdata.join("eng.traineddata").is_file() {
         return Err(AppError::OcrLanguageMissing);
     }
-    Ok(OcrRuntime::new(binary, Some(tessdata)).with_working_directory(root))
+    Ok(OcrRuntime {
+        executable: binary,
+        tessdata_dir: Some(tessdata),
+        working_directory: Some(root),
+    })
 }
 
 pub fn resolve_packaged_runtime() -> Result<OcrRuntime, AppError> {
