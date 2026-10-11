@@ -120,10 +120,37 @@ def audit(root: Path) -> dict[str, object]:
             "external_unreviewed": sorted(dependencies - names),
         })
         external.update(dependencies - names)
+    # Static import reachability prioritizes the native review queue. It is
+    # NOT a removal decision: runtime LoadLibrary calls and optional plugins
+    # can require DLLs absent from the PE import graph.
+    graph = {
+        record["binary"].lower(): set(record["packaged"])
+        for record in records
+    }
+    reachable: set[str] = set()
+    pending = ["tesseract.exe"]
+    while pending:
+        name = pending.pop()
+        if name in reachable:
+            continue
+        reachable.add(name)
+        pending.extend(graph[name])
+    reachable_external = {
+        dependency
+        for record in records
+        if record["binary"].lower() in reachable
+        for dependency in record["external_unreviewed"]
+    }
     return {
         "schema_version": 1,
-        "qualification": "static PE dependency inventory only; external DLL and license audit pending",
+        "qualification": (
+            "static PE inventory and import reachability only; dynamic loads, "
+            "external DLL resolution and redistribution licenses unreviewed"
+        ),
         "binaries": records,
+        "statically_reachable_binaries": sorted(reachable),
+        "not_statically_reachable_binaries": sorted(names - reachable),
+        "external_unreviewed_from_statically_reachable": sorted(reachable_external),
         "external_unreviewed": sorted(external),
     }
 

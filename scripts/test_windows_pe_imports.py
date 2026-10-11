@@ -72,5 +72,29 @@ class PeImportTests(unittest.TestCase):
             self.assertEqual(result["qualification"].startswith("static PE"), True)
 
 
+    def test_static_reachability_prioritizes_without_claiming_unused_dlls(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            # The executable delay-imports vendor-extra; an additional DLL
+            # is not statically reachable but might be loaded dynamically.
+            (root / "tesseract.exe").write_bytes(fixture(delay=True))
+            (root / "vendor-extra.dll").write_bytes(fixture())
+            (root / "optional-plugin.dll").write_bytes(fixture())
+            result = audit.audit(root)
+            self.assertEqual(
+                result["statically_reachable_binaries"],
+                ["tesseract.exe", "vendor-extra.dll"],
+            )
+            self.assertEqual(
+                result["not_statically_reachable_binaries"],
+                ["optional-plugin.dll"],
+            )
+            self.assertEqual(
+                result["external_unreviewed_from_statically_reachable"],
+                ["kernel32.dll"],
+            )
+            self.assertIn("dynamic loads", result["qualification"])
+
+
 if __name__ == "__main__":
     unittest.main()
