@@ -43,7 +43,7 @@ if (-not (Test-Path -LiteralPath $sevenZip -PathType Leaf)) {
 & $sevenZip x "-o$extracted" -y $setup | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "Pinned installer could not be extracted by 7-Zip." }
 
-$candidates = @(Get-ChildItem -LiteralPath $extracted -Recurse -File -Filter "tesseract.exe")
+$candidates = @(Get-ChildItem -LiteralPath $extracted -Recurse -File -Force -Filter "tesseract.exe")
 if ($candidates.Count -eq 0) { throw "No tesseract.exe found in verified archive." }
 
 $matches = @(
@@ -59,7 +59,7 @@ if ($matches.Count -ne 1) {
 }
 $selected = $matches[0]
 $binaryDirectory = $selected.Binary.DirectoryName
-$dlls = @(Get-ChildItem -LiteralPath $binaryDirectory -File -Filter "*.dll" | Sort-Object Name)
+$dlls = @(Get-ChildItem -LiteralPath $binaryDirectory -File -Force -Filter "*.dll" | Sort-Object Name)
 if ($dlls.Count -eq 0) { throw "No adjacent runtime DLLs found; packaging inventory incomplete." }
 
 $entries = @(
