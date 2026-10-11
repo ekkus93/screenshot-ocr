@@ -121,6 +121,8 @@ def audit(root: Path) -> dict[str, object]:
     if not binary.is_file() or not dlls:
         raise InvalidPE("staged OCR executable or runtime DLLs missing")
     files = [binary, *dlls]
+    if root.is_symlink() or any(file.is_symlink() for file in files):
+        raise InvalidPE("staged OCR payload contains a symbolic link")
     names = {f.name.lower() for f in files}
     if len(names) != len(files):
         raise InvalidPE("case-insensitive filename collision")
