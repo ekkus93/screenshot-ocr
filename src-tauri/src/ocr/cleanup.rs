@@ -94,6 +94,29 @@ mod tests {
     }
 
     #[test]
+    fn candidate_selection_filters_blank_text_before_ranking() {
+        use crate::models::PreprocessingVariant;
+        let make = |text: &str, score: i64| OcrCandidate {
+            text: text.to_owned(),
+            mean_confidence: None,
+            preprocessing_variant: PreprocessingVariant::Original,
+            warnings: vec![],
+            score,
+        };
+        let winner = select_best_candidate(vec![
+            make(" ", 1000),
+            make("second", 5),
+            make("first", 10),
+        ])
+        .expect("nonblank candidate");
+        assert_eq!(winner.text, "first");
+        assert!(matches!(
+            select_best_candidate(vec![make("", 1), make("  ", 2)]),
+            Err(AppError::OcrEmptyResult)
+        ));
+    }
+
+    #[test]
     fn cleanup_is_idempotent() {
         let once = cleanup_text("a  \n\n", TextMode::Terminal);
         assert_eq!(cleanup_text(&once, TextMode::Terminal), once);
