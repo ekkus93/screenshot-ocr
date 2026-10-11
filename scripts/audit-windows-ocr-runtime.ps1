@@ -14,6 +14,7 @@ $workspace = Join-Path $tempRoot ("screenshot-ocr-tesseract-audit-" + [guid]::Ne
 $setup = Join-Path $workspace "pinned-tesseract-setup.exe"
 $extracted = Join-Path $workspace "extracted"
 New-Item -ItemType Directory -Force -Path $extracted | Out-Null
+try {
 
 Write-Output "Downloading checksum-pinned Tesseract build input."
 for ($attempt = 1; $attempt -le 3; $attempt++) {
@@ -106,4 +107,11 @@ if ($StageRuntime) {
     }
     Write-Output "Staged checksum-verified runtime for non-published NSIS smoke build."
 }
-
+} finally {
+    # The verified source installer and extracted native binaries are
+    # build-time inputs, not persistent developer/runner temp artifacts.
+    # Preserve only the explicit staged resources and content-free manifest.
+    if (Test-Path -LiteralPath $workspace) {
+        Remove-Item -LiteralPath $workspace -Recurse -Force
+    }
+}

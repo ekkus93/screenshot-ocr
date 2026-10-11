@@ -99,7 +99,9 @@ npm run tauri -- build --bundles nsis --config src-tauri/tauri.nsis.conf.json
 ```
 
 Staging fetches checksum-pinned OCR inputs at **build time**; the app must
-not fetch OCR models at runtime. This procedure creates an unapproved NSIS
+not fetch OCR models at runtime. The source-input audit removes its private
+installer download and extraction directory on both success and failure;
+only the explicit staging directory and content-free manifest are retained. This procedure creates an unapproved NSIS
 test candidate, **not** a redistributable release. The installer remains
 unpublished pending license/NOTICE and physical Windows acceptance.
 
