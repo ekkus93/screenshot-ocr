@@ -75,8 +75,7 @@ disclaimer in the accompanying materials. The actual version and license
 included by the pinned Mannheim distribution must be confirmed before
 using upstream license classifications for a release.
 
-The Windows runtime uses third-party [Mannheim installer inputs](
-https://digi.bib.uni-mannheim.de/tesseract/), which are *not* an official
+The Windows runtime uses third-party [Mannheim installer inputs](https://digi.bib.uni-mannheim.de/tesseract/), which are _not_ an official
 Tesseract upstream Windows installer. An upstream project license does
 not settle the licenses of the entire repackaged binary and its DLLs.
 
@@ -90,7 +89,7 @@ or claimed present on clean supported systems. This inventory does not
 identify the source, license, notice obligations, exact version, or runtime
 resolution of each component; those remain release-blocking tasks.
 
-Before redistribution, review *each* packaged DLL, confirm its version
+Before redistribution, review _each_ packaged DLL, confirm its version
 and origin, inspect its transitive dependencies and the installed Windows
 loader search behavior, and include all required license/NOTICE files in
 the installer. The physical Windows acceptance matrix must also prove
