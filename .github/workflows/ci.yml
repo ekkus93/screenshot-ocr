@@ -283,6 +283,10 @@ jobs:
         shell: pwsh
         run: ./scripts/audit-windows-ocr-runtime.ps1 -StageRuntime
 
+      - name: Exercise staged OCR runtime on synthetic English text
+        shell: pwsh
+        run: ./scripts/smoke-windows-ocr-runtime.ps1
+
       - name: Build Windows NSIS smoke installer
         run: npm run tauri -- build --bundles nsis --config src-tauri/tauri.nsis.conf.json
 

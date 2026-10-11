@@ -1,0 +1,78 @@
+# Hosted Windows OCR smoke: execute the checksum-verified staged runtime only.
+# Use synthetic text, a bounded process, and no user-provided screenshots.
+$ErrorActionPreference = "Stop"
+Set-StrictMode -Version Latest
+
+$root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot "../src-tauri/windows-ocr-runtime"))
+$binary = Join-Path $root "tesseract.exe"
+$tessdata = Join-Path $root "tessdata"
+if (-not (Test-Path -LiteralPath $binary -PathType Leaf) -or
+    -not (Test-Path -LiteralPath (Join-Path $tessdata "eng.traineddata") -PathType Leaf)) {
+    throw "Staged OCR executable or English language data missing."
+}
+
+$tempRoot = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { [IO.Path]::GetTempPath() }
+$workspace = Join-Path $tempRoot ("screenshot-ocr-synthetic-smoke-" + [guid]::NewGuid().ToString("N"))
+New-Item -ItemType Directory -Path $workspace -Force | Out-Null
+try {
+    # Windows-hosted CI has System.Drawing; no external screenshot application
+    # and no private content is used to construct this deterministic fixture.
+    Add-Type -AssemblyName System.Drawing
+    $bitmap = [Drawing.Bitmap]::new(640, 140)
+    $graphics = $null
+    $font = $null
+    try {
+        $graphics = [Drawing.Graphics]::FromImage($bitmap)
+        $font = [Drawing.Font]::new("Arial", 52, [Drawing.FontStyle]::Bold, [Drawing.GraphicsUnit]::Pixel)
+        $graphics.Clear([Drawing.Color]::White)
+        $graphics.DrawString("SAMPLE 123", $font, [Drawing.Brushes]::Black, 18.0, 25.0)
+        $imagePath = Join-Path $workspace "synthetic.png"
+        $bitmap.Save($imagePath, [Drawing.Imaging.ImageFormat]::Png)
+    } finally {
+        if ($null -ne $font) { $font.Dispose() }
+        if ($null -ne $graphics) { $graphics.Dispose() }
+        $bitmap.Dispose()
+    }
+
+    # Direct process creation (no shell), with bounded runtime and reaping.
+    $start = [Diagnostics.ProcessStartInfo]::new()
+    $start.FileName = $binary
+    $start.WorkingDirectory = $root
+    $start.UseShellExecute = $false
+    $start.CreateNoWindow = $true
+    $start.RedirectStandardOutput = $true
+    $start.RedirectStandardError = $true
+    foreach ($argument in @($imagePath, "stdout", "--tessdata-dir", $tessdata, "-l", "eng", "--psm", "7")) {
+        [void]$start.ArgumentList.Add($argument)
+    }
+    $process = [Diagnostics.Process]::new()
+    $process.StartInfo = $start
+    try {
+        try {
+            if (-not $process.Start()) { throw "Could not start OCR." }
+        } catch {
+            throw "Staged Windows OCR runtime could not start."
+        }
+        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+        $stderrTask = $process.StandardError.ReadToEndAsync()
+        if (-not $process.WaitForExit(20000)) {
+            $process.Kill($true)
+            $process.WaitForExit()
+            throw "Staged Windows OCR runtime exceeded the 20-second limit."
+        }
+        $recognized = $stdoutTask.GetAwaiter().GetResult()
+        [void]$stderrTask.GetAwaiter().GetResult()
+        if ($process.ExitCode -ne 0) { throw "Staged Windows OCR runtime returned a nonzero exit status." }
+        if ($recognized -notmatch '(?i)SAMPLE\s+123') {
+            throw "Staged Windows OCR runtime did not recognize the synthetic fixture."
+        }
+    } finally {
+        $process.Dispose()
+    }
+    Write-Output "Synthetic English OCR succeeded using staged executable and language data."
+    Write-Output "Hosted process smoke is not physical Windows selector/installer acceptance."
+} finally {
+    if (Test-Path -LiteralPath $workspace) {
+        Remove-Item -LiteralPath $workspace -Recurse -Force
+    }
+}
