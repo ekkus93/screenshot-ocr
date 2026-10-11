@@ -466,17 +466,19 @@ At minimum inspect:
 
 Implement at least one practical guard:
 
-- [ ] Add source/dependency guard for Linux implementation imports in portable modules; or
+- [x] Add source/dependency guard for Linux implementation imports in portable modules; or
 - [ ] Add module visibility rules that make such imports impossible; or
 - [ ] Add a portable crate boundary if justified; or
 - [ ] Add equivalent compile-time/static validation.
 
 The guard should cover at least:
 
-- [ ] GNOME implementation imports.
-- [ ] ashpd types.
-- [ ] Linux environment parsing in portable core.
-- [ ] Windows API imports in portable core once Windows code exists.
+- [x] GNOME implementation imports.
+- [x] ashpd types.
+- [x] Linux environment parsing in portable core.
+- [x] Windows API imports in portable core once Windows code exists.
+
+**W10.2 guard evidence (2026-10-11):** `scripts/check-platform-boundaries.py` runs in repository-policy CI; `scripts/test_platform_boundaries.py` supplies synthetic positive and negative guard cases for platform import, environment probing, and composition-root exceptions. Repository-policy completed successfully in run `38121203139` at `167cb5652a6043c6affdefb05730fc9785d73795` (the overall run was later cancelled by a newer branch push). This does not close W10 overall or replace final exact-head qualification.
 
 ### W10.3 Content-leakage guard
 
