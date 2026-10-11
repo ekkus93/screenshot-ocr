@@ -57,6 +57,46 @@ struct Selection {
     result: Option<Result<Rect, AppError>>,
 }
 
+impl Selection {
+    fn begin(&mut self, point: Point) -> bool {
+        if self.start.is_some() || self.result.is_some() {
+            return false;
+        }
+        self.start = Some(point);
+        self.current = point;
+        true
+    }
+
+    fn move_to(&mut self, point: Point) -> bool {
+        if self.start.is_none() || self.result.is_some() {
+            return false;
+        }
+        self.current = point;
+        true
+    }
+
+    fn complete(&mut self, end: Result<Point, AppError>) {
+        if let Some(start) = self.start.take() {
+            if self.result.is_none() {
+                self.result = Some(end.and_then(|point| Rect::from_drag(start, point)));
+            }
+        }
+    }
+
+    fn cancel(&mut self) {
+        self.start = None;
+        if self.result.is_none() {
+            self.result = Some(Err(AppError::CaptureCancelled));
+        }
+    }
+
+    fn capture_lost(&mut self) {
+        if self.start.is_some() && self.result.is_none() {
+            self.cancel();
+        }
+    }
+}
+
 unsafe fn state(hwnd: HWND) -> Option<&'static mut Selection> {
     let ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut Selection;
     ptr.as_mut()
@@ -84,9 +124,9 @@ unsafe extern "system" fn window_proc(
             if let Some(selection) = state(hwnd) {
                 match cursor_point() {
                     Ok(point) => {
-                        selection.start = Some(point);
-                        selection.current = point;
-                        SetCapture(hwnd);
+                        if selection.begin(point) {
+                            SetCapture(hwnd);
+                        }
                     }
                     Err(error) => selection.result = Some(Err(error)),
                 }
@@ -97,8 +137,9 @@ unsafe extern "system" fn window_proc(
             if let Some(selection) = state(hwnd) {
                 if selection.start.is_some() {
                     if let Ok(point) = cursor_point() {
-                        selection.current = point;
-                        InvalidateRect(hwnd, null(), 0);
+                        if selection.move_to(point) {
+                            InvalidateRect(hwnd, null(), 0);
+                        }
                     }
                 }
             }
@@ -106,9 +147,8 @@ unsafe extern "system" fn window_proc(
         }
         WM_LBUTTONUP => {
             if let Some(selection) = state(hwnd) {
-                if let Some(start) = selection.start.take() {
-                    selection.result =
-                        Some(cursor_point().and_then(|end| Rect::from_drag(start, end)));
+                if selection.start.is_some() {
+                    selection.complete(cursor_point());
                     ReleaseCapture();
                 }
             }
@@ -116,21 +156,19 @@ unsafe extern "system" fn window_proc(
         }
         WM_CAPTURECHANGED => {
             if let Some(selection) = state(hwnd) {
-                if selection.start.is_some() && selection.result.is_none() {
-                    selection.result = Some(Err(AppError::CaptureCancelled));
-                }
+                selection.capture_lost();
             }
             0
         }
         WM_KEYDOWN if wparam == 0x1b => {
             if let Some(selection) = state(hwnd) {
-                selection.result = Some(Err(AppError::CaptureCancelled));
+                selection.cancel();
             }
             0
         }
         WM_CLOSE => {
             if let Some(selection) = state(hwnd) {
-                selection.result = Some(Err(AppError::CaptureCancelled));
+                selection.cancel();
             }
             0
         }
@@ -269,4 +307,81 @@ pub fn select_region(cancellation: &CancellationToken) -> Result<Rect, AppError>
     thread::sleep(Duration::from_millis(60));
     cancellation.check()?;
     rectangle
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn point(x: i32, y: i32) -> Point {
+        Point { x, y }
+    }
+
+    fn selection() -> Selection {
+        Selection {
+            origin: point(-1920, -200),
+            start: None,
+            current: point(0, 0),
+            result: None,
+        }
+    }
+
+    #[test]
+    fn drag_is_normalized_and_duplicate_down_does_not_reset_origin() {
+        let mut state = selection();
+        assert!(state.begin(point(10, 20)));
+        assert!(!state.begin(point(-400, -400)));
+        assert!(state.move_to(point(-30, -40)));
+        state.complete(Ok(point(-30, -40)));
+        assert_eq!(
+            state.result.take().unwrap().unwrap(),
+            Rect {
+                left: -30,
+                top: -40,
+                right: 10,
+                bottom: 20,
+            }
+        );
+        assert!(!state.move_to(point(100, 100)));
+    }
+
+    #[test]
+    fn lost_mouse_capture_cancels_and_late_release_cannot_succeed() {
+        let mut state = selection();
+        assert!(state.begin(point(1, 1)));
+        state.capture_lost();
+        state.complete(Ok(point(100, 100)));
+        assert!(matches!(
+            state.result,
+            Some(Err(AppError::CaptureCancelled))
+        ));
+    }
+
+    #[test]
+    fn escape_cancel_is_idempotent_and_rejects_new_drag() {
+        let mut state = selection();
+        assert!(state.begin(point(1, 1)));
+        state.cancel();
+        state.cancel();
+        assert!(!state.begin(point(2, 2)));
+        assert!(matches!(
+            state.result,
+            Some(Err(AppError::CaptureCancelled))
+        ));
+    }
+
+    #[test]
+    fn zero_size_and_native_cursor_failure_are_safe() {
+        let mut state = selection();
+        assert!(state.begin(point(4, 4)));
+        state.complete(Ok(point(4, 4)));
+        assert!(matches!(
+            state.result,
+            Some(Err(AppError::CaptureImageInvalid))
+        ));
+        let mut state = selection();
+        assert!(state.begin(point(4, 4)));
+        state.complete(Err(AppError::CaptureFailed));
+        assert!(matches!(state.result, Some(Err(AppError::CaptureFailed))));
+    }
 }
