@@ -94,6 +94,41 @@ mod tests {
     }
 
     #[test]
+    fn mixed_dpi_cross_monitor_composition_uses_physical_offsets_once() {
+        use crate::platform::windows::geometry::logical_to_physical;
+
+        // Negative-origin monitor at 125%; primary monitor at 200%.
+        // Tile offsets must not be scaled after logical input conversion.
+        let left = logical_to_physical(4, 125).unwrap();
+        let right = logical_to_physical(3, 200).unwrap();
+        assert_eq!((left, right), (5, 6));
+        let selection = rect(-left, 0, right, 2);
+        let monitors = [rect(-1920, 0, 0, 1080), rect(0, 0, 2560, 1440)];
+        let tiles = monitor_tiles(selection, &monitors);
+        assert_eq!(tiles.len(), 2);
+        let images = tiles.into_iter().enumerate().map(|(index, tile)| {
+            let color = if index == 0 {
+                Rgba([10, 20, 30, 255])
+            } else {
+                Rgba([40, 50, 60, 255])
+            };
+            (
+                tile,
+                RgbaImage::from_pixel(
+                    tile.source.width() as u32,
+                    tile.source.height() as u32,
+                    color,
+                ),
+            )
+        });
+        let image = compose(selection, images).unwrap();
+        assert_eq!(image.dimensions(), (11, 2));
+        assert_eq!(image.get_pixel(4, 1).0, [10, 20, 30, 255]);
+        assert_eq!(image.get_pixel(5, 1).0, [40, 50, 60, 255]);
+        assert_eq!(image.get_pixel(10, 1).0, [40, 50, 60, 255]);
+    }
+
+    #[test]
     fn rejects_in_bounds_but_incorrect_monitor_offset() {
         let selection = rect(-10, -10, 10, 10);
         let mut tile = monitor_tiles(selection, &[rect(-10, -10, -8, -8)])[0];
