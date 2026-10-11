@@ -10,14 +10,19 @@ fn resource_root(executable: &Path) -> Result<PathBuf, AppError> {
     Ok(directory.join("resources").join("ocr"))
 }
 
+fn nonempty_file(path: &Path) -> bool {
+    path.metadata()
+        .is_ok_and(|metadata| metadata.is_file() && metadata.len() > 0)
+}
+
 fn resolve_at(executable: &Path) -> Result<OcrRuntime, AppError> {
     let root = resource_root(executable)?;
     let binary = root.join("tesseract.exe");
-    if !binary.is_file() {
+    if !nonempty_file(&binary) {
         return Err(AppError::OcrEngineUnavailable);
     }
     let tessdata = root.join("tessdata");
-    if !tessdata.join("eng.traineddata").is_file() {
+    if !nonempty_file(&tessdata.join("eng.traineddata")) {
         return Err(AppError::OcrLanguageMissing);
     }
     Ok(OcrRuntime {
@@ -56,7 +61,17 @@ mod tests {
         ));
         let ocr = root.path().join("resources").join("ocr");
         fs::create_dir_all(ocr.join("tessdata")).unwrap();
+        fs::write(ocr.join("tesseract.exe"), b"").unwrap();
+        assert!(matches!(
+            resolve_at(&executable),
+            Err(AppError::OcrEngineUnavailable)
+        ));
         fs::write(ocr.join("tesseract.exe"), b"synthetic fixture").unwrap();
+        assert!(matches!(
+            resolve_at(&executable),
+            Err(AppError::OcrLanguageMissing)
+        ));
+        fs::write(ocr.join("tessdata").join("eng.traineddata"), b"").unwrap();
         assert!(matches!(
             resolve_at(&executable),
             Err(AppError::OcrLanguageMissing)
