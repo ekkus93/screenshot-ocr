@@ -63,10 +63,10 @@ def candidates(root: Path) -> list[Path]:
         if base.is_dir():
             all_paths.extend(
                 p for p in base.rglob("*")
-                if p.is_file() and p.suffix in SUFFIXES
+                if p.is_file() and not p.is_symlink() and p.suffix in SUFFIXES
                 and not any(part in IGNORED for part in p.relative_to(root).parts)
             )
-    all_paths.extend(p for p in (root / "package.json",) if p.is_file())
+    all_paths.extend(p for p in (root / "package.json",) if p.is_file() and not p.is_symlink())
     return sorted(set(all_paths))
 
 

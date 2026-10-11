@@ -66,6 +66,18 @@ class AssumptionInventoryTests(unittest.TestCase):
             self.assertNotIn("src-tauri/target/generated.rs", entries)
             self.assertNotIn("SECRET_FIXTURE", str(report))
 
+    def test_symlinked_source_files_are_not_scanned(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "repo"
+            scripts = root / "scripts"
+            scripts.mkdir(parents=True)
+            outside = Path(temp) / "private.py"
+            outside.write_text("GNOME PRIVATE_FIXTURE\\n", encoding="utf-8")
+            (scripts / "linked.py").symlink_to(outside)
+            report = inventory.inventory(root)
+            self.assertEqual(report["entries"], [])
+            self.assertNotIn("PRIVATE_FIXTURE", str(report))
+
     def test_portable_source_has_no_findings(self):
         with tempfile.TemporaryDirectory() as temp:
             source = Path(temp) / "src-tauri/src/app.rs"
