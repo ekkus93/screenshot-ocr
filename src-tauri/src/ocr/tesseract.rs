@@ -336,7 +336,13 @@ mod tests {
             std::env::var_os("SCREENSHOT_OCR_WINDOWS_FAKE_MARKER_DIR")
                 .expect("synthetic Windows marker directory required"),
         );
-        let engine = TesseractEngine::new(OcrRuntime::new(executable, None));
+        // The synthetic child fails before its readiness marker unless the
+        // shared engine pins the child CWD to this app-controlled directory.
+        let engine = TesseractEngine::new(OcrRuntime {
+            executable,
+            tessdata_dir: None,
+            working_directory: Some(marker_dir.clone()),
+        });
 
         let cancellation = CancellationToken::new();
         let token = cancellation.clone();

@@ -28,8 +28,14 @@ Linux hosted CI does not prove physical GNOME Wayland/X11 behavior.
   workspace build, and Tauri link.
 - Branch-only NSIS smoke: checksum-verified Tesseract/English data staging,
   static PE dependency inventory, synthetic English OCR execution,
-  NSIS build, staged resource verification, and installer SHA-256.
+  cancellation/reaping and child working-directory assertions using a synthetic
+  executable, NSIS build, staged resource verification, and installer SHA-256.
 - Separate Windows OCR runtime input audit workflow.
+
+The synthetic child checks that the shared engine sets its working directory
+explicitly instead of inheriting the caller's directory. This tests process
+launch policy only; it does not establish Windows DLL loader search order,
+transitive dependency safety, or redistribution approval.
 
 The NSIS smoke does **not** publish or upload a Windows installer.
 The checksum is printed in CI logs, not distributed as a Windows asset.

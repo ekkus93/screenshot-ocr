@@ -11,6 +11,13 @@ fn main() {
         env::var_os("SCREENSHOT_OCR_WINDOWS_FAKE_MARKER_DIR")
             .expect("synthetic marker directory required"),
     );
+    // The parent test uses a different working directory. Never record or log
+    // the path: fail before the readiness marker if child CWD is not pinned.
+    if let Some(expected) = env::var_os("SCREENSHOT_OCR_WINDOWS_FAKE_EXPECTED_CWD") {
+        if !env::current_dir().is_ok_and(|cwd| cwd == PathBuf::from(expected)) {
+            std::process::exit(2);
+        }
+    }
     fs::write(directory.join(format!("{mode}.pid")), std::process::id().to_string())
         .expect("write synthetic process id");
     fs::write(directory.join(format!("{mode}.started")), b"ready")

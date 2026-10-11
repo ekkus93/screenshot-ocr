@@ -78,6 +78,7 @@ try {
     # executable. The fixture is synthetic and is deleted by this script.
     $env:SCREENSHOT_OCR_WINDOWS_FAKE_TESSERACT = $fakeBinary
     $env:SCREENSHOT_OCR_WINDOWS_FAKE_MARKER_DIR = $workspace
+    $env:SCREENSHOT_OCR_WINDOWS_FAKE_EXPECTED_CWD = $workspace
     $env:SCREENSHOT_OCR_WINDOWS_OCR_SMOKE_IMAGE = $imagePath
     try {
         $manifest = Join-Path $PSScriptRoot "../src-tauri/Cargo.toml"
@@ -101,6 +102,7 @@ try {
         Remove-Item Env:SCREENSHOT_OCR_WINDOWS_OCR_SMOKE_IMAGE -ErrorAction SilentlyContinue
         Remove-Item Env:SCREENSHOT_OCR_WINDOWS_FAKE_TESSERACT -ErrorAction SilentlyContinue
         Remove-Item Env:SCREENSHOT_OCR_WINDOWS_FAKE_MARKER_DIR -ErrorAction SilentlyContinue
+        Remove-Item Env:SCREENSHOT_OCR_WINDOWS_FAKE_EXPECTED_CWD -ErrorAction SilentlyContinue
     }
     Write-Output "Synthetic English OCR succeeded using staged executable and language data."
     Write-Output "Hosted process smoke is not physical Windows selector/installer acceptance."
