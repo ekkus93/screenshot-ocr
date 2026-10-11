@@ -37,6 +37,8 @@ FORBIDDEN_PORTABLE_REGEX = (
      "portable code imports or aliases the native Windows API crate"),
     (r"\bwindows::Win32\b",
      "portable code imports a concrete Windows API"),
+    (r"\b(?:winapi\s*::\s*(?:um|shared)|std\s*::\s*os\s*::\s*(?:windows|linux))\b",
+     "portable code imports platform-specific OS APIs"),
     (r'\bstd::env::(?:var|var_os)\s*\(\s*"(?:DESKTOP_SESSION|GDMSESSION)"',
      "portable code reads a Linux desktop session environment variable"),
     (r'\bstd::env::(?:var|var_os)\s+\(\s*"(?:DISPLAY|WAYLAND_DISPLAY|XDG_[A-Za-z0-9_]*|GNOME_[A-Za-z0-9_]*)"',
