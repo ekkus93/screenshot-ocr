@@ -68,6 +68,40 @@ mod tests {
     use super::*;
 
     #[test]
+    fn backend_preference_matrix_preserves_explicit_and_automatic_policy() {
+        for preference in [
+            CaptureBackendPreference::Auto,
+            CaptureBackendPreference::Gnome,
+            CaptureBackendPreference::Portal,
+        ] {
+            for portal_supported in [false, true] {
+                for gnome_available in [false, true] {
+                    let expected = match preference {
+                        CaptureBackendPreference::Portal if portal_supported => {
+                            Some(CaptureBackendId::XdgPortal)
+                        }
+                        CaptureBackendPreference::Gnome if gnome_available => {
+                            Some(CaptureBackendId::GnomeScreenshot)
+                        }
+                        CaptureBackendPreference::Auto if portal_supported => {
+                            Some(CaptureBackendId::XdgPortal)
+                        }
+                        CaptureBackendPreference::Auto if gnome_available => {
+                            Some(CaptureBackendId::GnomeScreenshot)
+                        }
+                        _ => None,
+                    };
+                    assert_eq!(
+                        choose_backend_id(preference, portal_supported, gnome_available).ok(),
+                        expected,
+                        "preference={preference:?}, portal={portal_supported}, gnome={gnome_available}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
     fn automatic_selection_prefers_proven_portal_area_capture() {
         assert_eq!(
             choose_backend_id(CaptureBackendPreference::Auto, true, true).expect("portal backend"),

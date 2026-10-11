@@ -283,17 +283,19 @@ At minimum inspect:
 
 ### W4.3 Linux backend selection
 
-- [ ] Move Auto/Gnome/Portal selection into Linux platform code or an equivalent Linux-specific service.
-- [ ] Preserve current preference semantics.
-- [ ] Preserve fail-closed behavior for explicitly requested unavailable backend.
-- [ ] Keep portable orchestration unaware of GNOME versus portal mechanics.
+- [x] Move Auto/Gnome/Portal selection into Linux platform code or an equivalent Linux-specific service.
+- [x] Preserve current preference semantics.
+- [x] Preserve fail-closed behavior for explicitly requested unavailable backend.
+- [x] Keep portable orchestration unaware of GNOME versus portal mechanics.
 
 ### W4.4 Linux capture tests
 
 - [ ] Preserve existing deterministic GNOME tests.
 - [ ] Preserve existing deterministic portal tests.
-- [ ] Add tests for Linux backend-selection service.
-- [ ] Add test that portable orchestration accepts a generic captured image regardless of backend.
+- [x] Add tests for Linux backend-selection service.
+- [x] Add test that portable orchestration accepts a generic captured image regardless of backend.
+
+**W4.3/W4.4 deterministic evidence (2026-10-11):** Linux adapter `src-tauri/src/platform/linux/capture/mod.rs` owns Auto/Gnome/Portal selection, probes portal capability before selection, and rejects explicitly requested unavailable backends. A complete 3-preference × 2-portal × 2-GNOME matrix test covers fallback and fail-closed semantics. `src-tauri/src/app_portability_tests.rs` exercises identical shared orchestration for GNOME, portal, and Windows-native fake captures. Physical GNOME/portal regression evidence remains outstanding; W4.1, W4.2 and the W4 acceptance gate remain unchecked.
 
 ### W4 acceptance gate
 
