@@ -65,6 +65,9 @@ jobs:
           print("Repository baseline and source-file limits are valid.")
           PY
 
+      - name: Test synthetic Windows PE dependency inventory
+        run: python3 -m unittest discover -s scripts -p "test_windows_pe_imports.py" -v
+
       - name: Check content-leakage source guard
         run: python3 scripts/check-content-leakage.py
 
@@ -285,6 +288,10 @@ jobs:
       - name: Stage checksum-verified OCR runtime without executing setup
         shell: pwsh
         run: ./scripts/audit-windows-ocr-runtime.ps1 -StageRuntime
+
+      - name: Inventory staged Windows OCR PE dependencies
+        shell: pwsh
+        run: python scripts/audit-windows-pe-imports.py src-tauri/windows-ocr-runtime
 
       - name: Exercise staged OCR runtime on synthetic English text
         shell: pwsh
