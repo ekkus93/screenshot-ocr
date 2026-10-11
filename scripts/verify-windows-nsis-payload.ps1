@@ -93,16 +93,7 @@ $package = Get-Content -LiteralPath "package.json" -Raw | ConvertFrom-Json
 if ($config.productName -cne "Screenshot OCR" -or
     $config.identifier -cne "io.github.ekkus93.screenshot-ocr" -or
     $config.version -cne $package.version -or
-    $config.version -notmatch '^\d+\.\d+\.\d+
-Write-Output "Not publishing: native-license review and physical acceptance pending."
-} finally {
-    # Even failed signature, digest, or native-runtime checks must not leave
-    # unpacked executable payloads in the runner/developer temp directory.
-    if (Test-Path -LiteralPath $extracted) {
-        Remove-Item -LiteralPath $extracted -Recurse -Force
-    }
-}
-) {
+    $config.version -notmatch '^\d+\.\d+\.\d+$') {
     throw "Windows installer metadata is inconsistent."
 }
 $canonicalName = "screenshot-ocr-v$($config.version)-windows-x64-setup.exe"
