@@ -180,23 +180,23 @@ At minimum inspect:
 
 ### W2.1 Define the portable core
 
-- [ ] Define which Rust modules constitute the portable core.
-- [ ] Ensure job state/cancellation remain portable.
-- [ ] Ensure application action routing remains portable.
-- [ ] Ensure image pipeline remains portable.
-- [ ] Ensure OCR cleanup/scoring remains portable.
-- [ ] Ensure request/result models remain portable.
-- [ ] Ensure settings schema/validation remain portable.
-- [ ] Ensure public error policy remains portable.
+- [x] Define which Rust modules constitute the portable core.
+- [x] Ensure job state/cancellation remain portable.
+- [x] Ensure application action routing remains portable.
+- [x] Ensure image pipeline remains portable.
+- [x] Ensure OCR cleanup/scoring remains portable.
+- [x] Ensure request/result models remain portable.
+- [x] Ensure settings schema/validation remain portable.
+- [x] Ensure public error policy remains portable.
 
 ### W2.2 Remove concrete Linux dependencies from orchestration
 
-- [ ] app.rs or its successor no longer imports GnomeScreenshotBackend directly.
-- [ ] app.rs or its successor no longer imports PortalScreenshotBackend directly.
-- [ ] app.rs or its successor no longer invokes Linux EnvironmentProbe directly.
-- [ ] app.rs or its successor no longer selects Linux backend IDs itself.
-- [ ] app.rs or its successor no longer resolves Tesseract from Linux environment data.
-- [ ] Shared orchestration consumes platform services/contracts instead.
+- [x] app.rs or its successor no longer imports GnomeScreenshotBackend directly.
+- [x] app.rs or its successor no longer imports PortalScreenshotBackend directly.
+- [x] app.rs or its successor no longer invokes Linux EnvironmentProbe directly.
+- [x] app.rs or its successor no longer selects Linux backend IDs itself.
+- [x] app.rs or its successor no longer resolves Tesseract from Linux environment data.
+- [x] Shared orchestration consumes platform services/contracts instead.
 
 ### W2.3 Core purity audit
 
@@ -217,13 +217,13 @@ At minimum inspect:
 
 ### W3.1 Capture service contract
 
-- [ ] Define a narrow platform capture interface.
-- [ ] Reuse portable cancellation token semantics.
-- [ ] Return portable captured-image data.
-- [ ] Return stable backend identity.
-- [ ] Return safe cleanup warning state.
-- [ ] Keep arbitrary filesystem paths out of the contract.
-- [ ] Keep shell/command fragments out of the contract.
+- [x] Define a narrow platform capture interface.
+- [x] Reuse portable cancellation token semantics.
+- [x] Return portable captured-image data.
+- [x] Return stable backend identity.
+- [x] Return safe cleanup warning state.
+- [x] Keep arbitrary filesystem paths out of the contract.
+- [x] Keep shell/command fragments out of the contract.
 
 ### W3.2 Platform environment/capability contract
 
@@ -234,27 +234,29 @@ At minimum inspect:
 
 ### W3.3 OCR runtime resolver contract
 
-- [ ] Separate runtime discovery/resource resolution from shared OCR recognition.
-- [ ] Define a safe internal runtime descriptor.
-- [ ] Prevent frontend-supplied executable paths.
-- [ ] Support Linux system runtime.
-- [ ] Leave a clean Windows packaged-runtime implementation point.
+- [x] Separate runtime discovery/resource resolution from shared OCR recognition.
+- [x] Define a safe internal runtime descriptor.
+- [x] Prevent frontend-supplied executable paths.
+- [x] Support Linux system runtime.
+- [x] Leave a clean Windows packaged-runtime implementation point.
 
 ### W3.4 Desktop integration boundary
 
-- [ ] Decide which tray/shortcut/single-instance behavior remains directly portable through Tauri.
-- [ ] Isolate only genuinely platform-specific setup/policy.
-- [ ] Keep action semantics in the shared router.
-- [ ] Keep cancellation semantics in shared state.
+- [x] Decide which tray/shortcut/single-instance behavior remains directly portable through Tauri.
+- [x] Isolate only genuinely platform-specific setup/policy.
+- [x] Keep action semantics in the shared router.
+- [x] Keep cancellation semantics in shared state.
 
 ### W3.5 Contract tests
 
-- [ ] Add fakes/test doubles for platform services where useful.
-- [ ] Test capture success through fake service.
-- [ ] Test capture failure mapping through fake service.
-- [ ] Test cancellation through fake service.
-- [ ] Test cleanup-warning propagation.
-- [ ] Test OCR runtime unavailable mapping.
+- [x] Add fakes/test doubles for platform services where useful.
+- [x] Test capture success through fake service.
+- [x] Test capture failure mapping through fake service.
+- [x] Test cancellation through fake service.
+- [x] Test cleanup-warning propagation.
+- [x] Test OCR runtime unavailable mapping.
+
+**W2/W3 structural evidence (2026-10-11):** `docs/SCREENSHOT_OCR_WINDOWS_PORTABILITY_PHASE1_AUDIT_2026-10-09.md` classifies core/adapter modules; `src-tauri/src/app.rs` consumes injected `PlatformServices`, `src-tauri/src/capture/mod.rs` defines the portable capture contract, and `src-tauri/src/ocr/mod.rs` defines the internal runtime descriptor. `src-tauri/src/app_portability_tests.rs` supplies fake-platform success, failure, cancellation, cleanup-warning and unavailable-engine tests. Hosted Linux/Windows quality jobs have exercised the shared architecture. This is structural and deterministic-test evidence only; unreviewed purity cases and physical acceptance remain unchecked.
 
 ### W3 acceptance gate
 
