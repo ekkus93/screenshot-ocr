@@ -33,7 +33,7 @@ sudo apt-get install -f
 
 (GitHub renames release assets by replacing spaces with dots, so the filename in `package.sha256` won't match the downloaded `.deb` exactly — compare the hash values, not `sha256sum --check`.)
 
-Without `gh`, open the [latest release page](https://github.com/ekkus93/screenshot-ocr/releases/latest), download the `.deb` asset, then run the same `dpkg -i` / `apt-get install -f` pair (see [Installing a locally built package](#installing-a-locally-built-package) below for what each step does and how to uninstall).
+Without `gh`, open the [latest release page](https://github.com/ekkus93/screenshot-ocr/releases/latest), download the `.deb` asset, then run the same `dpkg -i` / `apt-get install -f` pair (see [Installing a locally built Linux package](#installing-a-locally-built-linux-package) below for what each step does and how to uninstall).
 
 Releases only exist starting with the first tag pushed after this packaging step was added; earlier tags have no release assets.
 

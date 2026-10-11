@@ -776,11 +776,13 @@ For each record:
 ### W17.1 Platform probe
 
 - [ ] Implement Windows platform identity/capability probe.
-- [ ] Avoid collecting unnecessary machine details.
+- [x] Avoid collecting unnecessary machine details.
 - [x] Detect capture capability.
-- [ ] Detect packaged OCR runtime.
-- [ ] Detect English language data.
-- [ ] Feed safe statuses into diagnostics.
+- [x] Detect packaged OCR runtime.
+- [x] Detect English language data.
+- [x] Feed safe statuses into diagnostics.
+
+**W17.1 hosted implementation evidence (2026-10-11):** `WindowsPlatform::diagnostics` uses fixed platform labels, a bounded native monitor-availability summary, and `packaged_runtime_status()` without machine identifiers or raw native errors. `src-tauri/src/platform/windows/ocr_runtime.rs` distinguishes missing executable, missing English data, and present resources using app-owned paths; synthetic tests exercise all three content-free statuses. This is source/hosted-test evidence only; real desktop startup, DLL loading, and physical OCR are still unverified.
 
 ### W17.2 Shortcut
 
@@ -1164,7 +1166,7 @@ If Windows 10 support is dropped because the chosen API/toolchain cannot support
 - [x] Update README with Control+Shift+O.
 - [x] Update README with tray behavior.
 - [x] Update README with offline OCR statement.
-- [ ] Separate Linux and Windows dependency/install instructions.
+- [x] Separate Linux and Windows dependency/install instructions.
 - [x] Document Windows minimum version truthfully.
 - [x] Document unsigned installer status if applicable.
 
@@ -1178,7 +1180,7 @@ If Windows 10 support is dropped because the chosen API/toolchain cannot support
 
 ### W24.4 CI/release docs
 
-- [ ] Document Linux versus Windows hosted gates.
+- [x] Document Linux versus Windows hosted gates.
 - [x] Document physical acceptance boundary.
 - [ ] Record final Linux CI run IDs.
 - [ ] Record final Windows CI run IDs.
@@ -1186,6 +1188,8 @@ If Windows 10 support is dropped because the chosen API/toolchain cannot support
 - [ ] Record installer SHA-256.
 - [ ] Record final branch commit SHA.
 - [ ] Record remaining non-goal/deferred items.
+
+**W24 documentation evidence (2026-10-11):** `README.md` now separates Linux release/install/build commands from unreleased Windows developer prerequisites and links the Windows-only PowerShell/NSIS workflow in `docs/WINDOWS_HOSTED_QUALIFICATION.md`. That document describes Linux and Windows hosted gates, their exact-head limitations, and the unpublished-installer policy. This does **not** check Windows installation, publication, license clearance, or physical acceptance.
 
 ### W24.5 TODO reconciliation
 
