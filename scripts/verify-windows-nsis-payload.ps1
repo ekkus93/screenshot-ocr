@@ -68,5 +68,7 @@ foreach ($file in $payloadFiles) {
     }
 }
 $checksum = (Get-FileHash -LiteralPath $installers[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+$checksumLine = "$checksum  $($installers[0].Name)"
+Set-Content -LiteralPath "windows-installer.sha256" -Value $checksumLine -Encoding ascii
 Write-Output "NSIS runtime inventory verified; installer SHA-256: $checksum"
 Write-Output "Not publishing: native-license review and physical acceptance pending."
