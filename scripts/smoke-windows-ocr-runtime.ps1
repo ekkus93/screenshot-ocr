@@ -1,8 +1,8 @@
-# Hosted Windows OCR smoke: execute the checksum-verified staged runtime only.
+# Hosted Windows OCR smoke: execute the checksum-verified staged or NSIS-extracted runtime.
 # Use synthetic text, a bounded process, and no user-provided screenshots.
 param(
     [string]$RuntimeRoot,
-    [switch]$SkipSharedEngine
+    [switch]$ExtractedNsisPayload
 )
 
 $ErrorActionPreference = "Stop"
@@ -78,7 +78,7 @@ try {
     } finally {
         $process.Dispose()
     }
-    if ($SkipSharedEngine) {
+    if ($ExtractedNsisPayload) {
         # Run the real shared Rust OCR probe/recognition path against the
         # extracted NSIS payload, not merely a direct Tesseract invocation.
         $env:SCREENSHOT_OCR_WINDOWS_OCR_RUNTIME_ROOT = $root
@@ -95,7 +95,7 @@ try {
     # The extracted NSIS payload is tested as shipped, without running setup.
     # The shared-engine fixture is separately exercised against the staged
     # runtime earlier in the same CI job.
-    if (-not $SkipSharedEngine) {
+    if (-not $ExtractedNsisPayload) {
     # Compile a deterministic native child that waits until cancelled.
     $fakeBinary = Join-Path $workspace "synthetic-slow-tesseract.exe"
     $fakeSource = Join-Path $PSScriptRoot "fixtures/windows-slow-tesseract.rs"

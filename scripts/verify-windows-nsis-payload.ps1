@@ -9,6 +9,7 @@ if (-not (Test-Path -LiteralPath $sevenZip -PathType Leaf)) { throw "7-Zip unava
 $tempRoot = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { [IO.Path]::GetTempPath() }
 $extracted = Join-Path $tempRoot ("screenshot-ocr-nsis-smoke-" + [guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Force -Path $extracted | Out-Null
+try {
 & $sevenZip x "-o$extracted" -y $installers[0].FullName | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "NSIS extraction failed." }
 # Tauri offlineInstaller embeds Microsoft's standalone WebView2 runtime setup
@@ -83,9 +84,16 @@ foreach ($file in $payloadFiles) {
 # Exercise the actual extracted NSIS OCR payload with synthetic English text.
 # This checks runtime DLL loading and OCR execution from the packaged layout,
 # not installer execution, physical desktop capture, or redistribution rights.
-& (Join-Path $PSScriptRoot "smoke-windows-ocr-runtime.ps1") -RuntimeRoot $root -SkipSharedEngine
+& (Join-Path $PSScriptRoot "smoke-windows-ocr-runtime.ps1") -RuntimeRoot $root -ExtractedNsisPayload
 $checksum = (Get-FileHash -LiteralPath $installers[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
 $checksumLine = "$checksum  $($installers[0].Name)"
 Set-Content -LiteralPath "windows-installer.sha256" -Value $checksumLine -Encoding ascii
 Write-Output "NSIS runtime inventory verified; installer SHA-256: $checksum"
 Write-Output "Not publishing: native-license review and physical acceptance pending."
+} finally {
+    # Even failed signature, digest, or native-runtime checks must not leave
+    # unpacked executable payloads in the runner/developer temp directory.
+    if (Test-Path -LiteralPath $extracted) {
+        Remove-Item -LiteralPath $extracted -Recurse -Force
+    }
+}

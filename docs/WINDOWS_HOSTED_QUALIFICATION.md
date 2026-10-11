@@ -49,6 +49,11 @@ OCR executable discovery. It does not execute NSIS setup,
 prove WebView2 provisioning, establish installed application integration,
 or grant native DLL redistribution approval.
 
+The NSIS archive verifier deletes its private extraction directory even when
+signature, inventory, or OCR checks fail. The extracted-payload smoke is
+explicitly selected by `-ExtractedNsisPayload`; the default staged-runtime
+smoke continues to exercise synthetic cancellation and process reaping.
+
 The NSIS smoke does **not** publish or upload a Windows installer.
 The checksum is printed in CI logs, not distributed as a Windows asset.
 
