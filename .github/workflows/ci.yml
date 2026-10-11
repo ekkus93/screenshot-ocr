@@ -294,7 +294,14 @@ jobs:
 
       - name: Inventory staged Windows OCR PE dependencies
         shell: pwsh
-        run: python scripts/audit-windows-pe-imports.py src-tauri/windows-ocr-runtime
+        run: python scripts/audit-windows-pe-imports.py src-tauri/windows-ocr-runtime --output windows-ocr-pe-inventory.json
+
+      - name: Upload content-free Windows OCR PE dependency inventory
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-ocr-pe-inventory-${{ github.sha }}
+          path: windows-ocr-pe-inventory.json
+          if-no-files-found: error
 
       - name: Exercise staged OCR runtime on synthetic English text
         shell: pwsh

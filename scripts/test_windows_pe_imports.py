@@ -1,6 +1,7 @@
 """Synthetic, content-free tests for the Windows PE import inventory."""
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import struct
 import tempfile
@@ -82,6 +83,10 @@ class PeImportTests(unittest.TestCase):
             result = audit.audit(root)
             self.assertEqual(len(result["binaries"]), 2)
             self.assertTrue(all(row["machine"] == "AMD64" for row in result["binaries"]))
+            for row in result["binaries"]:
+                payload = (root / row["binary"]).read_bytes()
+                self.assertEqual(row["sha256"], hashlib.sha256(payload).hexdigest())
+                self.assertEqual(row["size_bytes"], len(payload))
             self.assertEqual(result["binaries"][0]["packaged"], ["vendor-extra.dll"])
             self.assertIn("kernel32.dll", result["external_unreviewed"])
             self.assertEqual(result["qualification"].startswith("static PE"), True)

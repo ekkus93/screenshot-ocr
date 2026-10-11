@@ -9,6 +9,7 @@ Only filenames are reported; no user content, paths, or binary bytes are logged.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import struct
@@ -139,6 +140,8 @@ def audit(root: Path) -> dict[str, object]:
         records.append({
             "binary": file.name,
             "machine": "AMD64",
+            "sha256": hashlib.sha256(payload).hexdigest(),
+            "size_bytes": len(payload),
             "packaged": sorted(dependencies & names),
             "external_unreviewed": sorted(dependencies - names),
         })
@@ -181,14 +184,18 @@ def audit(root: Path) -> dict[str, object]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("runtime", type=Path, help="staged OCR resource directory")
+    parser.add_argument("--output", type=Path, help="write content-free JSON audit artifact")
     args = parser.parse_args()
     try:
         report = audit(args.runtime)
-    except (OSError, InvalidPE, UnicodeError, struct.error) as error:
+        rendered = json.dumps(report, indent=2, sort_keys=True)
+        if args.output is not None:
+            args.output.write_text(rendered + "\n", encoding="utf-8")
+    except (OSError, InvalidPE, UnicodeError, struct.error):
         # Fail without emitting install paths or raw system error strings.
         print("Windows PE dependency audit failed: malformed or inaccessible staged payload.")
         return 1
-    print(json.dumps(report, indent=2, sort_keys=True))
+    print(rendered)
     return 0
 
 

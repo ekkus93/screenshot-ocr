@@ -69,6 +69,13 @@ For **each** binary, identify the actual version, SHA-256, upstream origin,
 license/copyright, NOTICE obligations, and whether it is required. Do not
 infer licensing or DLL loader safety from the filename alone.
 
+The Windows NSIS smoke now emits a content-free `windows-ocr-pe-inventory-<SHA>`
+CI artifact with per-binary SHA-256, byte length, static import edges, and
+static reachability. These digests can be joined to the separately generated
+pinned-input manifest for review without distributing third-party binaries.
+They establish file identity only; upstream provenance, dynamic loading,
+licenses, and physical acceptance remain independent release gates.
+
 ## Additional deterministic payload gate
 
 The staged PE audit now rejects a non-AMD64 or non-PE32+ executable or
