@@ -14,6 +14,8 @@
 
 **Hosted qualification evidence (2026-10-11):** CI `38106144905` passed at `d0efbbbf19d6833c7d17280661f0d37e9e05ea66`. Windows Rust native-error tests, frontend cancellation UI tests, and the NSIS resource inventory verification are implemented and exercised. The subsequent payload verifier hardening at `29f9487deeab289809483d9a4375983d2842cfb9` additionally rejects unexpected nested files; its exact-head CI requires requalification. Physical Windows and native redistribution-license gates remain unchecked.
 
+**Hosted synthetic OCR qualification (2026-10-11):** Commit `55464854ff55fc7e94b245fbec0dc5b27827e442` passed CI run `38109521277` on its exact head. In addition to Linux/frontend/Windows compile and packaging gates, the Windows runner generated a synthetic English PNG, launched the checksum-verified staged Tesseract executable directly with a 20-second timeout, and verified recognized output. This proves a native runtime can execute English OCR in hosted Windows CI; it does **not** prove installed application integration, native region selection, offline installation, mixed-DPI desktop behavior, or redistribution-license compliance. The present documentation reconciliation commit requires a new exact-head CI pass.
+
 ## 1. Rules for this TODO
 
 - [ ] means not implemented or not proven.
@@ -595,23 +597,23 @@ Do not invent physical evidence if it was not run.
 
 Evaluate at least the viable approaches relevant to the current Windows support target:
 
-- [ ] Windows Graphics Capture.
-- [ ] GDI/BitBlt.
-- [ ] DXGI Desktop Duplication.
-- [ ] Any other strongly justified API.
+- [x] Windows Graphics Capture.
+- [x] GDI/BitBlt.
+- [x] DXGI Desktop Duplication.
+- [x] Any other strongly justified API.
 
 For each record:
 
-- [ ] arbitrary rectangular region feasibility;
-- [ ] Windows 10/11 support;
-- [ ] mixed-DPI handling;
-- [ ] multi-monitor handling;
-- [ ] negative virtual coordinates;
-- [ ] cancellation model;
-- [ ] overlay interaction;
-- [ ] pixel format conversion;
-- [ ] dependency footprint;
-- [ ] security/maintenance implications.
+- [x] arbitrary rectangular region feasibility;
+- [x] Windows 10/11 support;
+- [x] mixed-DPI handling;
+- [x] multi-monitor handling;
+- [x] negative virtual coordinates;
+- [x] cancellation model;
+- [x] overlay interaction;
+- [x] pixel format conversion;
+- [x] dependency footprint;
+- [x] security/maintenance implications.
 
 ### W14.2 Choose mechanism
 
@@ -623,7 +625,7 @@ For each record:
 
 ### W14 acceptance gate
 
-- [ ] Capture implementation is chosen based on evidence rather than convenience alone.
+- [x] Capture implementation is chosen based on evidence rather than convenience alone.
 
 ## 19. W15 — Windows region-selection implementation
 
@@ -660,11 +662,11 @@ For each record:
 
 ### W15.4 Tests
 
-- [ ] Unit-test region normalization.
-- [ ] Unit-test invalid rectangle rejection.
-- [ ] Unit-test negative coordinates.
-- [ ] Unit-test overflow/resource bounds.
-- [ ] Unit-test native error mapping where possible.
+- [x] Unit-test region normalization.
+- [x] Unit-test invalid rectangle rejection.
+- [x] Unit-test negative coordinates.
+- [x] Unit-test overflow/resource bounds.
+- [x] Unit-test native error mapping where possible.
 
 ### W15 acceptance gate
 
@@ -674,35 +676,35 @@ For each record:
 
 ### W16.1 Coordinate model
 
-- [ ] Explicitly distinguish logical and physical coordinates.
-- [ ] Document which coordinate space selector events use.
-- [ ] Document which coordinate space capture API uses.
-- [ ] Centralize conversion.
-- [ ] Avoid scattered scale-factor math.
+- [x] Explicitly distinguish logical and physical coordinates.
+- [x] Document which coordinate space selector events use.
+- [x] Document which coordinate space capture API uses.
+- [x] Centralize conversion.
+- [x] Avoid scattered scale-factor math.
 
 ### W16.2 DPI tests
 
-- [ ] Automated pure test for 100%.
-- [ ] Automated pure test for 125%.
-- [ ] Automated pure test for 150%.
-- [ ] Automated pure test for 200%.
-- [ ] Test fractional conversion rounding policy.
-- [ ] Test edge coordinates.
+- [x] Automated pure test for 100%.
+- [x] Automated pure test for 125%.
+- [x] Automated pure test for 150%.
+- [x] Automated pure test for 200%.
+- [x] Test fractional conversion rounding policy.
+- [x] Test edge coordinates.
 
 ### W16.3 Multi-monitor tests
 
-- [ ] Test monitor right of primary.
-- [ ] Test monitor left of primary.
-- [ ] Test monitor above primary.
-- [ ] Test negative virtual coordinates.
-- [ ] Test different resolutions.
+- [x] Test monitor right of primary.
+- [x] Test monitor left of primary.
+- [x] Test monitor above primary.
+- [x] Test negative virtual coordinates.
+- [x] Test different resolutions.
 - [ ] Test mixed scale factors in pure coordinate logic.
-- [ ] Define cross-monitor drag policy.
-- [ ] Test cross-monitor selection if supported.
+- [x] Define cross-monitor drag policy.
+- [x] Test cross-monitor selection if supported.
 
 ### W16 acceptance gate
 
-- [ ] Coordinate conversion is deterministic and ready for physical validation.
+- [x] Coordinate conversion is deterministic and ready for physical validation.
 
 ## 21. W17 — Windows environment and desktop integration
 
@@ -880,10 +882,10 @@ On clean Windows test system:
 
 ### W20.5 Artifact integrity
 
-- [ ] Generate installer SHA-256.
+- [x] Generate installer SHA-256.
 - [ ] Use stable artifact naming.
 - [ ] Upload only reviewed installer/checksum artifacts.
-- [ ] Do not claim code signing unless actually signed.
+- [x] Do not claim code signing unless actually signed.
 
 ### W20 acceptance gate
 
@@ -966,7 +968,7 @@ On clean Windows test system:
 
 ### W22 acceptance gate
 
-- [ ] Hosted automated evidence supports a physical Windows acceptance candidate.
+- [x] Hosted automated evidence supports a physical Windows acceptance candidate.
 
 ## 27. W23 — Physical Windows desktop acceptance
 

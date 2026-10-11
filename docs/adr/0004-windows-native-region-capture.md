@@ -45,6 +45,12 @@ Microsoft documents Desktop Duplication as output-oriented: `IDXGIOutput1::Dupli
 
 Microsoft documents `BitBlt` as copying a rectangular set of pixels between device contexts, which directly matches the acquisition operation needed after the app has a selected rectangle.
 
+### Overlay and security/maintenance considerations
+
+All three native pixel-acquisition options still require an application-owned arbitrary-rectangle selector. With GDI the overlay is destroyed before BitBlt; WGC and DXGI would additionally require capture-session/frame lifecycle and an explicit overlay-exclusion/cropping policy. No option removes the need to validate overlay absence on a physical desktop.
+
+GDI limits the initial native dependency and maintenance surface to Win32 User32/GDI32 and owned handles, at the cost of compositor/protected-content limitations requiring physical validation. WGC adds WinRT capture permissions and session lifecycle; DXGI adds D3D11 device/output-duplication state, GPU resource cleanup, and device-loss handling. None justifies an additional capture mechanism for this one-shot OCR workload without evidence. Automating the Snipping Tool is not a viable native API alternative under the no-external-picker requirement.
+
 ## Coordinate contract
 
 The Windows adapter uses **physical virtual-screen pixels** as its internal coordinate space.
