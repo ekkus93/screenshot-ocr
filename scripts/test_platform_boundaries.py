@@ -109,12 +109,12 @@ class PlatformBoundaryGuardTests(unittest.TestCase):
 
     def test_platform_specific_os_apis_are_rejected_from_portable_code(self) -> None:
         for source in (
-            "use std::os::windows::ffi::OsStrExt;\\n",
-            "use std::os::linux::raw::stat;\\n",
-            "use winapi::um::winuser;\\n",
-            "use winapi::shared::windef;\\n",
-            "use std::os\\n  ::windows::ffi::OsStrExt;\\n",
-            "use winapi\\n  ::um::winuser;\\n",
+            "use std::os::windows::ffi::OsStrExt;\n",
+            "use std::os::linux::raw::stat;\n",
+            "use winapi::um::winuser;\n",
+            "use winapi::shared::windef;\n",
+            "use std::os\n  ::windows::ffi::OsStrExt;\n",
+            "use winapi\n  ::um::winuser;\n",
         ):
             with self.subTest(source=source):
                 status, report = self.run_check({"app.rs": source})
