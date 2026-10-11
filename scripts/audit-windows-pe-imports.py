@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import struct
 from pathlib import Path
 
@@ -84,7 +85,10 @@ def imports(data: bytes) -> set[str]:
         if end_offset < 0:
             raise InvalidPE("unterminated DLL name")
         name = data[offset:end_offset].decode("ascii", errors="strict").lower()
-        if not name or "/" in name or "\\" in name or name in {".", ".."}:
+        # Import names enter CI JSON/logs. Reject path syntax, whitespace,
+        # control characters and log-delimiter characters in untrusted PEs.
+        # Windows API-set names and ordinary library basenames use this set.
+        if name in {".", ".."} or not re.fullmatch(r"[a-z0-9_.+@-]+", name):
             raise InvalidPE("invalid DLL name")
         return name
 

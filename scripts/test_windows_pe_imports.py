@@ -61,6 +61,19 @@ class PeImportTests(unittest.TestCase):
                 with self.assertRaises(audit.InvalidPE):
                     audit.imports(invalid)
 
+    def test_import_names_cannot_inject_paths_or_log_lines(self):
+        for invalid in (
+            b"bad:name.dll\0",
+            b"bad\nname.dll\0",
+            b"bad name.dll\0",
+            b"bad;name.dll\0",
+        ):
+            with self.subTest(invalid=invalid):
+                data = bytearray(fixture())
+                data[0x250 : 0x250 + len(invalid)] = invalid
+                with self.assertRaisesRegex(audit.InvalidPE, "invalid DLL name"):
+                    audit.imports(bytes(data))
+
     def test_audit_identifies_packaged_and_external_edges(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
