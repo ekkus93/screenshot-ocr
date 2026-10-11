@@ -137,6 +137,20 @@ impl Drop for GdiHandles {
     }
 }
 
+/// GDI's top-down 32-bit DIB is BGRA, with an alpha byte that is not
+/// guaranteed to be meaningful for a BI_RGB desktop capture. Normalize every
+/// pixel to opaque RGBA before handing it to the shared image pipeline.
+fn bgra_to_opaque_rgba(pixels: &mut [u8]) -> Result<(), AppError> {
+    if pixels.len() % 4 != 0 {
+        return Err(AppError::CaptureImageInvalid);
+    }
+    for pixel in pixels.chunks_exact_mut(4) {
+        pixel.swap(0, 2);
+        pixel[3] = 255;
+    }
+    Ok(())
+}
+
 fn capture_tile(rectangle: Rect) -> Result<RgbaImage, AppError> {
     let byte_len = rectangle.rgba_len()?;
     let width = i32::try_from(rectangle.width()).map_err(|_| AppError::CaptureTooLarge)?;
@@ -185,10 +199,7 @@ fn capture_tile(rectangle: Rect) -> Result<RgbaImage, AppError> {
         {
             return Err(AppError::CaptureFailed);
         }
-        for pixel in pixels.chunks_exact_mut(4) {
-            pixel.swap(0, 2);
-            pixel[3] = 255;
-        }
+        bgra_to_opaque_rgba(&mut pixels)?;
         RgbaImage::from_raw(width as u32, height as u32, pixels)
             .ok_or(AppError::CaptureImageInvalid)
     }
@@ -215,8 +226,25 @@ fn capture_pixels(
 
 #[cfg(test)]
 mod tests {
-    use super::selected_object_succeeded;
+    use super::{bgra_to_opaque_rgba, selected_object_succeeded};
+    use crate::error::AppError;
     use windows_sys::Win32::Graphics::Gdi::HGDIOBJ;
+
+    #[test]
+    fn gdi_bgra_pixels_convert_to_opaque_rgba_without_changing_pixel_order() {
+        let mut pixels = [1, 2, 3, 0, 255, 64, 32, 128];
+        bgra_to_opaque_rgba(&mut pixels).unwrap();
+        assert_eq!(pixels, [3, 2, 1, 255, 32, 64, 255, 255]);
+    }
+
+    #[test]
+    fn gdi_pixel_conversion_rejects_incomplete_pixel() {
+        let mut pixels = [1, 2, 3];
+        assert!(matches!(
+            bgra_to_opaque_rgba(&mut pixels),
+            Err(AppError::CaptureImageInvalid)
+        ));
+    }
 
     #[test]
     fn select_object_failure_sentinels_are_rejected() {
