@@ -61,6 +61,42 @@ separate system-wide requirement, and do not run any network download at
 application startup. Package-content validation should fail closed if required
 resources are missing, rather than publish a misleading working installer.
 
+## Preliminary upstream license findings (not redistribution approval)
+
+The upstream [Tesseract project documentation](https://tesseract-ocr.github.io/tessdoc/)
+identifies Tesseract OCR as Apache-2.0 licensed. Redistributors need to
+preserve applicable license text, copyright attribution, NOTICE material
+where present, and any required modification notices.
+
+[SPDX's Leptonica license record](https://spdx.org/licenses/Leptonica.html)
+notes that Leptonica has moved to BSD-2-Clause. Binary redistributions
+must reproduce the applicable copyright, license conditions, and warranty
+disclaimer in the accompanying materials. The actual version and license
+included by the pinned Mannheim distribution must be confirmed before
+using upstream license classifications for a release.
+
+The Windows runtime uses third-party [Mannheim installer inputs](
+https://digi.bib.uni-mannheim.de/tesseract/), which are *not* an official
+Tesseract upstream Windows installer. An upstream project license does
+not settle the licenses of the entire repackaged binary and its DLLs.
+
+The dependency inventory command is
+`python scripts/audit-windows-pe-imports.py src-tauri/windows-ocr-runtime`.
+It inspects each packaged executable/DLL's static PE imports and
+delay-loaded import descriptors and prints only DLL basenames. Imports
+not found alongside the executable are reported as `external_unreviewed`;
+some may be Windows OS libraries, but they are not automatically trusted
+or claimed present on clean supported systems. This inventory does not
+identify the source, license, notice obligations, exact version, or runtime
+resolution of each component; those remain release-blocking tasks.
+
+Before redistribution, review *each* packaged DLL, confirm its version
+and origin, inspect its transitive dependencies and the installed Windows
+loader search behavior, and include all required license/NOTICE files in
+the installer. The physical Windows acceptance matrix must also prove
+offline OCR with the packaged components alone. No publication approval
+is implied by this preliminary upstream review.
+
 ## Remaining qualification
 
 The checksum-pinned candidate is a build-input decision, **not an acceptance

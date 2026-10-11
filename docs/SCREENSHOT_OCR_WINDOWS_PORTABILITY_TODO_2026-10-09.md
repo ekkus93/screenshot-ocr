@@ -16,6 +16,8 @@
 
 **Hosted synthetic OCR qualification (2026-10-11):** Commit `55464854ff55fc7e94b245fbec0dc5b27827e442` passed CI run `38109521277` on its exact head. In addition to Linux/frontend/Windows compile and packaging gates, the Windows runner generated a synthetic English PNG, launched the checksum-verified staged Tesseract executable directly with a 20-second timeout, and verified recognized output. This proves a native runtime can execute English OCR in hosted Windows CI; it does **not** prove installed application integration, native region selection, offline installation, mixed-DPI desktop behavior, or redistribution-license compliance. The present documentation reconciliation commit requires a new exact-head CI pass.
 
+**Preliminary Windows PE and redistribution review (2026-10-11):** `scripts/audit-windows-pe-imports.py` inventories PE32/PE32+ static and delay-loaded DLL imports from the staged Tesseract executable and adjacent DLLs, without executing the binaries. Synthetic parser tests and the staged-runtime audit are wired into CI. The native dependency classification and license/notice audit, physical offline Windows acceptance, and installer publication remain incomplete. Hosted exact-head CI must pass again after this reconciliation.
+
 ## 1. Rules for this TODO
 
 - [ ] means not implemented or not proven.
@@ -1067,34 +1069,34 @@ If Windows 10 support is dropped because the chosen API/toolchain cannot support
 
 ### W24.1 Architecture docs
 
-- [ ] Update docs/ARCHITECTURE.md with portable core/platform adapters.
-- [ ] Add/update platform architecture ADR.
-- [ ] Add Windows capture API ADR.
-- [ ] Document coordinate/DPI model.
-- [ ] Document OCR runtime resolution.
+- [x] Update docs/ARCHITECTURE.md with portable core/platform adapters.
+- [x] Add/update platform architecture ADR.
+- [x] Add Windows capture API ADR.
+- [x] Document coordinate/DPI model.
+- [x] Document OCR runtime resolution.
 
 ### W24.2 User docs
 
 - [ ] Update README with Windows installation.
-- [ ] Update README with Control+Shift+O.
-- [ ] Update README with tray behavior.
-- [ ] Update README with offline OCR statement.
+- [x] Update README with Control+Shift+O.
+- [x] Update README with tray behavior.
+- [x] Update README with offline OCR statement.
 - [ ] Separate Linux and Windows dependency/install instructions.
-- [ ] Document Windows minimum version truthfully.
-- [ ] Document unsigned installer status if applicable.
+- [x] Document Windows minimum version truthfully.
+- [x] Document unsigned installer status if applicable.
 
 ### W24.3 Privacy/security docs
 
-- [ ] Update docs/PRIVACY.md.
-- [ ] Update docs/THREAT_MODEL.md.
-- [ ] Document bundled native runtime.
-- [ ] Document DLL search/provenance decision.
-- [ ] Document Windows temporary capture behavior if any.
+- [x] Update docs/PRIVACY.md.
+- [x] Update docs/THREAT_MODEL.md.
+- [x] Document bundled native runtime.
+- [x] Document DLL search/provenance decision.
+- [x] Document Windows temporary capture behavior if any.
 
 ### W24.4 CI/release docs
 
 - [ ] Document Linux versus Windows hosted gates.
-- [ ] Document physical acceptance boundary.
+- [x] Document physical acceptance boundary.
 - [ ] Record final Linux CI run IDs.
 - [ ] Record final Windows CI run IDs.
 - [ ] Record installer artifact name.
@@ -1105,9 +1107,9 @@ If Windows 10 support is dropped because the chosen API/toolchain cannot support
 ### W24.5 TODO reconciliation
 
 - [ ] Check only tasks supported by evidence.
-- [ ] Leave unrun physical tests unchecked.
-- [ ] Do not delete incomplete tasks to make the project look complete.
-- [ ] Add evidence notes where useful.
+- [x] Leave unrun physical tests unchecked.
+- [x] Do not delete incomplete tasks to make the project look complete.
+- [x] Add evidence notes where useful.
 - [ ] Re-read companion spec for untracked normative requirements.
 
 ### W24 acceptance gate
