@@ -455,16 +455,16 @@ At minimum inspect:
 
 ### W10.1 Shared orchestration tests
 
-- [ ] Fake capture success.
-- [ ] Fake capture cancellation.
-- [ ] Fake capture unavailable.
-- [ ] Fake capture cleanup warning.
-- [ ] Fake OCR runtime unavailable.
-- [ ] Fake OCR language missing.
-- [ ] One-active-job ownership.
-- [ ] Cancellation during OCR.
-- [ ] Candidate selection unchanged.
-- [ ] Clipboard recovery contract unchanged.
+- [x] Fake capture success.
+- [x] Fake capture cancellation.
+- [x] Fake capture unavailable.
+- [x] Fake capture cleanup warning.
+- [x] Fake OCR runtime unavailable.
+- [x] Fake OCR language missing.
+- [x] One-active-job ownership.
+- [x] Cancellation during OCR.
+- [x] Candidate selection unchanged.
+- [x] Clipboard recovery contract unchanged.
 
 ### W10.2 Architecture guard
 
@@ -486,13 +486,27 @@ The guard should cover at least:
 
 ### W10.3 Content-leakage guard
 
-- [ ] Ensure refactor does not weaken scripts/check-content-leakage.py.
+- [x] Ensure refactor does not weaken scripts/check-content-leakage.py.
 - [ ] Add new platform fields to leakage review if necessary.
-- [ ] Keep synthetic secret tests passing.
+- [x] Keep synthetic secret tests passing.
+
+**W10 deterministic evidence (2026-10-11):**
+`src-tauri/src/app_portability_tests.rs` exercises fake-platform success,
+unavailable capture/runtime/language handling, capture and OCR cancellation,
+cleanup warnings, and single-job ownership. `src-tauri/src/ocr/cleanup.rs`
+tests candidate ranking; `src-tauri/src/commands.rs` and the frontend tests
+cover clipboard validation and recoverable warnings. The CI repository-policy
+job exercises synthetic import guards in `scripts/test_platform_boundaries.py`
+and tests private-text logging attempts and content-free error findings in
+`scripts/test_content_leakage.py`. The repository-policy job passed on
+`1cf95c7168aaa56152977323fe8250502224fc0a` in run `38132797795`;
+the earlier full Linux/Windows hosted suite passed on
+`f3c866fadc1a0ad5d086c7407f70bd2d2dc77fbc` in run `38131090350`.
+These are deterministic/hosted tests and do not close physical desktop gates.
 
 ### W10 acceptance gate
 
-- [ ] Tests protect both behavior and the new architectural boundary.
+- [x] Tests protect both behavior and the new architectural boundary.
 
 ## 15. W11 — Linux regression qualification
 
