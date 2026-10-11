@@ -103,12 +103,9 @@ mod tests {
             warnings: vec![],
             score,
         };
-        let winner = select_best_candidate(vec![
-            make(" ", 1000),
-            make("second", 5),
-            make("first", 10),
-        ])
-        .expect("nonblank candidate");
+        let winner =
+            select_best_candidate(vec![make(" ", 1000), make("second", 5), make("first", 10)])
+                .expect("nonblank candidate");
         assert_eq!(winner.text, "first");
         assert!(matches!(
             select_best_candidate(vec![make("", 1), make("  ", 2)]),
