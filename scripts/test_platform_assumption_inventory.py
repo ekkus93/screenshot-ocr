@@ -78,6 +78,27 @@ class AssumptionInventoryTests(unittest.TestCase):
             self.assertEqual(report["entries"], [])
             self.assertNotIn("PRIVATE_FIXTURE", str(report))
 
+    def test_symlinked_source_directories_are_not_scanned(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "repo"
+            root.mkdir()
+            outside = Path(temp) / "private"
+            outside.mkdir()
+            (outside / "leak.rs").write_text(
+                "GNOME PRIVATE_FIXTURE\\n", encoding="utf-8"
+            )
+            # A top-level scan root may itself be a symlink, even when its
+            # child is an ordinary file. A nested directory link is likewise
+            # not part of the checkout's first-party source inventory.
+            (root / "src-tauri").symlink_to(outside, target_is_directory=True)
+            (root / "scripts").mkdir()
+            (root / "scripts" / "linked").symlink_to(
+                outside, target_is_directory=True
+            )
+            report = inventory.inventory(root)
+            self.assertEqual(report["entries"], [])
+            self.assertNotIn("PRIVATE_FIXTURE", str(report))
+
     def test_portable_source_has_no_findings(self):
         with tempfile.TemporaryDirectory() as temp:
             source = Path(temp) / "src-tauri/src/app.rs"

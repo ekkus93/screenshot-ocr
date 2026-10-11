@@ -167,7 +167,9 @@ generated findings have been reviewed for coverage and boundary ownership.
 The inventory now excludes symlinked source files, preventing accidental
 inspection of files outside the checkout; a synthetic privacy regression test
 runs in repository-policy CI. This does not constitute category-by-category
-architecture review or physical desktop acceptance.
+architecture review or physical desktop acceptance. The inventory now also
+rejects symlinked scan roots and linked ancestor directories, with synthetic
+privacy fixtures; the remaining category reviews are still open.
 
 ### W1.3 Inventory frontend assumptions
 
@@ -698,6 +700,7 @@ For each record:
 - [x] negative virtual coordinates;
 - [x] cancellation model;
 - [x] overlay interaction;
+
 - [x] pixel format conversion;
 - [x] dependency footprint;
 - [x] security/maintenance implications.

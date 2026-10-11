@@ -53,6 +53,15 @@ def owner(path: str) -> str:
     return "bundle_or_package_metadata"
 
 
+def is_unlinked_source(root: Path, path: Path) -> bool:
+    """Reject symlinked files and any symlinked ancestor under the checkout."""
+    relative = path.relative_to(root)
+    return all(
+        not root.joinpath(*relative.parts[:depth]).is_symlink()
+        for depth in range(1, len(relative.parts) + 1)
+    )
+
+
 def candidates(root: Path) -> list[Path]:
     all_paths: list[Path] = []
     # Scan the entire Tauri tree, not just Rust modules: installer hooks,
@@ -60,13 +69,13 @@ def candidates(root: Path) -> list[Path]:
     # OS assumptions. Generated build output remains excluded below.
     for prefix in ("src-tauri", "src", "scripts", ".github/workflows"):
         base = root / prefix
-        if base.is_dir():
+        if base.is_dir() and not base.is_symlink():
             all_paths.extend(
                 p for p in base.rglob("*")
-                if p.is_file() and not p.is_symlink() and p.suffix in SUFFIXES
+                if p.is_file() and is_unlinked_source(root, p) and p.suffix in SUFFIXES
                 and not any(part in IGNORED for part in p.relative_to(root).parts)
             )
-    all_paths.extend(p for p in (root / "package.json",) if p.is_file() and not p.is_symlink())
+    all_paths.extend(p for p in (root / "package.json",) if p.is_file() and is_unlinked_source(root, p))
     return sorted(set(all_paths))
 
 
