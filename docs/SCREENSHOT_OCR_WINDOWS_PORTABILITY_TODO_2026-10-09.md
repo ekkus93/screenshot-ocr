@@ -1163,7 +1163,9 @@ If Windows 10 support is dropped because the chosen API/toolchain cannot support
 - [ ] The exact final branch head is fully qualified.
 - [ ] The branch is ready for owner-approved integration into master.
 
-**Targeted hosted evidence (2026-10-11):** CI run `38123649350` at `5e8fa5e95b2b68a2581be6817b01dd46765950a4` passed its Linux Debian package job `114423945914`; the package metadata explicitly requires `gnome-screenshot`, `tesseract-ocr`, `tesseract-ocr-eng`, `libayatana-appindicator3-1`, `libwebkit2gtk-4.1-0`, and `libgtk-3-0`. The same run passed Windows Rust quality gates for the content-free monitor-enumeration capture-capability summary. Pure mixed-DPI geometry and compositing tests already cover 125%/200% cross-monitor offsets. The PE inventory now distinguishes statically reachable binaries from other staged DLLs to prioritize review; this is **not** proof that other DLLs are unnecessary or redistributable. The new graph tests and final branch head require fresh exact-head CI. Physical Windows behavior remains unproven.\n\n## 30. Explicitly deferred after this project
+**Targeted hosted evidence (2026-10-11):** CI run `38123649350` at `5e8fa5e95b2b68a2581be6817b01dd46765950a4` passed its Linux Debian package job `114423945914`; the package metadata explicitly requires `gnome-screenshot`, `tesseract-ocr`, `tesseract-ocr-eng`, `libayatana-appindicator3-1`, `libwebkit2gtk-4.1-0`, and `libgtk-3-0`. The same run passed Windows Rust quality gates for the content-free monitor-enumeration capture-capability summary. Pure mixed-DPI geometry and compositing tests already cover 125%/200% cross-monitor offsets. The PE inventory now distinguishes statically reachable binaries from other staged DLLs to prioritize review; this is **not** proof that other DLLs are unnecessary or redistributable. The new graph tests and final branch head require fresh exact-head CI. Physical Windows behavior remains unproven.
+
+## 30. Explicitly deferred after this project
 
 These remain unchecked/non-goal unless separately authorized:
 
