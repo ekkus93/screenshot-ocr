@@ -39,7 +39,7 @@ class ContentLeakageGuardTests(unittest.TestCase):
             with self.subTest(name=name):
                 report = self.scan({
                     "src-tauri/src/app.rs": (
-                        f"fn safe() {{}}\n{name} ! (\\"PRIVATE_SYNTHETIC_SENTINEL\\");\n"
+                        f'fn safe() {{}}\n{name} ! ("PRIVATE_SYNTHETIC_SENTINEL");\n'
                     )
                 })
                 self.assertEqual(len(report), 1, report)
@@ -75,7 +75,7 @@ class ContentLeakageGuardTests(unittest.TestCase):
     def test_multiple_findings_have_file_and_line_without_source_content(self) -> None:
         report = self.scan({
             "src/a.ts": "export const a = 1;\nconsole.error('PRIVATE_SYNTHETIC_SENTINEL');\n",
-            "src-tauri/src/b.rs": "dbg!(\\"PRIVATE_SYNTHETIC_SENTINEL\\");\n",
+            "src-tauri/src/b.rs": 'dbg!("PRIVATE_SYNTHETIC_SENTINEL");\n',
         })
         self.assertEqual(len(report), 2)
         self.assertIn("a.ts:2", "\n".join(report))
