@@ -52,14 +52,29 @@ impl RuntimeDiagnostics {
     }
 
     pub fn set_tray_status(&self, status: impl Into<String>) {
+        // Native status strings must not introduce unbounded OS error details.
+        let status = status.into();
+        let safe = match status.as_str() {
+            "available" | "unavailable; main window remains usable" | "not initialized" => status.as_str(),
+            _ => "unavailable",
+        };
         if let Ok(mut tray_status) = self.tray_status.lock() {
-            *tray_status = status.into();
+            *tray_status = safe.into();
         }
     }
 
     pub fn set_shortcut_status(&self, status: impl Into<String>) {
+        let status = status.into();
+        let safe = match status.as_str() {
+            "registered"
+            | "registration failed; use the documented platform shortcut"
+            | "not registered; use the documented platform shortcut"
+            | "deferred; use the GNOME custom shortcut"
+            | "not initialized" => status.as_str(),
+            _ => "registration status unavailable",
+        };
         if let Ok(mut shortcut_status) = self.shortcut_status.lock() {
-            *shortcut_status = status.into();
+            *shortcut_status = safe.into();
         }
     }
 
@@ -187,6 +202,27 @@ mod tests {
                 shortcut_status: "registered".into(),
             }
         );
+    }
+
+    #[test]
+    fn native_statuses_reject_unreviewed_platform_details() {
+        let runtime = RuntimeDiagnostics::default();
+        runtime.set_tray_status("synthetic-raw-path");
+        runtime.set_shortcut_status("synthetic-raw-error");
+        let snapshot = runtime.snapshot();
+        assert_eq!(snapshot.tray_status, "unavailable");
+        assert_eq!(snapshot.shortcut_status, "registration status unavailable");
+    }
+
+    #[test]
+    fn known_linux_and_windows_desktop_statuses_are_preserved() {
+        let runtime = RuntimeDiagnostics::default();
+        runtime.set_tray_status("unavailable; main window remains usable");
+        runtime.set_shortcut_status("deferred; use the GNOME custom shortcut");
+        assert_eq!(runtime.snapshot().shortcut_status, "deferred; use the GNOME custom shortcut");
+        assert_eq!(runtime.snapshot().tray_status, "unavailable; main window remains usable");
+        runtime.set_shortcut_status("registration failed; use the documented platform shortcut");
+        assert_eq!(runtime.snapshot().shortcut_status, "registration failed; use the documented platform shortcut");
     }
 
     #[test]
