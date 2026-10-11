@@ -39,3 +39,5 @@ ocr-generated/
 # Generated Windows OCR audit/build inputs (never commit redistributable binaries)
 windows-ocr-runtime-audit.json
 src-tauri/windows-ocr-runtime/
+# Locally generated NSIS installer checksum (not a release asset)
+windows-installer.sha256
