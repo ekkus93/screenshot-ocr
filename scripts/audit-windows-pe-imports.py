@@ -35,7 +35,7 @@ def pe_machine(data: bytes) -> int:
     if len(data) < 0x40 or data[:2] != b"MZ":
         raise InvalidPE("invalid DOS signature")
     pe = uint32(data, 0x3C)
-    if pe + 24 > len(data) or data[pe : pe + 4] != b"PE\\0\\0":
+    if pe + 24 > len(data) or data[pe : pe + 4] != b"PE\0\0":
         raise InvalidPE("invalid PE signature")
     return uint16(data, pe + 4)
 
