@@ -214,7 +214,8 @@ At minimum inspect:
 **W2.3 error-boundary hardening (2026-10-11):** Shared `error.rs`
 defines stable capture error variants on every target without `target_os`
 gating, and `scripts/check-platform-boundaries.py` rejects platform-dependent
-error enum compilation. Windows/Linux exact-head CI must validate the change;
+error enum compilation. All seven CI jobs passed at exact commit
+`a3370f3834c7a28d7d8652c8db87f9e830664ce8` (run `38158378805`);
 other core-purity and physical acceptance items stay unchecked.
 
 ### W2 acceptance gate
@@ -982,7 +983,7 @@ on physical Windows and all corresponding acceptance checkboxes stay open.
 ### W20.5 Artifact integrity
 
 - [x] Generate installer SHA-256.
-- [ ] Use stable artifact naming.
+- [x] Use stable artifact naming.
 
 - [ ] Upload only reviewed installer/checksum artifacts.
 - [x] Do not claim code signing unless actually signed.
@@ -991,8 +992,11 @@ on physical Windows and all corresponding acceptance checkboxes stay open.
 smoke normalizes the unapproved setup filename to
 `screenshot-ocr-v<version>-windows-x64-setup.exe`, writes a matching local
 checksum file, and repository-policy CI checks Cargo/package/Tauri metadata
-coherence. Exact-head CI must qualify this change before checking naming;
-installer upload and redistribution remain blocked by native-license and
+coherence. CI run `38158378805` passed at exact commit
+`a3370f3834c7a28d7d8652c8db87f9e830664ce8`. The candidate filename is
+`screenshot-ocr-v0.1.0-windows-x64-setup.exe` and its SHA-256 is
+`ad8ce81fa7268a4f1df3006d5288dfc05778add1d6e2ecc7938aa045ec58b240`.
+Installer upload and redistribution remain blocked by native-license and
 physical acceptance requirements.
 
 ### W20 acceptance gate
