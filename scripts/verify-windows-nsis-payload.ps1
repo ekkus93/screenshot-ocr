@@ -37,7 +37,7 @@ foreach ($entry in @($manifest.files)) {
 if (-not $seen.ContainsKey("tesseract.exe") -or -not $seen.ContainsKey("tessdata/eng.traineddata")) {
     throw "Runtime inventory missing required OCR components."
 }
-$dlls = @(Get-ChildItem -LiteralPath $root -File -Filter "*.dll")
+$dlls = @(Get-ChildItem -LiteralPath $root -File -Force -Filter "*.dll")
 if ($dlls.Count -ne $manifest.adjacent_dll_count -or
     @($manifest.files).Count -ne ($dlls.Count + 2)) { throw "Runtime DLL inventory count mismatch." }
 foreach ($dll in $dlls) {
@@ -45,7 +45,7 @@ foreach ($dll in $dlls) {
 }
 # Fail closed if the OCR resource tree contains files absent from the pinned
 # manifest, including nested DLLs and executable/data payloads.
-$payloadFiles = @(Get-ChildItem -LiteralPath $root -Recurse -File)
+$payloadFiles = @(Get-ChildItem -LiteralPath $root -Recurse -File -Force)
 if ($payloadFiles.Count -ne @($manifest.files).Count) {
     throw "Unexpected files in packaged OCR runtime."
 }
