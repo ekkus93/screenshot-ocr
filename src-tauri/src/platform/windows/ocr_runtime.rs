@@ -188,9 +188,9 @@ mod tests {
         // and ordinary packaged runtime tests remain mandatory regardless.
         if std::os::windows::fs::symlink_dir(&target, root.path().join("resources")).is_ok() {
             assert!(matches!(
-            resolve_at(&executable),
-            Err(AppError::OcrEngineUnavailable)
-        ));
+                resolve_at(&executable),
+                Err(AppError::OcrEngineUnavailable)
+            ));
         }
     }
 }
