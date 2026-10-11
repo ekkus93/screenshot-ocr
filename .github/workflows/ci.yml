@@ -279,6 +279,9 @@ jobs:
       - name: Install locked frontend dependencies
         run: npm ci
 
+      - name: Generate Windows icon resources for Rust integration tests
+        run: npm run tauri -- icon src-tauri/icons/128x128.png
+
       - name: Stage checksum-verified OCR runtime without executing setup
         shell: pwsh
         run: ./scripts/audit-windows-ocr-runtime.ps1 -StageRuntime
