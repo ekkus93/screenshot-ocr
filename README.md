@@ -45,6 +45,14 @@ The Windows shortcut is `Ctrl+Shift+O` when global registration succeeds. The tr
 
 The Windows NSIS smoke installer stages checksum-verified Tesseract 5.4.0.20240606 and English trained data in an app-owned `resources/ocr/` directory. It does not search PATH or require a separate Tesseract installation at application runtime. OCR itself is local and requires no network, but **offline installation on a clean Windows machine has not been demonstrated**; WebView2 provisioning and native dependency licenses remain acceptance gates.
 
+The development NSIS configuration embeds the WebView2 **offline installer**, not
+Tauri's default download-at-install bootstrapper. This adds roughly 127 MB to
+the setup payload but is intended to permit a disconnected installation even
+on machines without the WebView2 runtime. Building the installer can still
+require network access. **A clean disconnected install has not been tested**;
+the runtime prerequisite, installer behavior, and native licenses must be
+qualified on physical Windows hardware before release.
+
 The candidate installer is intentionally **not published**. Transitive DLL/license review, installer integrity checks, physical Windows 10/11 acceptance, and an explicit final integration decision are required first. No code signing is claimed. Do not treat the Linux release downloads as Windows installers.
 
 For the implementation plan and remaining checks, see the [Windows portability TODO](docs/SCREENSHOT_OCR_WINDOWS_PORTABILITY_TODO_2026-10-09.md), [Windows specification](docs/SCREENSHOT_OCR_WINDOWS_PORTABILITY_SPEC_2026-10-09.md), and [runtime provenance ADR](docs/adr/0005-windows-tesseract-provenance.md).

@@ -34,6 +34,22 @@ Linux hosted CI does not prove physical GNOME Wayland/X11 behavior.
 The NSIS smoke does **not** publish or upload a Windows installer.
 The checksum is printed in CI logs, not distributed as a Windows asset.
 
+## WebView2 provisioning policy
+
+The experimental NSIS bundle uses
+`bundle.windows.webviewInstallMode.type = offlineInstaller` in
+`src-tauri/tauri.nsis.conf.json`, rather than Tauri's default
+`downloadBootstrapper`. The bundler includes Microsoft's offline WebView2
+installer, adding approximately 127 MB according to Tauri's Windows packaging
+documentation. Installer construction may fetch the WebView2 distribution
+**during the build**; this is not a runtime OCR network dependency.
+
+Bundling the offline installer is only a packaging design decision. CI does
+not execute NSIS setup on a clean disconnected Windows desktop. Physical
+WebView2 provisioning, first launch, clean uninstall, and both Windows 10/11
+platform acceptance remain **unverified**; no redistribution approval or
+signed installer is implied.
+
 ## Developer-only Windows build
 
 On a Windows x86-64 development machine, install the pinned Node and Rust

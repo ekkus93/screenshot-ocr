@@ -862,9 +862,17 @@ For each record:
 ### W20.2 WebView2 policy
 
 - [ ] Verify supported Windows WebView2 assumption.
-- [ ] Decide bootstrap/download/offline installer policy.
-- [ ] Document user impact truthfully.
+- [x] Decide bootstrap/download/offline installer policy.
+- [x] Document user impact truthfully.
 - [ ] Ensure OCR itself has no network dependency.
+
+**W20.2 policy evidence (2026-10-11):** The Windows-only NSIS candidate uses
+Tauri's `offlineInstaller` WebView2 mode rather than the default online
+bootstrapper. The README and `docs/WINDOWS_HOSTED_QUALIFICATION.md` document
+the approximately 127 MB installer increase and the distinction between
+build-time fetching, application-time OCR, and clean offline installation.
+Repository-policy CI now rejects removal of the offline-install setting.
+Physical WebView2 provisioning and offline installation remain unchecked.
 
 ### W20.3 Installer behavior
 
