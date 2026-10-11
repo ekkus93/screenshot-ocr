@@ -268,3 +268,39 @@ test("Linux UI retains selectable GNOME and portal capture backends", async () =
   expect(screen.getByText("Portal (capability required)")).toBeInTheDocument();
   expect(screen.getByText("Super+Shift+O")).toBeVisible();
 });
+
+test("Windows capture cancellation restores the UI without copying", async () => {
+  const user = userEvent.setup();
+  mocks.getDiagnostics.mockResolvedValueOnce({ ...diagnostics, platform: "windows" });
+  let rejectCapture: ((reason?: unknown) => void) | undefined;
+  mocks.startCapture.mockImplementationOnce(
+    () =>
+      new Promise((_resolve, reject) => {
+        rejectCapture = reject;
+      }),
+  );
+  mocks.cancelCapture.mockResolvedValue(undefined);
+
+  render(<App />);
+  await screen.findByText("Ready to capture");
+  await user.click(screen.getByRole("button", { name: "Capture text from screen" }));
+  expect(await screen.findByText("Select a region; OCR continues after selection")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Scanning…" })).toBeDisabled();
+
+  await user.click(screen.getByRole("button", { name: "Cancel capture" }));
+  expect(mocks.cancelCapture).toHaveBeenCalledWith(expect.any(String));
+  expect(await screen.findByText("Cancelling capture")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Cancelling…" })).toBeDisabled();
+
+  expect(rejectCapture).toBeTypeOf("function");
+  rejectCapture?.({
+    code: "capture_cancelled",
+    message: "Capture cancelled.",
+    guidance: "Try again.",
+    retryable: true,
+  });
+  expect(await screen.findByText("Capture cancelled")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Capture text from screen" })).toBeEnabled();
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(mocks.copyText).not.toHaveBeenCalled();
+});
