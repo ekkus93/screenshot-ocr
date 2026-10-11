@@ -134,7 +134,10 @@ Hosted CI cannot prove clean installation/uninstallation, fully offline
 installation, WebView2 provisioning, tray/shortcut behavior, selector focus,
 Escape cancellation, clipboard behavior, or physical mixed-DPI capture.
 The [Windows acceptance TODO](SCREENSHOT_OCR_WINDOWS_PORTABILITY_TODO_2026-10-09.md)
-requires physical Windows evidence tied to an exact commit.
+requires physical Windows evidence tied to an exact commit. Use the
+[physical acceptance runbook](WINDOWS_PHYSICAL_ACCEPTANCE_RUNBOOK.md) to
+record the clean-install, offline, multi-monitor, and recovery matrix
+without retaining sensitive desktop content.
 
 Before distributing an installer, complete the native DLL provenance,
 license, and NOTICE review in
