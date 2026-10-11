@@ -92,7 +92,12 @@ def is_platform_file(path: Path) -> bool:
 
 def main() -> int:
     problems: list[str] = []
+    for path in sorted(RUST_ROOT.rglob("*")):
+        if path.is_symlink() and (path.suffix == ".rs" or path.is_dir()):
+            problems.append(f"{path}: symlinked Rust source path is forbidden")
     for path in sorted(RUST_ROOT.rglob("*.rs")):
+        if path.is_symlink():
+            continue
         if is_platform_file(path) or path in ALLOWED_NON_PLATFORM_FILES:
             continue
         text = path.read_text(encoding="utf-8")
