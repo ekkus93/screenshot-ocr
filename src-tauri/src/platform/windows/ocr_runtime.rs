@@ -33,9 +33,11 @@ fn resolve_at(executable: &Path) -> Result<OcrRuntime, AppError> {
     let root = resource_root(executable)?;
     // A junction/symlink in either directory can redirect even correctly
     // app-relative file paths outside the installed OCR resource tree.
-    if !directly_owned_directory(&executable.parent().ok_or(AppError::OcrEngineUnavailable)?.join("resources"))
-        || !directly_owned_directory(&root)
-    {
+    let resources = executable
+        .parent()
+        .ok_or(AppError::OcrEngineUnavailable)?
+        .join("resources");
+    if !directly_owned_directory(&resources) || !directly_owned_directory(&root) {
         return Err(AppError::OcrEngineUnavailable);
     }
     let binary = root.join("tesseract.exe");
@@ -151,7 +153,10 @@ mod tests {
         let resources = root.path().join("resources");
         // A regular file cannot substitute for the owned resources directory.
         fs::write(&resources, b"synthetic fixture").unwrap();
-        assert!(matches!(resolve_at(&executable), Err(AppError::OcrEngineUnavailable)));
+        assert!(matches!(
+            resolve_at(&executable),
+            Err(AppError::OcrEngineUnavailable)
+        ));
         fs::remove_file(&resources).unwrap();
         let ocr = resources.join("ocr");
         fs::create_dir_all(ocr.join("tessdata")).unwrap();
@@ -161,7 +166,10 @@ mod tests {
         // A directory masquerading as a native executable cannot be launched.
         fs::remove_file(ocr.join("tesseract.exe")).unwrap();
         fs::create_dir(ocr.join("tesseract.exe")).unwrap();
-        assert!(matches!(resolve_at(&executable), Err(AppError::OcrEngineUnavailable)));
+        assert!(matches!(
+            resolve_at(&executable),
+            Err(AppError::OcrEngineUnavailable)
+        ));
     }
 
     #[test]
@@ -171,11 +179,18 @@ mod tests {
         let target = root.path().join("external");
         fs::create_dir_all(target.join("ocr").join("tessdata")).unwrap();
         fs::write(target.join("ocr").join("tesseract.exe"), b"fixture").unwrap();
-        fs::write(target.join("ocr").join("tessdata").join("eng.traineddata"), b"fixture").unwrap();
+        fs::write(
+            target.join("ocr").join("tessdata").join("eng.traineddata"),
+            b"fixture",
+        )
+        .unwrap();
         // Some Windows CI accounts lack symlink privileges: the file-vs-dir
         // and ordinary packaged runtime tests remain mandatory regardless.
         if std::os::windows::fs::symlink_dir(&target, root.path().join("resources")).is_ok() {
-            assert!(matches!(resolve_at(&executable), Err(AppError::OcrEngineUnavailable)));
+            assert!(matches!(
+            resolve_at(&executable),
+            Err(AppError::OcrEngineUnavailable)
+        ));
         }
     }
 }

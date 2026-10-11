@@ -50,7 +50,7 @@ resource directory. The Windows resolver also rejects filesystem reparse
 points (including NTFS symlinks/junctions) in the `resources/ocr` and
 `tessdata` directories and the selected executable/language files, so those
 paths cannot silently redirect outside the installed OCR tree. This is a
-fail-closed *pre-launch path check*, not a defense against modifications
+fail-closed _pre-launch path check_, not a defense against modifications
 between check and execution or DLL files redirected independently.
 These choices reduce accidental execution of unrelated
 Tesseract binaries, but do **not** prove Windows DLL loader resolution:
