@@ -87,6 +87,17 @@ exact branch SHA `7af9043c71002237f0aa9a172f41e9a747391a6f` in CI run
 compatibility only, not DLL loader safety, completeness, redistribution rights,
 or physical Windows behavior.
 
+## Adjacent-DLL filesystem guard (2026-10-11)
+
+The Windows runtime resolver now rejects empty, directory-masquerading, and
+NTFS reparse-pointed adjacent `.dll` entries (case-insensitive), and fails
+closed if its resource-directory listing is unreadable or exceeds 256 entries.
+A synthetic Windows test covers empty files, directory substitution, and
+symlink substitution where the runner permits symlink creation. This is a
+filesystem layout check only: it does **not** verify DLL hashes, guarantee
+native loader behavior, prevent post-check substitution, or establish legal
+redistribution rights. Its exact-head CI qualification remains required.
+
 ## Unresolved release gates
 
 - [ ] Reproduce final input hashes and decide which DLLs are required.

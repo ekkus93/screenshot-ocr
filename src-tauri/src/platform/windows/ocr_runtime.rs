@@ -29,6 +29,34 @@ fn nonempty_file(path: &Path) -> bool {
     })
 }
 
+// Reject suspicious adjacent native dependencies before launching Tesseract.
+// This is a bounded file-type/reparse check, not a loader or hash audit:
+// native libraries can be loaded dynamically and files can change afterward.
+fn adjacent_dlls_are_regular_files(root: &Path) -> bool {
+    let Ok(entries) = std::fs::read_dir(root) else {
+        return false;
+    };
+    for (index, entry) in entries.enumerate() {
+        // An unexpected, unbounded directory is not a trusted runtime layout.
+        if index >= 256 {
+            return false;
+        }
+        let Ok(entry) = entry else {
+            return false;
+        };
+        if entry
+            .file_name()
+            .to_string_lossy()
+            .to_ascii_lowercase()
+            .ends_with(".dll")
+            && !nonempty_file(&entry.path())
+        {
+            return false;
+        }
+    }
+    true
+}
+
 fn resolve_at(executable: &Path) -> Result<OcrRuntime, AppError> {
     let root = resource_root(executable)?;
     // A junction/symlink in either directory can redirect even correctly
@@ -38,6 +66,9 @@ fn resolve_at(executable: &Path) -> Result<OcrRuntime, AppError> {
         .ok_or(AppError::OcrEngineUnavailable)?
         .join("resources");
     if !directly_owned_directory(&resources) || !directly_owned_directory(&root) {
+        return Err(AppError::OcrEngineUnavailable);
+    }
+    if !adjacent_dlls_are_regular_files(&root) {
         return Err(AppError::OcrEngineUnavailable);
     }
     let binary = root.join("tesseract.exe");
@@ -170,6 +201,33 @@ mod tests {
             resolve_at(&executable),
             Err(AppError::OcrEngineUnavailable)
         ));
+    }
+
+    #[test]
+    fn resolver_rejects_empty_directory_and_linked_adjacent_dlls() {
+        let root = tempdir().unwrap();
+        let executable = root.path().join("screenshot-ocr.exe");
+        let ocr = root.path().join("resources").join("ocr");
+        fs::create_dir_all(ocr.join("tessdata")).unwrap();
+        fs::write(ocr.join("tesseract.exe"), b"fixture").unwrap();
+        fs::write(ocr.join("tessdata").join("eng.traineddata"), b"fixture").unwrap();
+        assert!(resolve_at(&executable).is_ok());
+
+        let library = ocr.join("synthetic.DLL");
+        fs::write(&library, b"").unwrap();
+        assert!(matches!(resolve_at(&executable), Err(AppError::OcrEngineUnavailable)));
+        fs::write(&library, b"fixture").unwrap();
+        assert!(resolve_at(&executable).is_ok());
+        fs::remove_file(&library).unwrap();
+        fs::create_dir(&library).unwrap();
+        assert!(matches!(resolve_at(&executable), Err(AppError::OcrEngineUnavailable)));
+        fs::remove_dir(&library).unwrap();
+
+        let external = root.path().join("external.dll");
+        fs::write(&external, b"fixture").unwrap();
+        if std::os::windows::fs::symlink_file(&external, &library).is_ok() {
+            assert!(matches!(resolve_at(&executable), Err(AppError::OcrEngineUnavailable)));
+        }
     }
 
     #[test]
