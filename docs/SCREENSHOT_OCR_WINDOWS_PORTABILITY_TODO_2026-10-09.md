@@ -12,6 +12,8 @@
 
 **Evidence reconciliation (2026-10-10):** Baseline master `bbfd605d5c65b83735a9795622d92062c6c9c59d` passed run `33818790571`. The Windows-portability branch passed Linux/frontend/Windows compile and Debian smoke CI at `d89c6e399a93f956e296a8628402f4e4ebae8bba` (run `38074489534`). The native Windows selector, bundled Tesseract installer, and physical Windows acceptance are not complete. This checklist reconciliation itself requires a fresh exact-head CI run.
 
+**Hosted qualification evidence (2026-10-11):** CI `38106144905` passed at `d0efbbbf19d6833c7d17280661f0d37e9e05ea66`. Windows Rust native-error tests, frontend cancellation UI tests, and the NSIS resource inventory verification are implemented and exercised. The subsequent payload verifier hardening at `29f9487deeab289809483d9a4375983d2842cfb9` additionally rejects unexpected nested files; its exact-head CI requires requalification. Physical Windows and native redistribution-license gates remain unchecked.
+
 ## 1. Rules for this TODO
 
 - [ ] means not implemented or not proven.
@@ -919,7 +921,7 @@ On clean Windows test system:
 - [x] cargo build.
 - [x] Tauri Windows build.
 - [x] NSIS installer build.
-- [ ] Verify bundled OCR files.
+- [x] Verify bundled OCR files.
 - [x] Generate SHA-256.
 - [ ] Upload installer/checksum artifact.
 
@@ -941,7 +943,7 @@ On clean Windows test system:
 - [x] Portable orchestration tests pass on Windows.
 - [x] Windows coordinate tests pass.
 - [x] Windows runtime resolver tests pass.
-- [ ] Windows error-mapping tests pass.
+- [x] Windows error-mapping tests pass.
 - [x] Cancellation/state-machine tests pass.
 - [x] Settings tests pass.
 
@@ -950,7 +952,7 @@ On clean Windows test system:
 - [x] Platform-specific shortcut label tests.
 - [x] Platform-specific capture backend choice tests.
 - [x] Shared review/copy tests.
-- [ ] Shared cancellation UI tests.
+- [x] Shared cancellation UI tests.
 - [x] Shared settings error tests.
 - [x] No Linux-only copy shown as actionable Windows behavior.
 
@@ -959,7 +961,7 @@ On clean Windows test system:
 - [x] Debug Windows build.
 - [x] Release Windows build.
 - [x] Installer build.
-- [ ] Packaged resource audit.
+- [x] Packaged resource audit.
 - [x] No unresolved Linux library dependency.
 
 ### W22 acceptance gate
