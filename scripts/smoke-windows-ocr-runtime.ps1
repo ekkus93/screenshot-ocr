@@ -69,6 +69,16 @@ try {
     } finally {
         $process.Dispose()
     }
+    # Exercise the application's shared Rust OCR engine, not only the native
+    # executable. The fixture is synthetic and is deleted by this script.
+    $env:SCREENSHOT_OCR_WINDOWS_OCR_SMOKE_IMAGE = $imagePath
+    try {
+        $manifest = Join-Path $PSScriptRoot "../src-tauri/Cargo.toml"
+        & cargo test --manifest-path $manifest --locked windows_staged_shared_engine_integration -- --ignored
+        if ($LASTEXITCODE -ne 0) { throw "Shared Windows OCR engine integration smoke failed." }
+    } finally {
+        Remove-Item Env:SCREENSHOT_OCR_WINDOWS_OCR_SMOKE_IMAGE -ErrorAction SilentlyContinue
+    }
     Write-Output "Synthetic English OCR succeeded using staged executable and language data."
     Write-Output "Hosted process smoke is not physical Windows selector/installer acceptance."
 } finally {

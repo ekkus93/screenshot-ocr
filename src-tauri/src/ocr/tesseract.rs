@@ -275,6 +275,48 @@ mod tests {
     #[cfg(unix)]
     use tokio::time::{sleep, timeout};
 
+    // Hosted Windows-only integration: unlike the direct executable smoke,
+    // this exercises the shared bounded OCR probe and recognition pipeline.
+    // The ignored test is invoked explicitly with a generated, public fixture.
+    #[cfg(windows)]
+    #[tokio::test]
+    #[ignore = "requires staged checksum-verified OCR runtime and synthetic fixture"]
+    async fn windows_staged_shared_engine_integration() {
+        use crate::models::PreprocessingVariant;
+        use std::path::PathBuf;
+
+        let fixture = std::env::var_os("SCREENSHOT_OCR_WINDOWS_OCR_SMOKE_IMAGE")
+            .map(PathBuf::from)
+            .expect("synthetic Windows OCR fixture path required");
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("windows-ocr-runtime");
+        let executable = root.join("tesseract.exe");
+        let tessdata = root.join("tessdata");
+        assert!(executable.is_file() && tessdata.join("eng.traineddata").is_file());
+        let engine = TesseractEngine::new(OcrRuntime {
+            executable,
+            tessdata_dir: Some(tessdata),
+            working_directory: Some(root),
+        });
+        let cancellation = CancellationToken::new();
+        let languages = engine.probe_english(&cancellation).await.unwrap();
+        assert!(languages.iter().any(|language| language == "eng"));
+        let variant = PreparedVariant {
+            image: image::open(fixture).expect("load generated synthetic image"),
+            id: PreprocessingVariant::Original,
+        };
+        let candidate = engine
+            .recognize(&variant, TextMode::SingleLine, &cancellation)
+            .await
+            .unwrap();
+        let normalized = candidate
+            .text
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+            .to_ascii_uppercase();
+        assert!(normalized.contains("SAMPLE 123"), "synthetic OCR mismatch");
+    }
+
     #[cfg(unix)]
     fn write_executable(path: &std::path::Path, body: &str) {
         use std::os::unix::fs::PermissionsExt;
