@@ -203,6 +203,22 @@ mod tests {
     }
 
     #[test]
+    fn updating_settings_replaces_existing_file_and_reset_replaces_it_again() {
+        let dir = tempdir().expect("tempdir");
+        let store = SettingsStore::new(dir.path().to_path_buf());
+        let original = AppSettings::default();
+        store.save(&original).expect("initial save");
+        let mut changed = original.clone();
+        changed.preview_before_copy = !original.preview_before_copy;
+        store.save(&changed).expect("overwrite existing settings");
+        assert_eq!(store.load().expect("load replacement"), changed);
+        assert!(!dir.path().join("settings.json.tmp").exists());
+        assert_eq!(store.reset().expect("reset"), original);
+        assert_eq!(store.load().expect("load reset"), original);
+        assert!(!dir.path().join("settings.json.tmp").exists());
+    }
+
+    #[test]
     fn corrupt_settings_are_quarantined() {
         let dir = tempdir().expect("tempdir");
         fs::write(dir.path().join(SETTINGS_FILE), b"not json").expect("write corrupt settings");
