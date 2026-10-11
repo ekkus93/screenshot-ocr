@@ -29,3 +29,16 @@ The GNOME screenshot helper, Tesseract, the desktop clipboard, and tray/shortcut
 Portal capture is not enabled until explicit area-target capability is implemented and proven. FIX1 documents the current portal lifecycle decision but does not replace physical GNOME portal validation.
 
 Third-party GitHub Actions are not yet pinned by immutable commit SHA. That remains a CI/security hardening decision rather than a completed release gate.
+
+## Windows candidate threats and residual risk
+
+| Threat | Current mitigation | Unverified acceptance |
+| --- | --- | --- |
+| Selector overlays remain open or leak capture resources | One Rust-owned capture job; cancellation token polled by native selector; Win32 handles owned and released | Escape, tray cancellation, quit, failure recovery, and real desktop lifecycle |
+| DPI virtualization, negative coordinates, and monitor gaps corrupt captured pixels | Per-Monitor-v2 worker context, bounded physical virtual-screen rectangles, per-monitor tiles and pure geometry tests | Mixed-DPI and multi-monitor physical selection/capture accuracy |
+| Untrusted executable or DLL resolution | App-owned `resources/ocr/tesseract.exe`, adjacent staged DLLs, internal resolver; no frontend executable path or PATH search | Full transitive dependency/DLL-search and license audit; clean-install offline execution |
+| Tampered OCR build input or incomplete NSIS bundle | Pinned source installer SHA-256 and hash inventory; CI extracts candidate without executing setup | Exact final installer payload verification, independent provenance review, and publication approval |
+| Raw Windows errors or screen content escape diagnostics | Stable public error taxonomy, content-free platform statuses, no screenshot/OCR/clipboard payload logging | Physical failure-path and diagnostic audit |
+| Windows WebView2 bootstrap requires network | No runtime network dependency for OCR itself | Verify installer bootstrap/offline provisioning policy on clean Windows 10/11 |
+
+The Windows NSIS build is a **non-published smoke candidate**, not a qualified release. No code signing or physical Windows acceptance is claimed.
