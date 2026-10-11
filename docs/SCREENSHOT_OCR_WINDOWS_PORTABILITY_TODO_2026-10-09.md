@@ -389,58 +389,80 @@ hosted suite passed at `f3c866fadc1a0ad5d086c7407f70bd2d2dc77fbc`
 
 ### W7.1 Diagnostics
 
-- [ ] Separate platform-specific probes from shared diagnostic aggregation.
-- [ ] Keep cleanup failure counters shared.
-- [ ] Keep safe last-error tracking shared.
-- [ ] Add generic platform capability fields only when useful.
-- [ ] Prevent raw platform error text from escaping.
+- [x] Separate platform-specific probes from shared diagnostic aggregation.
+- [x] Keep cleanup failure counters shared.
+- [x] Keep safe last-error tracking shared.
+- [x] Add generic platform capability fields only when useful.
+- [x] Prevent raw platform error text from escaping.
 
 ### W7.2 Settings
 
-- [ ] Review CaptureBackendPreference portability.
-- [ ] Decide how Linux-only stored preferences behave on Windows.
-- [ ] Ensure Auto remains valid cross-platform.
-- [ ] Ensure unsupported persisted values recover safely or are mapped truthfully.
-- [ ] Preserve schema migration/recovery behavior.
-- [ ] Add tests for loading Linux-origin settings on Windows-like platform service context if applicable.
+- [x] Review CaptureBackendPreference portability.
+- [x] Decide how Linux-only stored preferences behave on Windows.
+- [x] Ensure Auto remains valid cross-platform.
+- [x] Ensure unsupported persisted values recover safely or are mapped truthfully.
+- [x] Preserve schema migration/recovery behavior.
+- [x] Add tests for loading Linux-origin settings on Windows-like platform service context if applicable.
 
 ### W7.3 Error taxonomy
 
-- [ ] Review every AppError/ErrorCode for platform assumptions.
-- [ ] Keep generic errors generic.
-- [ ] Add platform-specific internal variants only where necessary.
-- [ ] Map platform-native failures to stable content-free public errors.
-- [ ] Avoid embedding paths or raw OS messages.
+- [x] Review every AppError/ErrorCode for platform assumptions.
+- [x] Keep generic errors generic.
+- [x] Add platform-specific internal variants only where necessary.
+- [x] Map platform-native failures to stable content-free public errors.
+- [x] Avoid embedding paths or raw OS messages.
+
+**W7 source/hosted evidence (2026-10-11):** Shared
+`src-tauri/src/diagnostics.rs` aggregates platform-safe capability
+summaries, error codes and cleanup counters. `src-tauri/src/settings.rs`
+retains one schema, quarantines invalid values and preserves migrated Linux
+capture preferences; the Windows adapter ignores Linux-specific backend
+selection while `src/features/settings/SettingsPanel.tsx` labels native
+capture and Ctrl+Shift+O truthfully. `src-tauri/src/error.rs` maps native
+failures to static path-free public codes and guidance. Unit/frontend tests
+cover migration, recovery and synthetic privacy cases. Physical Windows
+acceptance still remains open under W23.
 
 ### W7 acceptance gate
 
-- [ ] Diagnostics/settings/errors can serve both platforms without misleading platform assumptions.
+- [x] Diagnostics/settings/errors can serve both platforms without misleading platform assumptions.
 
 ## 12. W8 — Tauri/platform composition root
 
 ### W8.1 Platform selection
 
-- [ ] Select Linux implementation at compile time on Linux.
-- [ ] Select Windows implementation point at compile time on Windows.
-- [ ] Keep platform selection in one narrow composition area.
+- [x] Select Linux implementation at compile time on Linux.
+- [x] Select Windows implementation point at compile time on Windows.
+- [x] Keep platform selection in one narrow composition area.
 - [ ] Avoid scattered cfg target_os blocks.
 
 ### W8.2 AppServices construction
 
-- [ ] Inject or construct platform services in AppServices or equivalent root.
-- [ ] Keep public Tauri command surface stable where possible.
-- [ ] Preserve frontend DTO compatibility unless a justified change is required.
-- [ ] Preserve before/after capture window lifecycle contract.
+- [x] Inject or construct platform services in AppServices or equivalent root.
+- [x] Keep public Tauri command surface stable where possible.
+- [x] Preserve frontend DTO compatibility unless a justified change is required.
+- [x] Preserve before/after capture window lifecycle contract.
 
 ### W8.3 Compile proof
 
-- [ ] Linux build compiles after composition-root refactor.
-- [ ] Test configuration can construct fake platform services.
+- [x] Linux build compiles after composition-root refactor.
+- [x] Test configuration can construct fake platform services.
 - [ ] No Windows implementation is required yet except minimal stubs needed to prove architecture if chosen.
+
+**W8 source/hosted evidence (2026-10-11):**
+`src-tauri/src/platform/mod.rs` composes the Linux and Windows
+`PlatformServices` implementations with target-specific cfg; shared
+`AppServices` uses the injected trait and retains its Tauri DTO/action
+surface. `src-tauri/src/commands.rs` maintains bounded window hide/restore
+and clipboard recovery. Both platforms built and tested in run
+`38131090350` at `f3c866fadc1a0ad5d086c7407f70bd2d2dc77fbc`.
+An exhaustive cfg-inventory review remains open, and the Phase 1
+"Windows stub only" item is superseded by the ongoing Phase 2 native port,
+not represented as completed physical acceptance.
 
 ### W8 acceptance gate
 
-- [ ] Platform selection is localized and application orchestration is platform-agnostic.
+- [x] Platform selection is localized and application orchestration is platform-agnostic.
 
 ## 13. W9 — Cargo and target-specific dependency cleanup
 
