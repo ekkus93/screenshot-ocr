@@ -13,7 +13,13 @@ pub fn compose(
     let width = u32::try_from(selection.width()).map_err(|_| AppError::CaptureTooLarge)?;
     let height = u32::try_from(selection.height()).map_err(|_| AppError::CaptureTooLarge)?;
     let mut result = RgbaImage::new(width, height);
+    let mut covered = Vec::<Rect>::new();
     for (tile, image) in tiles {
+        // Overlapping monitor tiles would overwrite previously captured pixels
+        // and make multi-monitor OCR results dependent on enumeration order.
+        if covered.iter().any(|previous| previous.intersect(tile.source).is_some()) {
+            return Err(AppError::CaptureImageInvalid);
+        }
         let tile_width =
             u32::try_from(tile.source.width()).map_err(|_| AppError::CaptureImageInvalid)?;
         let tile_height =
@@ -37,6 +43,7 @@ pub fn compose(
         result
             .copy_from(&image, tile.offset_x, tile.offset_y)
             .map_err(|_| AppError::CaptureImageInvalid)?;
+        covered.push(tile.source);
     }
     Ok(result)
 }
@@ -104,6 +111,29 @@ mod tests {
         };
         assert!(matches!(
             compose(selection, [(tile, RgbaImage::new(2, 2))]),
+            Err(AppError::CaptureImageInvalid)
+        ));
+    }
+
+    #[test]
+    fn rejects_overlapping_monitor_tiles_even_with_valid_offsets() {
+        let selection = rect(-5, 0, 5, 4);
+        let tiles = monitor_tiles(selection, &[rect(-5, 0, 1, 4), rect(0, 0, 5, 4)]);
+        let images = tiles.into_iter().map(|tile| {
+            (tile, RgbaImage::new(tile.source.width() as u32, tile.source.height() as u32))
+        });
+        assert!(matches!(
+            compose(selection, images),
+            Err(AppError::CaptureImageInvalid)
+        ));
+    }
+
+    #[test]
+    fn rejects_duplicate_monitor_tiles() {
+        let selection = rect(0, 0, 4, 4);
+        let tile = monitor_tiles(selection, &[selection])[0];
+        assert!(matches!(
+            compose(selection, [(tile, RgbaImage::new(4, 4)), (tile, RgbaImage::new(4, 4))]),
             Err(AppError::CaptureImageInvalid)
         ));
     }
