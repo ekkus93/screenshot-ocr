@@ -1,0 +1,76 @@
+"""Synthetic, content-free tests for the Windows PE import inventory."""
+from __future__ import annotations
+
+import importlib.util
+import struct
+import tempfile
+import unittest
+from pathlib import Path
+
+spec = importlib.util.spec_from_file_location(
+    "windows_pe_inventory", Path(__file__).with_name("audit-windows-pe-imports.py")
+)
+assert spec and spec.loader
+audit = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(audit)
+
+
+def fixture(*, pe64: bool = True, delay: bool = False) -> bytes:
+    data = bytearray(0x600)
+    data[:2] = b"MZ"
+    struct.pack_into("<I", data, 0x3C, 0x80)
+    data[0x80:0x84] = b"PE\0\0"
+    struct.pack_into("<H", data, 0x86, 1)  # section count
+    size = 240 if pe64 else 224
+    struct.pack_into("<H", data, 0x94, size)
+    opt = 0x98
+    struct.pack_into("<H", data, opt, 0x20B if pe64 else 0x10B)
+    directory = opt + (112 if pe64 else 96)
+    if pe64:
+        struct.pack_into("<Q", data, opt + 24, 0x140000000)
+    else:
+        struct.pack_into("<I", data, opt + 28, 0x400000)
+    struct.pack_into("<II", data, directory + 8, 0x1000, 40)
+    section = opt + size
+    struct.pack_into("<IIII", data, section + 8, 0x300, 0x1000, 0x300, 0x200)
+    struct.pack_into("<IIIII", data, 0x200, 0, 0, 0, 0x1050, 0)
+    data[0x250:0x25D] = b"KERNEL32.dll\0"
+    if delay:
+        struct.pack_into("<II", data, directory + 13 * 8, 0x1100, 64)
+        struct.pack_into("<II", data, 0x300, 1, 0x1140)
+        data[0x340:0x34F] = b"vendor-extra.dll\0"
+    return bytes(data)
+
+
+class PeImportTests(unittest.TestCase):
+    def test_import_directory_works_for_pe32_and_pe32_plus(self):
+        for pe64 in (True, False):
+            with self.subTest(pe64=pe64):
+                self.assertEqual(audit.imports(fixture(pe64=pe64)), {"kernel32.dll"})
+
+    def test_delay_import_is_included(self):
+        self.assertEqual(
+            audit.imports(fixture(delay=True)),
+            {"kernel32.dll", "vendor-extra.dll"},
+        )
+
+    def test_truncated_and_invalid_pe_fail_closed(self):
+        for invalid in (b"", b"MZ", b"not a PE", fixture()[:0x150]):
+            with self.subTest(length=len(invalid)):
+                with self.assertRaises(audit.InvalidPE):
+                    audit.imports(invalid)
+
+    def test_audit_identifies_packaged_and_external_edges(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "tesseract.exe").write_bytes(fixture(delay=True))
+            (root / "vendor-extra.dll").write_bytes(fixture())
+            result = audit.audit(root)
+            self.assertEqual(len(result["binaries"]), 2)
+            self.assertEqual(result["binaries"][0]["packaged"], ["vendor-extra.dll"])
+            self.assertIn("kernel32.dll", result["external_unreviewed"])
+            self.assertEqual(result["qualification"].startswith("static PE"), True)
+
+
+if __name__ == "__main__":
+    unittest.main()
