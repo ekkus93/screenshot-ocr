@@ -288,7 +288,14 @@ mod tests {
         let fixture = std::env::var_os("SCREENSHOT_OCR_WINDOWS_OCR_SMOKE_IMAGE")
             .map(PathBuf::from)
             .expect("synthetic Windows OCR fixture path required");
-        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("windows-ocr-runtime");
+        // The ignored CI fixture may exercise the verified NSIS-extracted
+        // resource tree; normal application runtime resolution never reads
+        // this test-only environment variable.
+        let root = std::env::var_os("SCREENSHOT_OCR_WINDOWS_OCR_RUNTIME_ROOT")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| {
+                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("windows-ocr-runtime")
+            });
         let executable = root.join("tesseract.exe");
         let tessdata = root.join("tessdata");
         assert!(executable.is_file() && tessdata.join("eng.traineddata").is_file());

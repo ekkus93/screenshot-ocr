@@ -78,6 +78,20 @@ try {
     } finally {
         $process.Dispose()
     }
+    if ($SkipSharedEngine) {
+        # Run the real shared Rust OCR probe/recognition path against the
+        # extracted NSIS payload, not merely a direct Tesseract invocation.
+        $env:SCREENSHOT_OCR_WINDOWS_OCR_RUNTIME_ROOT = $root
+        $env:SCREENSHOT_OCR_WINDOWS_OCR_SMOKE_IMAGE = $imagePath
+        try {
+            $manifest = Join-Path $PSScriptRoot "../src-tauri/Cargo.toml"
+            & cargo test --manifest-path $manifest --locked windows_staged_shared_engine_integration -- --ignored
+            if ($LASTEXITCODE -ne 0) { throw "Extracted NSIS shared OCR engine smoke failed." }
+        } finally {
+            Remove-Item Env:SCREENSHOT_OCR_WINDOWS_OCR_RUNTIME_ROOT -ErrorAction SilentlyContinue
+            Remove-Item Env:SCREENSHOT_OCR_WINDOWS_OCR_SMOKE_IMAGE -ErrorAction SilentlyContinue
+        }
+    }
     # The extracted NSIS payload is tested as shipped, without running setup.
     # The shared-engine fixture is separately exercised against the staged
     # runtime earlier in the same CI job.
