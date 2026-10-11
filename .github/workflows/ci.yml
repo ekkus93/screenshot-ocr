@@ -65,6 +65,729 @@ jobs:
           print("Repository baseline and source-file limits are valid.")
           PY
 
+      - name: Verify cross-platform product metadata
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          package = json.loads(Path("package.json").read_text(encoding="utf-8"))
+          tauri = json.loads(Path("src-tauri/tauri.conf.json").read_text(encoding="utf-8"))
+          windows = json.loads(Path("src-tauri/tauri.windows.conf.json").read_text(encoding="utf-8"))
+          nsis = json.loads(Path("src-tauri/tauri.nsis.conf.json").read_text(encoding="utf-8"))
+          cargo = Path("src-tauri/Cargo.toml").read_text(encoding="utf-8").split("[package]", 1)[-1].split("\n[", 1)[0]
+          version = re.search(r'(?m)^version\s*=\s*"([^"]+)"\s*
+
+      - name: Test portable-core boundary guard fixtures
+        run: python3 -m unittest discover -s scripts -p "test_platform_boundaries.py" -v
+
+      - name: Enforce offline WebView2 installation policy for NSIS candidate
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          config = json.loads(Path("src-tauri/tauri.nsis.conf.json").read_text(encoding="utf-8"))
+          mode = config.get("bundle", {}).get("windows", {}).get("webviewInstallMode", {})
+          if mode != {"type": "offlineInstaller"}:
+              raise SystemExit("Windows NSIS smoke must embed the offline WebView2 installer.")
+          print("Windows NSIS offline WebView2 provisioning policy is configured.")
+          PY
+
+      - name: Test synthetic content-leakage guard fixtures
+        run: python3 -m unittest discover -s scripts -p "test_content_leakage.py" -v
+
+      - name: Check content-leakage source guard
+        run: python3 scripts/check-content-leakage.py
+
+      - name: Check portable-core platform boundary
+        run: python3 scripts/check-platform-boundaries.py
+
+      - name: Ensure no broad Tauri capability wildcard
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -R '"permissions".*\*' src-tauri/capabilities; then
+            echo "Wildcard Tauri capability is forbidden." >&2
+            exit 1
+          fi
+
+  frontend-quality:
+    name: Frontend quality gates
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Check formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! npm run format:check; then
+            npx prettier --write .
+            git diff -- .
+            exit 1
+          fi
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test
+
+      - name: Build frontend
+        run: npm run build
+
+  layout-regression:
+    name: Frontend layout regression (Playwright)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Get installed Playwright version
+        id: playwright-version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').devDependencies['@playwright/test']")"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+
+      - name: Install Playwright's Chromium browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run no-scroll layout regression tests
+        run: npm run test:layout
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: playwright-report/
+          if-no-files-found: ignore
+
+  rust-quality:
+    name: Rust quality gates
+    runs-on: ubuntu-22.04
+    timeout-minutes: 50
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install Tauri Linux build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential \
+            curl \
+            file \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            libxdo-dev \
+            pkg-config \
+            wget
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.88.0
+          components: clippy, rustfmt
+
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+
+      - name: Run Clippy with warnings denied
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --workspace --all-targets --all-features --locked -- -D warnings
+
+      - name: Run Rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml --workspace --all-features --locked
+
+      - name: Build Rust workspace
+        run: cargo build --manifest-path src-tauri/Cargo.toml --workspace --all-features --locked
+
+  windows-quality:
+    name: Windows quality gates
+    runs-on: windows-2022
+    timeout-minutes: 50
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.88.0
+          components: clippy, rustfmt
+
+      - name: Install locked frontend dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Generate Windows icon resources
+        run: npm run tauri -- icon src-tauri/icons/128x128.png
+
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+
+      - name: Run Windows Clippy with warnings denied
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --workspace --all-targets --locked -- -D warnings
+
+      - name: Run Windows Rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml --workspace --locked
+
+      - name: Build Windows Rust workspace
+        run: cargo build --manifest-path src-tauri/Cargo.toml --workspace --locked
+
+      - name: Link Windows Tauri application
+        run: npm run tauri -- build --no-bundle
+
+  windows-packaging-smoke:
+    name: Windows NSIS packaging smoke (not published)
+    needs: [windows-quality]
+    if: github.ref == 'refs/heads/ralph/windows-support'
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.88.0
+
+      - name: Install locked frontend dependencies
+        run: npm ci
+
+      - name: Generate Windows icon resources for Rust integration tests
+        run: npm run tauri -- icon src-tauri/icons/128x128.png
+
+      - name: Stage checksum-verified OCR runtime without executing setup
+        shell: pwsh
+        run: ./scripts/audit-windows-ocr-runtime.ps1 -StageRuntime
+
+      - name: Inventory staged Windows OCR PE dependencies
+        shell: pwsh
+        run: python scripts/audit-windows-pe-imports.py src-tauri/windows-ocr-runtime --output windows-ocr-pe-inventory.json
+
+      - name: Upload content-free Windows OCR PE dependency inventory
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-ocr-pe-inventory-${{ github.sha }}
+          path: windows-ocr-pe-inventory.json
+          if-no-files-found: error
+
+      - name: Exercise staged OCR runtime on synthetic English text
+        shell: pwsh
+        run: ./scripts/smoke-windows-ocr-runtime.ps1
+
+      - name: Build Windows NSIS smoke installer
+        run: npm run tauri -- build --bundles nsis --config src-tauri/tauri.nsis.conf.json
+
+      - name: Verify complete NSIS runtime inventory and generate local checksum
+        shell: pwsh
+        run: ./scripts/verify-windows-nsis-payload.ps1
+
+  packaging:
+    name: Debian package smoke
+    needs: [frontend-quality, layout-regression, rust-quality]
+    if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/ralph/windows-support'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 50
+    permissions:
+      contents: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Verify committed lockfiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s package-lock.json
+          test -s src-tauri/Cargo.lock
+
+      - name: Install build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential \
+            curl \
+            file \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            libxdo-dev \
+            pkg-config \
+            wget
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.88.0
+
+      - name: Install locked frontend dependencies
+        run: npm ci
+
+      - name: Build Debian package
+        run: npm run tauri -- build --bundles deb
+
+      - name: Inspect Debian package
+        shell: bash
+        run: |
+          set -euo pipefail
+          package="$(find src-tauri/target/release/bundle/deb -name '*.deb' -print -quit)"
+          test -n "${package}"
+          dpkg-deb --info "${package}"
+          sha256sum "${package}" | tee package.sha256
+
+      - name: Upload reviewed package artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: screenshot-ocr-deb-${{ github.sha }}
+          path: |
+            src-tauri/target/release/bundle/deb/*.deb
+            package.sha256
+          if-no-files-found: error
+
+      - name: Publish GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            src-tauri/target/release/bundle/deb/*.deb
+            package.sha256
+          generate_release_notes: true
+, cargo)
+          executable = re.search(r'(?m)^name\s*=\s*"([^"]+)"\s*
+
+      - name: Test portable-core boundary guard fixtures
+        run: python3 -m unittest discover -s scripts -p "test_platform_boundaries.py" -v
+
+      - name: Enforce offline WebView2 installation policy for NSIS candidate
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          config = json.loads(Path("src-tauri/tauri.nsis.conf.json").read_text(encoding="utf-8"))
+          mode = config.get("bundle", {}).get("windows", {}).get("webviewInstallMode", {})
+          if mode != {"type": "offlineInstaller"}:
+              raise SystemExit("Windows NSIS smoke must embed the offline WebView2 installer.")
+          print("Windows NSIS offline WebView2 provisioning policy is configured.")
+          PY
+
+      - name: Test synthetic content-leakage guard fixtures
+        run: python3 -m unittest discover -s scripts -p "test_content_leakage.py" -v
+
+      - name: Check content-leakage source guard
+        run: python3 scripts/check-content-leakage.py
+
+      - name: Check portable-core platform boundary
+        run: python3 scripts/check-platform-boundaries.py
+
+      - name: Ensure no broad Tauri capability wildcard
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -R '"permissions".*\*' src-tauri/capabilities; then
+            echo "Wildcard Tauri capability is forbidden." >&2
+            exit 1
+          fi
+
+  frontend-quality:
+    name: Frontend quality gates
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Check formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! npm run format:check; then
+            npx prettier --write .
+            git diff -- .
+            exit 1
+          fi
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test
+
+      - name: Build frontend
+        run: npm run build
+
+  layout-regression:
+    name: Frontend layout regression (Playwright)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Get installed Playwright version
+        id: playwright-version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').devDependencies['@playwright/test']")"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+
+      - name: Install Playwright's Chromium browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run no-scroll layout regression tests
+        run: npm run test:layout
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: playwright-report/
+          if-no-files-found: ignore
+
+  rust-quality:
+    name: Rust quality gates
+    runs-on: ubuntu-22.04
+    timeout-minutes: 50
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install Tauri Linux build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential \
+            curl \
+            file \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            libxdo-dev \
+            pkg-config \
+            wget
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.88.0
+          components: clippy, rustfmt
+
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+
+      - name: Run Clippy with warnings denied
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --workspace --all-targets --all-features --locked -- -D warnings
+
+      - name: Run Rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml --workspace --all-features --locked
+
+      - name: Build Rust workspace
+        run: cargo build --manifest-path src-tauri/Cargo.toml --workspace --all-features --locked
+
+  windows-quality:
+    name: Windows quality gates
+    runs-on: windows-2022
+    timeout-minutes: 50
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.88.0
+          components: clippy, rustfmt
+
+      - name: Install locked frontend dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Generate Windows icon resources
+        run: npm run tauri -- icon src-tauri/icons/128x128.png
+
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+
+      - name: Run Windows Clippy with warnings denied
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --workspace --all-targets --locked -- -D warnings
+
+      - name: Run Windows Rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml --workspace --locked
+
+      - name: Build Windows Rust workspace
+        run: cargo build --manifest-path src-tauri/Cargo.toml --workspace --locked
+
+      - name: Link Windows Tauri application
+        run: npm run tauri -- build --no-bundle
+
+  windows-packaging-smoke:
+    name: Windows NSIS packaging smoke (not published)
+    needs: [windows-quality]
+    if: github.ref == 'refs/heads/ralph/windows-support'
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.88.0
+
+      - name: Install locked frontend dependencies
+        run: npm ci
+
+      - name: Generate Windows icon resources for Rust integration tests
+        run: npm run tauri -- icon src-tauri/icons/128x128.png
+
+      - name: Stage checksum-verified OCR runtime without executing setup
+        shell: pwsh
+        run: ./scripts/audit-windows-ocr-runtime.ps1 -StageRuntime
+
+      - name: Inventory staged Windows OCR PE dependencies
+        shell: pwsh
+        run: python scripts/audit-windows-pe-imports.py src-tauri/windows-ocr-runtime --output windows-ocr-pe-inventory.json
+
+      - name: Upload content-free Windows OCR PE dependency inventory
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-ocr-pe-inventory-${{ github.sha }}
+          path: windows-ocr-pe-inventory.json
+          if-no-files-found: error
+
+      - name: Exercise staged OCR runtime on synthetic English text
+        shell: pwsh
+        run: ./scripts/smoke-windows-ocr-runtime.ps1
+
+      - name: Build Windows NSIS smoke installer
+        run: npm run tauri -- build --bundles nsis --config src-tauri/tauri.nsis.conf.json
+
+      - name: Verify complete NSIS runtime inventory and generate local checksum
+        shell: pwsh
+        run: ./scripts/verify-windows-nsis-payload.ps1
+
+  packaging:
+    name: Debian package smoke
+    needs: [frontend-quality, layout-regression, rust-quality]
+    if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/ralph/windows-support'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 50
+    permissions:
+      contents: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Verify committed lockfiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s package-lock.json
+          test -s src-tauri/Cargo.lock
+
+      - name: Install build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential \
+            curl \
+            file \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            libxdo-dev \
+            pkg-config \
+            wget
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.88.0
+
+      - name: Install locked frontend dependencies
+        run: npm ci
+
+      - name: Build Debian package
+        run: npm run tauri -- build --bundles deb
+
+      - name: Inspect Debian package
+        shell: bash
+        run: |
+          set -euo pipefail
+          package="$(find src-tauri/target/release/bundle/deb -name '*.deb' -print -quit)"
+          test -n "${package}"
+          dpkg-deb --info "${package}"
+          sha256sum "${package}" | tee package.sha256
+
+      - name: Upload reviewed package artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: screenshot-ocr-deb-${{ github.sha }}
+          path: |
+            src-tauri/target/release/bundle/deb/*.deb
+            package.sha256
+          if-no-files-found: error
+
+      - name: Publish GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            src-tauri/target/release/bundle/deb/*.deb
+            package.sha256
+          generate_release_notes: true
+, Path("src-tauri/Cargo.toml").read_text(encoding="utf-8").split("[[bin]]", 1)[-1].split("\n[", 1)[0])
+          expected = package.get("version")
+          if (
+              not isinstance(expected, str)
+              or re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", expected) is None
+              or tauri.get("version") != expected
+              or version is None or version.group(1) != expected
+              or executable is None or executable.group(1) != "screenshot-ocr"
+              or tauri.get("productName") != "Screenshot OCR"
+              or tauri.get("identifier") != "io.github.ekkus93.screenshot-ocr"
+              or not tauri.get("bundle", {}).get("shortDescription")
+              or tauri.get("bundle", {}).get("targets") != ["deb"]
+              or windows.get("bundle", {}).get("targets") != ["nsis"]
+              or nsis.get("bundle", {}).get("resources") != {"windows-ocr-runtime/": "resources/ocr/"}
+          ):
+              raise SystemExit("Linux/Windows product metadata or version mismatch.")
+          print("Cargo, package, Tauri, Windows executable and NSIS metadata agree.")
+          PY
+
       - name: Test synthetic Windows PE dependency inventory
         run: python3 -m unittest discover -s scripts -p "test_windows_pe_imports.py" -v
 

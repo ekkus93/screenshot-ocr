@@ -54,8 +54,13 @@ signature, inventory, or OCR checks fail. The extracted-payload smoke is
 explicitly selected by `-ExtractedNsisPayload`; the default staged-runtime
 smoke continues to exercise synthetic cancellation and process reaping.
 
-The NSIS smoke does **not** publish or upload a Windows installer.
-The checksum is printed in CI logs, not distributed as a Windows asset.
+The NSIS smoke validates product identity, executable, bundle targets and
+version coherence across Cargo, package.json and Tauri configurations. After
+verifying the extracted runtime, it normalizes the *unpublished* candidate to
+`screenshot-ocr-v<version>-windows-x64-setup.exe` and writes a matching
+`windows-installer.sha256`. This provides a stable basename for an eventual
+physical acceptance record; neither file is published or uploaded. CI prints
+the basename and SHA-256 for review only.
 
 ## WebView2 provisioning policy
 

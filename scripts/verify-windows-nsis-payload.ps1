@@ -85,10 +85,39 @@ foreach ($file in $payloadFiles) {
 # This checks runtime DLL loading and OCR execution from the packaged layout,
 # not installer execution, physical desktop capture, or redistribution rights.
 & (Join-Path $PSScriptRoot "smoke-windows-ocr-runtime.ps1") -RuntimeRoot $root -ExtractedNsisPayload
-$checksum = (Get-FileHash -LiteralPath $installers[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-$checksumLine = "$checksum  $($installers[0].Name)"
+# Normalise the candidate's basename so a physical-test record can bind its
+# installer/checksum to the source version without depending on Tauri defaults.
+# This stays local to the smoke job: no Windows binaries are uploaded.
+$config = Get-Content -LiteralPath "src-tauri/tauri.conf.json" -Raw | ConvertFrom-Json
+$package = Get-Content -LiteralPath "package.json" -Raw | ConvertFrom-Json
+if ($config.productName -cne "Screenshot OCR" -or
+    $config.identifier -cne "io.github.ekkus93.screenshot-ocr" -or
+    $config.version -cne $package.version -or
+    $config.version -notmatch '^\d+\.\d+\.\d+
+Write-Output "Not publishing: native-license review and physical acceptance pending."
+} finally {
+    # Even failed signature, digest, or native-runtime checks must not leave
+    # unpacked executable payloads in the runner/developer temp directory.
+    if (Test-Path -LiteralPath $extracted) {
+        Remove-Item -LiteralPath $extracted -Recurse -Force
+    }
+}
+) {
+    throw "Windows installer metadata is inconsistent."
+}
+$canonicalName = "screenshot-ocr-v$($config.version)-windows-x64-setup.exe"
+$canonicalPath = Join-Path $installers[0].DirectoryName $canonicalName
+if ($installers[0].Name -cne $canonicalName) {
+    if (Test-Path -LiteralPath $canonicalPath) {
+        throw "Conflicting canonical Windows installer filename."
+    }
+    Move-Item -LiteralPath $installers[0].FullName -Destination $canonicalPath
+}
+$checksum = (Get-FileHash -LiteralPath $canonicalPath -Algorithm SHA256).Hash.ToLowerInvariant()
+$checksumLine = "$checksum  $canonicalName"
 Set-Content -LiteralPath "windows-installer.sha256" -Value $checksumLine -Encoding ascii
-Write-Output "NSIS runtime inventory verified; installer SHA-256: $checksum"
+Write-Output "NSIS runtime inventory verified; candidate filename: $canonicalName"
+Write-Output "NSIS installer SHA-256: $checksum"
 Write-Output "Not publishing: native-license review and physical acceptance pending."
 } finally {
     # Even failed signature, digest, or native-runtime checks must not leave
