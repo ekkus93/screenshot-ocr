@@ -644,9 +644,9 @@ Do not invent physical evidence if it was not run.
 
 - [ ] Update package description so it is no longer Linux-only once Windows support is real.
 - [ ] Add Windows icon resources as needed.
-- [ ] Verify application identifier remains appropriate.
-- [ ] Verify executable name.
-- [ ] Keep version source consistent.
+- [x] Verify application identifier remains appropriate.
+- [x] Verify executable name.
+- [x] Keep version source consistent.
 
 ### W13.3 Minimal Windows startup
 
@@ -920,7 +920,7 @@ For each record:
 - [ ] Ensure Linux package dependency metadata does not affect Windows.
 - [ ] Ensure Windows resources do not affect Linux package.
 - [ ] Verify icons.
-- [ ] Verify product/version metadata.
+- [x] Verify product/version metadata.
 
 ### W20.2 WebView2 policy
 
@@ -978,6 +978,10 @@ on physical Windows and all corresponding acceptance checkboxes stay open.
 - [x] Generate installer SHA-256.
 - [ ] Use stable artifact naming.
 
+
+- [ ] Upload only reviewed installer/checksum artifacts.
+- [x] Do not claim code signing unless actually signed.
+
 **W20.5 deterministic naming implementation (2026-10-11):** The hosted NSIS
 smoke normalizes the unapproved setup filename to
 `screenshot-ocr-v<version>-windows-x64-setup.exe`, writes a matching local
@@ -985,8 +989,6 @@ checksum file, and repository-policy CI checks Cargo/package/Tauri metadata
 coherence. Exact-head CI must qualify this change before checking naming;
 installer upload and redistribution remain blocked by native-license and
 physical acceptance requirements.
-- [ ] Upload only reviewed installer/checksum artifacts.
-- [x] Do not claim code signing unless actually signed.
 
 ### W20 acceptance gate
 
