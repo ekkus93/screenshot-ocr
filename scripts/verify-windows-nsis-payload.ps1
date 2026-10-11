@@ -67,6 +67,10 @@ foreach ($file in $payloadFiles) {
         throw "Unreviewed file in packaged OCR runtime."
     }
 }
+# Exercise the actual extracted NSIS OCR payload with synthetic English text.
+# This checks runtime DLL loading and OCR execution from the packaged layout,
+# not installer execution, physical desktop capture, or redistribution rights.
+& (Join-Path $PSScriptRoot "smoke-windows-ocr-runtime.ps1") -RuntimeRoot $root -SkipSharedEngine
 $checksum = (Get-FileHash -LiteralPath $installers[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
 $checksumLine = "$checksum  $($installers[0].Name)"
 Set-Content -LiteralPath "windows-installer.sha256" -Value $checksumLine -Encoding ascii

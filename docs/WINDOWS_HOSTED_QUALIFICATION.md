@@ -27,7 +27,8 @@ Linux hosted CI does not prove physical GNOME Wayland/X11 behavior.
 - Locked frontend build and pinned Rust formatting, Clippy, tests,
   workspace build, and Tauri link.
 - Branch-only NSIS smoke: checksum-verified Tesseract/English data staging,
-  static PE dependency inventory, synthetic English OCR execution,
+  static PE dependency inventory, synthetic English OCR execution both from
+  the staged files and from the checksum-verified extracted NSIS payload,
   cancellation/reaping and child working-directory assertions using a synthetic
   executable, NSIS build, staged resource verification, and installer SHA-256.
 - Separate Windows OCR runtime input audit workflow.
@@ -36,6 +37,12 @@ The synthetic child checks that the shared engine sets its working directory
 explicitly instead of inheriting the caller's directory. This tests process
 launch policy only; it does not establish Windows DLL loader search order,
 transitive dependency safety, or redistribution approval.
+
+The extracted-payload smoke executes only the verified packaged
+`tesseract.exe` against a generated public fixture, using a bounded child
+process and app-owned working directory. It does not execute NSIS setup,
+prove WebView2 provisioning, establish installed application integration,
+or grant native DLL redistribution approval.
 
 The NSIS smoke does **not** publish or upload a Windows installer.
 The checksum is printed in CI logs, not distributed as a Windows asset.

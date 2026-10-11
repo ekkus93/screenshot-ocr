@@ -1,9 +1,18 @@
 # Hosted Windows OCR smoke: execute the checksum-verified staged runtime only.
 # Use synthetic text, a bounded process, and no user-provided screenshots.
+param(
+    [string]$RuntimeRoot,
+    [switch]$SkipSharedEngine
+)
+
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
-$root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot "../src-tauri/windows-ocr-runtime"))
+$root = if ($RuntimeRoot) {
+    [IO.Path]::GetFullPath($RuntimeRoot)
+} else {
+    [IO.Path]::GetFullPath((Join-Path $PSScriptRoot "../src-tauri/windows-ocr-runtime"))
+}
 $binary = Join-Path $root "tesseract.exe"
 $tessdata = Join-Path $root "tessdata"
 if (-not (Test-Path -LiteralPath $binary -PathType Leaf) -or
@@ -69,6 +78,10 @@ try {
     } finally {
         $process.Dispose()
     }
+    # The extracted NSIS payload is tested as shipped, without running setup.
+    # The shared-engine fixture is separately exercised against the staged
+    # runtime earlier in the same CI job.
+    if (-not $SkipSharedEngine) {
     # Compile a deterministic native child that waits until cancelled.
     $fakeBinary = Join-Path $workspace "synthetic-slow-tesseract.exe"
     $fakeSource = Join-Path $PSScriptRoot "fixtures/windows-slow-tesseract.rs"
@@ -104,7 +117,8 @@ try {
         Remove-Item Env:SCREENSHOT_OCR_WINDOWS_FAKE_MARKER_DIR -ErrorAction SilentlyContinue
         Remove-Item Env:SCREENSHOT_OCR_WINDOWS_FAKE_EXPECTED_CWD -ErrorAction SilentlyContinue
     }
-    Write-Output "Synthetic English OCR succeeded using staged executable and language data."
+    }
+    Write-Output "Synthetic English OCR succeeded using checksum-verified runtime files."
     Write-Output "Hosted process smoke is not physical Windows selector/installer acceptance."
 } finally {
     if (Test-Path -LiteralPath $workspace) {
