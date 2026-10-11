@@ -872,6 +872,9 @@ bootstrapper. The README and `docs/WINDOWS_HOSTED_QUALIFICATION.md` document
 the approximately 127 MB installer increase and the distinction between
 build-time fetching, application-time OCR, and clean offline installation.
 Repository-policy CI now rejects removal of the offline-install setting.
+The NSIS archive verifier also checks for one embedded standalone WebView2
+installer and prints its SHA-256 for later provenance review. This static
+presence check is not proof of signature trust, execution, or installation.
 Physical WebView2 provisioning and offline installation remain unchecked.
 
 ### W20.3 Installer behavior

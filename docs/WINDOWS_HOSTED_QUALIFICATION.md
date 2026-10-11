@@ -44,6 +44,12 @@ installer, adding approximately 127 MB according to Tauri's Windows packaging
 documentation. Installer construction may fetch the WebView2 distribution
 **during the build**; this is not a runtime OCR network dependency.
 
+The NSIS archive verifier also requires exactly one embedded
+`MicrosoftEdgeWebView2RuntimeInstaller.exe` payload with a plausible standalone
+installer size, and records its SHA-256 in hosted CI logs. This static archive
+inspection does not validate Microsoft's installer signature, native
+redistribution obligations, execution, or disconnected installation.
+
 Bundling the offline installer is only a packaging design decision. CI does
 not execute NSIS setup on a clean disconnected Windows desktop. Physical
 WebView2 provisioning, first launch, clean uninstall, and both Windows 10/11

@@ -11,6 +11,18 @@ $extracted = Join-Path $tempRoot ("screenshot-ocr-nsis-smoke-" + [guid]::NewGuid
 New-Item -ItemType Directory -Force -Path $extracted | Out-Null
 & $sevenZip x "-o$extracted" -y $installers[0].FullName | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "NSIS extraction failed." }
+# Tauri offlineInstaller embeds Microsoft's standalone WebView2 runtime setup
+# as an NSIS File entry. Validate the actual archive, not only Tauri config.
+# This is a static payload check; it does not run setup or prove offline install.
+$webview2 = @(Get-ChildItem -LiteralPath $extracted -Recurse -File -Force -Filter "MicrosoftEdgeWebView2RuntimeInstaller.exe")
+if ($webview2.Count -ne 1) {
+    throw "Expected exactly one embedded WebView2 offline runtime installer."
+}
+if ($webview2[0].Length -lt 30000000) {
+    throw "Embedded WebView2 payload is unexpectedly small."
+}
+$webview2Hash = (Get-FileHash -LiteralPath $webview2[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+Write-Output "Embedded WebView2 offline payload present; SHA-256: $webview2Hash"
 $binary = @(Get-ChildItem -LiteralPath $extracted -Recurse -File -Filter "tesseract.exe")
 if ($binary.Count -ne 1) { throw "Expected one packaged Tesseract binary." }
 $root = $binary[0].DirectoryName
