@@ -9,8 +9,12 @@
 Screenshot OCR must bundle Tesseract and English language data so an offline
 installation needs neither PATH modifications nor a separate OCR installation.
 The Windows resolver already requires an app-owned `resources/ocr/tesseract.exe`
-and `resources/ocr/tessdata/eng.traineddata`; those paths are not proof that
-the actual executable, language file, and transitive DLLs are packaged.
+and `resources/ocr/tessdata/eng.traineddata`. It now rejects reparse-point
+redirection of the OCR directory, tessdata directory, executable, and language
+file, rather than silently following a junction/symlink outside the packaged
+tree. This pre-launch check does not prevent a concurrent replacement and
+does not independently validate DLL loading or prove that the actual
+executable, language file, and transitive DLLs are packaged.
 
 Unpinned downloads, shell-based discovery, and ad hoc copies from a developer
 machine are unacceptable for a redistributable installer.

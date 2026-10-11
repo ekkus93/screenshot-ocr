@@ -46,7 +46,13 @@ Third-party GitHub Actions are not yet pinned by immutable commit SHA. That rema
 The Windows OCR resolver constructs an absolute path under the application's
 own `resources/ocr/` directory and never accepts a frontend path or searches
 `PATH`. The shared OCR command sets its child working directory to that
-resource directory. These choices reduce accidental execution of unrelated
+resource directory. The Windows resolver also rejects filesystem reparse
+points (including NTFS symlinks/junctions) in the `resources/ocr` and
+`tessdata` directories and the selected executable/language files, so those
+paths cannot silently redirect outside the installed OCR tree. This is a
+fail-closed *pre-launch path check*, not a defense against modifications
+between check and execution or DLL files redirected independently.
+These choices reduce accidental execution of unrelated
 Tesseract binaries, but do **not** prove Windows DLL loader resolution:
 application-directory precedence, system DLLs, delay-loads, dynamic
 `LoadLibrary` calls, install-directory permissions, and DLL side-loading

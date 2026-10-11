@@ -851,6 +851,14 @@ For each record:
 - [ ] Review license obligations.
 - [ ] Review Leptonica/native dependency licenses.
 
+**W18 filesystem redirection mitigation (2026-10-11):** The Windows
+runtime resolver rejects NTFS reparse-pointed resource directories and
+executable/language files in addition to ignoring PATH and CWD.
+Deterministic Windows tests cover regular-file/directory substitution, with
+symlink fixtures exercised where the runner permits their creation.
+This does not close native DLL loader/TOCTOU/provenance, offline installation,
+or physical Windows acceptance gates; exact-head CI is still required.
+
 ### W18.2 Bundle runtime
 
 - [ ] Bundle tesseract executable.
