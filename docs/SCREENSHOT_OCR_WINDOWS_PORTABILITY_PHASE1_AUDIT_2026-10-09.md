@@ -64,6 +64,20 @@ unsupported-platform adapter. Synthetic source guard tests reject any new
 `target_os` gating in this public error contract. This is compile/test
 coverage, not physical capture or system-error-path acceptance.
 
+The W1.2 source-review process now also generates a content-free, per-commit
+`platform-assumption-inventory.json` artifact in repository-policy CI.
+`scripts/audit-platform-assumptions.py` categorizes OS vocabulary, desktop
+environment reads, executable paths, shortcut labels, target conditionals,
+error mappings, resource paths, bindings, and build metadata by
+repository-relative filename, source line number, and responsible architectural
+owner. The inventory deliberately contains no source lines, user paths,
+screenshots, or OCR text; synthetic tests enforce this output contract.
+
+This is a deterministic **keyword inventory**, not proof that every OS
+assumption has been semantically audited or that native loader/desktop behavior
+passes. Review the artifact, the current code, and the remaining physical
+acceptance matrix before checking the W1.2 and W1 acceptance boxes.
+
 ## Frontend inventory
 
 OCR review, copy recovery, job state, cancellation, and the general settings flow remain shared. Linux-only backend choices and shortcut copy are Phase 2 truthfulness work for the Windows UI; they do not justify a second frontend.

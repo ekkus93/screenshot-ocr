@@ -158,6 +158,13 @@ At minimum inspect:
 - [ ] Find every platform-specific Cargo dependency.
 - [ ] Find every Linux-only Tauri bundle setting.
 
+**W1.2 source inventory work (2026-10-11):** CI now generates a
+content-free platform-assumption inventory artifact with path/line/category
+references and architectural owner groups. Synthetic fixtures verify
+classification, repeatability, and omission of source text. Exact-head CI
+must qualify the new step; each category remains unchecked until the
+generated findings have been reviewed for coverage and boundary ownership.
+
 ### W1.3 Inventory frontend assumptions
 
 - [x] Identify visible Linux-only wording.

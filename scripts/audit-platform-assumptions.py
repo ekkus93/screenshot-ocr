@@ -1,0 +1,114 @@
+#!/usr/bin/env python3
+"""Content-free, reproducible inventory of platform assumptions in product sources.
+
+The inventory reports only repository-relative paths, line numbers, categories,
+and architectural owner groups. It is not a static correctness proof.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import re
+from pathlib import Path
+
+SUFFIXES = {".rs", ".ts", ".tsx", ".js", ".jsx", ".ps1", ".py", ".toml", ".json", ".yml", ".yaml"}
+IGNORED = {"node_modules", "target", "dist", "__pycache__", ".git", "coverage"}
+PATTERNS = {
+    "linux_gnome": r"(?i)\blinux\b|\bgnome\b|\bwayland\b|\bx11\b",
+    "portal_ashpd": r"(?i)\bportal\b|\bashpd\b|XDG_",
+    "desktop_environment": r"DISPLAY|WAYLAND_DISPLAY|XDG_|GNOME_|DESKTOP_SESSION|GDMSESSION",
+    "executable_path": r"(?i)tesseract|gnome-screenshot|/usr/bin/|\.exe\b",
+    "shortcut": r"(?i)shortcut|Control\+Shift\+O|Super\+Shift\+O",
+    "target_conditional": r"target_os|#\s*\[\s*cfg(?:_attr)?\b|std::os::(?:unix|linux|windows)",
+    "native_error": r"GetLastError|CapturePermissionDenied|CaptureTimedOut|CaptureProcessFailed|CaptureResultUriInvalid",
+    "platform_resource": r"resources/ocr|windows-ocr-runtime|tessdata|app_config_dir|resource_dir|\.desktop\b",
+    "native_binding": r"windows_sys|windows-sys|Win32_|Win32::|ashpd::",
+    "linux_bundle": r"gnome-screenshot|tesseract-ocr-eng|libwebkit2gtk|libayatana",
+}
+COMPILED = {name: re.compile(regex) for name, regex in PATTERNS.items()}
+
+
+def owner(path: str) -> str:
+    if path.startswith("src-tauri/src/platform/linux/"):
+        return "linux_adapter"
+    if path.startswith("src-tauri/src/platform/windows/"):
+        return "windows_adapter"
+    if path == "src-tauri/src/platform/mod.rs":
+        return "platform_composition"
+    if path.startswith("src-tauri/src/platform/"):
+        return "platform_contract"
+    if path.startswith("src-tauri/src/"):
+        return "shared_core_or_desktop"
+    if path.startswith("src/"):
+        return "shared_frontend"
+    if path.startswith("scripts/"):
+        return "build_or_validation"
+    if path.startswith(".github/workflows/"):
+        return "ci"
+    if path.endswith("Cargo.toml"):
+        return "cargo_manifest"
+    return "bundle_or_package_metadata"
+
+
+def candidates(root: Path) -> list[Path]:
+    all_paths: list[Path] = []
+    for prefix in ("src-tauri/src", "src", "scripts", ".github/workflows"):
+        base = root / prefix
+        if base.is_dir():
+            all_paths.extend(
+                p for p in base.rglob("*")
+                if p.is_file() and p.suffix in SUFFIXES
+                and not any(part in IGNORED for part in p.relative_to(root).parts)
+            )
+    all_paths.extend(
+        p for p in (
+            root / "src-tauri/Cargo.toml",
+            root / "src-tauri/tauri.conf.json",
+            root / "src-tauri/tauri.nsis.conf.json",
+            root / "src-tauri/tauri.windows.conf.json",
+            root / "package.json",
+        )
+        if p.is_file()
+    )
+    return sorted(set(all_paths))
+
+
+def inventory(root: Path) -> dict:
+    records: list[dict] = []
+    counts = {key: 0 for key in PATTERNS}
+    for path in candidates(root):
+        hits: dict[str, list[int]] = {}
+        for line_num, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            for category, regex in COMPILED.items():
+                if regex.search(line):
+                    hits.setdefault(category, []).append(line_num)
+                    counts[category] += 1
+        if hits:
+            relative = path.relative_to(root).as_posix()
+            records.append({"path": relative, "owner": owner(relative), "lines": hits})
+    return {
+        "schema_version": 1,
+        "scope": "product, frontend, scripts, workflows, and build manifests; documentation and lockfiles excluded",
+        "counts": counts,
+        "entries": records,
+        "qualification": "keyword inventory only; requires human boundary review",
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--root", type=Path, default=Path("."))
+    parser.add_argument("--output", type=Path)
+    args = parser.parse_args()
+    result = inventory(args.root)
+    if args.output:
+        args.output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    print("Platform inventory: %d source files with matches." % len(result["entries"]))
+    for category, count in sorted(result["counts"].items()):
+        print("%s: %d source lines" % (category, count))
+    print("Keyword evidence only; it does not establish platform acceptance.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

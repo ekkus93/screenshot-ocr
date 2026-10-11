@@ -129,6 +129,19 @@ jobs:
       - name: Check portable-core platform boundary
         run: python3 scripts/check-platform-boundaries.py
 
+      - name: Test synthetic platform inventory fixtures
+        run: python3 -m unittest discover -s scripts -p "test_platform_assumption_inventory.py" -v
+
+      - name: Generate content-free platform assumption inventory
+        run: python3 scripts/audit-platform-assumptions.py --output platform-assumption-inventory.json
+
+      - name: Upload source assumption inventory
+        uses: actions/upload-artifact@v7
+        with:
+          name: platform-assumptions-${{ github.sha }}
+          path: platform-assumption-inventory.json
+          if-no-files-found: error
+
       - name: Ensure no broad Tauri capability wildcard
         shell: bash
         run: |
