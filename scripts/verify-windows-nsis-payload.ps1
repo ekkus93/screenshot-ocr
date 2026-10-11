@@ -43,6 +43,18 @@ if ($dlls.Count -ne $manifest.adjacent_dll_count -or
 foreach ($dll in $dlls) {
     if (-not $seen.ContainsKey($dll.Name.ToLowerInvariant())) { throw "Unreviewed native DLL." }
 }
+# Fail closed if the OCR resource tree contains files absent from the pinned
+# manifest, including nested DLLs and executable/data payloads.
+$payloadFiles = @(Get-ChildItem -LiteralPath $root -Recurse -File)
+if ($payloadFiles.Count -ne @($manifest.files).Count) {
+    throw "Unexpected files in packaged OCR runtime."
+}
+foreach ($file in $payloadFiles) {
+    $relative = [IO.Path]::GetRelativePath($root, $file.FullName).Replace('\', '/')
+    if (-not $seen.ContainsKey($relative.ToLowerInvariant())) {
+        throw "Unreviewed file in packaged OCR runtime."
+    }
+}
 $checksum = (Get-FileHash -LiteralPath $installers[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
 Write-Output "NSIS runtime inventory verified; installer SHA-256: $checksum"
 Write-Output "Not publishing: native-license review and physical acceptance pending."
