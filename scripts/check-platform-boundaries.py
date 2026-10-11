@@ -43,6 +43,27 @@ FORBIDDEN_PORTABLE_REGEX = (
      "portable code reads a Linux desktop environment variable"),
 )
 
+# Check complete source text as well: Rust permits line breaks between path
+# segments and function arguments, which line-by-line guards cannot see.
+FORBIDDEN_PORTABLE_MULTILINE_REGEX = (
+    (
+        r"\b(?:crate\s*::\s*)?platform\s*::\s*(?:linux|windows)\b",
+        "portable code imports a concrete platform adapter",
+    ),
+    (
+        r"\b(?:crate\s*::\s*)?platform\s*::\s*\{\s*(?:linux|windows)\b",
+        "portable code imports a grouped platform adapter",
+    ),
+    (
+        r"\b(?:windows_sys|windows)\s*::\s*Win32\b",
+        "portable code imports native Windows APIs",
+    ),
+    (
+        r'\bstd\s*::\s*env\s*::\s*(?:var|var_os)\s*\(\s*"(?:DISPLAY|WAYLAND_DISPLAY|XDG_[A-Za-z0-9_]*|GNOME_[A-Za-z0-9_]*|DESKTOP_SESSION|GDMSESSION)"',
+        "portable code probes Linux desktop environment",
+    ),
+)
+
 ALLOWED_NON_PLATFORM_FILES = {
     # The composition root is intentionally the single place that selects the
     # current target-specific platform service.
@@ -71,6 +92,16 @@ def main() -> int:
                     problems.append(
                         f"{path}:{line_number}: {explanation}: matched {expression!r}"
                     )
+
+        for expression, explanation in FORBIDDEN_PORTABLE_MULTILINE_REGEX:
+            for match in re.finditer(expression, text):
+                # Single-line matches are already handled above.
+                if "\n" not in match.group(0):
+                    continue
+                line_number = text.count("\n", 0, match.start()) + 1
+                problems.append(
+                    f"{path}:{line_number}: {explanation}: matched {expression!r}"
+                )
 
     if problems:
         print("Platform-boundary guard failed:")

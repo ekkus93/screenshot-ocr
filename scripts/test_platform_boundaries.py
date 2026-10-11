@@ -94,6 +94,19 @@ class PlatformBoundaryGuardTests(unittest.TestCase):
                 status, report = self.run_check({"app.rs": source})
                 self.assertEqual(status, 1, report)
 
+    def test_multiline_imports_and_environment_probes_are_rejected(self) -> None:
+        for source in (
+            "use crate::platform\n  ::windows::capture;\n",
+            "use crate::platform::{\n windows::WindowsPlatform\n};\n",
+            "use windows_sys\n  ::Win32::Foundation;\n",
+            'let _ = std::env::var(\n "DISPLAY"\n);\n',
+            'let _ = std::env::var_os(\n "XDG_CURRENT_DESKTOP"\n);\n',
+        ):
+            with self.subTest(source=source):
+                status, report = self.run_check({"app.rs": source})
+                self.assertEqual(status, 1, report)
+                self.assertIn("app.rs:1:", report)
+
     def test_platform_adapter_can_use_native_imports(self) -> None:
         status, report = self.run_check(
             {
