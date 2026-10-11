@@ -85,6 +85,9 @@ jobs:
           print("Windows NSIS offline WebView2 provisioning policy is configured.")
           PY
 
+      - name: Test synthetic content-leakage guard fixtures
+        run: python3 -m unittest discover -s scripts -p "test_content_leakage.py" -v
+
       - name: Check content-leakage source guard
         run: python3 scripts/check-content-leakage.py
 
