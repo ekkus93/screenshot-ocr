@@ -82,6 +82,15 @@ class PeImportTests(unittest.TestCase):
                 with self.assertRaises(audit.InvalidPE):
                     audit.imports(invalid)
 
+    def test_dll_name_must_terminate_inside_file_backed_section(self):
+        data = bytearray(fixture())
+        # The DLL name starts at raw offset 0x250, but its terminator is
+        # beyond this shortened section's 0x258 file-backed boundary.
+        section = 0x98 + 240
+        struct.pack_into("<I", data, section + 16, 0x58)
+        with self.assertRaisesRegex(audit.InvalidPE, "unterminated DLL name"):
+            audit.imports(bytes(data))
+
     def test_import_names_cannot_inject_paths_or_log_lines(self):
         for invalid in (
             b"bad:name.dll\0",

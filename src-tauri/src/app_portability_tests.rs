@@ -387,7 +387,10 @@ async fn missing_english_language_propagates_through_shared_capture() {
         }),
     );
     let result = services.capture(request(), || Ok(()), || Ok(())).await;
-    assert!(matches!(result, Err(AppError::OcrLanguageMissing)));
+    assert!(
+        matches!(result, Err(AppError::OcrLanguageMissing)),
+        "unexpected fake OCR language probe outcome: {result:?}"
+    );
     assert_eq!(recorded(&events), ["prepare", "capture", "runtime"]);
 }
 

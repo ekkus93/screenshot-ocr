@@ -91,7 +91,16 @@ def imports(data: bytes) -> set[str]:
 
     def name_at(rva: int) -> str:
         offset = file_offset(rva)
-        end_offset = data.find(b"\0", offset, min(len(data), offset + 260))
+        # A DLL name must terminate inside the section's file-backed raw
+        # bytes. Otherwise a malformed PE can borrow a NUL from unrelated
+        # data beyond the section and produce a misleading dependency list.
+        end_bound = min(len(data), offset + 260)
+        for va, _virtual_size, raw_size, raw in sections:
+            delta = rva - va
+            if 0 <= delta < raw_size and raw + delta == offset:
+                end_bound = min(end_bound, raw + raw_size)
+                break
+        end_offset = data.find(b"\0", offset, end_bound)
         if end_offset < 0:
             raise InvalidPE("unterminated DLL name")
         name = data[offset:end_offset].decode("ascii", errors="strict").lower()
