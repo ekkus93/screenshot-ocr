@@ -174,6 +174,41 @@ class PlatformBoundaryGuardTests(unittest.TestCase):
         )
         self.assertEqual(status, 0, report)
 
+    def test_linked_rust_source_is_rejected_without_reading_link_target(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "src-tauri" / "src"
+            root.mkdir(parents=True)
+            source = root / "ordinary.rs"
+            source.write_text("fn ordinary() {}\\n", encoding="utf-8")
+            (root / "linked.rs").symlink_to(source)
+            output = io.StringIO()
+            with (
+                patch.object(checker, "RUST_ROOT", root),
+                patch.object(checker, "PLATFORM_ROOT", root / "platform"),
+                contextlib.redirect_stdout(output),
+            ):
+                status = checker.main()
+            self.assertEqual(status, 1)
+            self.assertIn("linked.rs: symlinked Rust source path is forbidden", output.getvalue())
+
+    def test_linked_platform_directory_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "src-tauri" / "src"
+            root.mkdir(parents=True)
+            target = root / "ordinary"
+            target.mkdir()
+            (target / "mod.rs").write_text("fn ordinary() {}\\n", encoding="utf-8")
+            (root / "platform").symlink_to(target, target_is_directory=True)
+            output = io.StringIO()
+            with (
+                patch.object(checker, "RUST_ROOT", root),
+                patch.object(checker, "PLATFORM_ROOT", root / "platform"),
+                contextlib.redirect_stdout(output),
+            ):
+                status = checker.main()
+            self.assertEqual(status, 1)
+            self.assertIn("platform: symlinked Rust source path is forbidden", output.getvalue())
+
     def test_reports_multiple_file_line_numbers(self) -> None:
         status, report = self.run_check(
             {
