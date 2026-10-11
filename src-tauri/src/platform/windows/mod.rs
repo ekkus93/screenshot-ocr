@@ -17,6 +17,16 @@ use async_trait::async_trait;
 #[derive(Debug, Default)]
 pub struct WindowsPlatform;
 
+/// Report only a bounded capability result, never monitor geometry, display
+/// names, hardware identifiers, or raw Win32 error messages.
+fn capture_capability_summary(monitors_available: bool) -> &'static str {
+    if monitors_available {
+        "Windows native capture available; physical desktop validation pending"
+    } else {
+        "Windows native capture unavailable; physical desktop validation pending"
+    }
+}
+
 #[async_trait]
 impl PlatformServices for WindowsPlatform {
     async fn prepare_capture(
@@ -42,9 +52,7 @@ impl PlatformServices for WindowsPlatform {
             os_release: "Windows".into(),
             desktop_environment: "Windows desktop".into(),
             session_type: "desktop".into(),
-            capture_summary:
-                "Windows native region selector installed; physical desktop validation pending"
-                    .into(),
+            capture_summary: capture_capability_summary(monitors::enumerate().is_ok()).into(),
             ocr_runtime: ocr_runtime::packaged_runtime_status(),
         })
     }
@@ -118,11 +126,25 @@ mod tests {
         }
     }
 
+    #[test]
+    fn capture_capability_summary_is_bounded_and_content_free() {
+        assert_eq!(
+            capture_capability_summary(true),
+            "Windows native capture available; physical desktop validation pending"
+        );
+        assert_eq!(
+            capture_capability_summary(false),
+            "Windows native capture unavailable; physical desktop validation pending"
+        );
+    }
+
     #[tokio::test]
     async fn windows_capability_status_does_not_claim_native_capture_ready() {
         let diagnostics = WindowsPlatform.diagnostics().await.unwrap();
         assert_eq!(diagnostics.platform, "windows");
         assert!(diagnostics.capture_summary.contains("validation pending"));
+        assert!(diagnostics.capture_summary == capture_capability_summary(true)
+            || diagnostics.capture_summary == capture_capability_summary(false));
         assert_eq!(WindowsPlatform.direct_shortcut(), Some("Control+Shift+O"));
     }
 }
