@@ -208,6 +208,39 @@ mod tests {
     }
 
     #[test]
+    fn mixed_dpi_monitors_keep_physical_tile_offsets() {
+        // Per-monitor logical offsets scale independently, but the selector
+        // and GDI capture use one physical virtual-desktop coordinate space.
+        // A negative-origin 125% display sits left of a 200% display.
+        let left_local_x = logical_to_physical(80, 125).unwrap();
+        let right_local_x = logical_to_physical(100, 200).unwrap();
+        assert_eq!(left_local_x, 100);
+        assert_eq!(right_local_x, 200);
+
+        let selection = rect(-left_local_x, 50, right_local_x, 250);
+        let monitors = [rect(-1920, 0, 0, 1080), rect(0, 0, 2560, 1440)];
+        assert_eq!(
+            monitor_tiles(selection, &monitors),
+            vec![
+                MonitorTile {
+                    source: rect(-100, 50, 0, 250),
+                    offset_x: 0,
+                    offset_y: 0,
+                },
+                MonitorTile {
+                    source: rect(0, 50, 200, 250),
+                    offset_x: 100,
+                    offset_y: 0,
+                },
+            ]
+        );
+        // Neither tile receives a second DPI scaling after it has been
+        // converted to physical coordinates.
+        assert_eq!(selection.width(), 300);
+        assert_eq!(selection.height(), 200);
+    }
+
+    #[test]
     fn selection_and_monitor_edges_are_half_open() {
         assert_eq!(rect(0, 0, 100, 100).intersect(rect(100, 0, 200, 100)), None);
         assert_eq!(
