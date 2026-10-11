@@ -233,9 +233,9 @@ mod tests {
         fs::write(&external, b"fixture").unwrap();
         if std::os::windows::fs::symlink_file(&external, &library).is_ok() {
             assert!(matches!(
-            resolve_at(&executable),
-            Err(AppError::OcrEngineUnavailable)
-        ));
+                resolve_at(&executable),
+                Err(AppError::OcrEngineUnavailable)
+            ));
         }
     }
 
