@@ -20,6 +20,7 @@ def fixture(*, pe64: bool = True, delay: bool = False) -> bytes:
     data[:2] = b"MZ"
     struct.pack_into("<I", data, 0x3C, 0x80)
     data[0x80:0x84] = b"PE\0\0"
+    struct.pack_into("<H", data, 0x84, 0x8664 if pe64 else 0x14C)
     struct.pack_into("<H", data, 0x86, 1)  # section count
     size = 240 if pe64 else 224
     struct.pack_into("<H", data, 0x94, size)
@@ -67,10 +68,35 @@ class PeImportTests(unittest.TestCase):
             (root / "vendor-extra.dll").write_bytes(fixture())
             result = audit.audit(root)
             self.assertEqual(len(result["binaries"]), 2)
+            self.assertTrue(all(row["machine"] == "AMD64" for row in result["binaries"]))
             self.assertEqual(result["binaries"][0]["packaged"], ["vendor-extra.dll"])
             self.assertIn("kernel32.dll", result["external_unreviewed"])
             self.assertEqual(result["qualification"].startswith("static PE"), True)
 
+
+    def test_audit_rejects_x86_executable_or_dependency(self):
+        for x86_executable in (True, False):
+            with self.subTest(x86_executable=x86_executable):
+                with tempfile.TemporaryDirectory() as tmp:
+                    root = Path(tmp)
+                    (root / "tesseract.exe").write_bytes(
+                        fixture(pe64=not x86_executable)
+                    )
+                    (root / "vendor-extra.dll").write_bytes(
+                        fixture(pe64=x86_executable)
+                    )
+                    with self.assertRaisesRegex(audit.InvalidPE, "AMD64"):
+                        audit.audit(root)
+
+    def test_audit_rejects_amd64_machine_with_pe32_header(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            mismatched = bytearray(fixture(pe64=False))
+            struct.pack_into("<H", mismatched, 0x84, 0x8664)
+            (root / "tesseract.exe").write_bytes(mismatched)
+            (root / "vendor-extra.dll").write_bytes(fixture())
+            with self.assertRaisesRegex(audit.InvalidPE, "AMD64"):
+                audit.audit(root)
 
     def test_static_reachability_prioritizes_without_claiming_unused_dlls(self):
         with tempfile.TemporaryDirectory() as tmp:

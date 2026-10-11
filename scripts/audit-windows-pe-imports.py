@@ -30,6 +30,16 @@ def uint32(data: bytes, offset: int) -> int:
     return struct.unpack_from("<I", data, offset)[0]
 
 
+def pe_machine(data: bytes) -> int:
+    """Read the COFF machine type without trusting the input filename."""
+    if len(data) < 0x40 or data[:2] != b"MZ":
+        raise InvalidPE("invalid DOS signature")
+    pe = uint32(data, 0x3C)
+    if pe + 24 > len(data) or data[pe : pe + 4] != b"PE\\0\\0":
+        raise InvalidPE("invalid PE signature")
+    return uint16(data, pe + 4)
+
+
 def imports(data: bytes) -> set[str]:
     if len(data) < 0x40 or data[:2] != b"MZ":
         raise InvalidPE("invalid DOS signature")
@@ -113,9 +123,16 @@ def audit(root: Path) -> dict[str, object]:
     records = []
     external: set[str] = set()
     for file in files:
-        dependencies = imports(file.read_bytes())
+        payload = file.read_bytes()
+        dependencies = imports(payload)
+        # The Windows release target is x86-64. A mixed-architecture DLL
+        # inventory must fail before it can be mistaken for a usable bundle.
+        pe = uint32(payload, 0x3C)
+        if pe_machine(payload) != 0x8664 or uint16(payload, pe + 24) != 0x20B:
+            raise InvalidPE("staged OCR binary is not an AMD64 PE32+ image")
         records.append({
             "binary": file.name,
+            "machine": "AMD64",
             "packaged": sorted(dependencies & names),
             "external_unreviewed": sorted(dependencies - names),
         })
