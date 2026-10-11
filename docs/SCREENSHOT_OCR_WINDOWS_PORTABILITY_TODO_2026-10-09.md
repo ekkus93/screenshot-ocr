@@ -211,6 +211,12 @@ At minimum inspect:
 - [ ] Portable modules contain no platform-specific installer/resource paths.
 - [ ] Any remaining cfg target_os in portable modules is justified and documented.
 
+**W2.3 error-boundary hardening (2026-10-11):** Shared `error.rs`
+defines stable capture error variants on every target without `target_os`
+gating, and `scripts/check-platform-boundaries.py` rejects platform-dependent
+error enum compilation. Windows/Linux exact-head CI must validate the change;
+other core-purity and physical acceptance items stay unchecked.
+
 ### W2 acceptance gate
 
 - [ ] The portable core can be described without mentioning Linux or Windows implementation mechanisms.

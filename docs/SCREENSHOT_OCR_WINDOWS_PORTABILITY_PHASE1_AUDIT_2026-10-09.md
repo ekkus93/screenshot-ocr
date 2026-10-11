@@ -56,6 +56,14 @@ Shared code intentionally retains only platform-neutral concepts:
 
 The repository-policy job runs `scripts/check-platform-boundaries.py`, which rejects known concrete Linux/Windows imports, Linux environment probes, Linux executable paths, and Windows API imports outside the platform tree.
 
+The shared `src-tauri/src/error.rs` error codes/variants and public error
+mapping are now platform-neutral: Linux capture failure codes remain part of
+the stable serialized domain contract even when compiled on Windows.
+`UnsupportedEnvironment` is likewise a stable code constructed only by the
+unsupported-platform adapter. Synthetic source guard tests reject any new
+`target_os` gating in this public error contract. This is compile/test
+coverage, not physical capture or system-error-path acceptance.
+
 ## Frontend inventory
 
 OCR review, copy recovery, job state, cancellation, and the general settings flow remain shared. Linux-only backend choices and shortcut copy are Phase 2 truthfulness work for the Windows UI; they do not justify a second frontend.

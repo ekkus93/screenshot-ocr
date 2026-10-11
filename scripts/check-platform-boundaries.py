@@ -99,6 +99,12 @@ def main() -> int:
                         f"{path}:{line_number}: {explanation}: matched {expression!r}"
                     )
 
+        # Error variants/codes must be available identically on every target.
+        if path == RUST_ROOT / "error.rs" and re.search(
+            r"#\s*\[\s*cfg(?:_attr)?\s*\([^\]]*target_os", text
+        ):
+            problems.append(f"{path}: platform-gated public error contract")
+
         for expression, explanation in FORBIDDEN_PORTABLE_MULTILINE_REGEX:
             for match in re.finditer(expression, text):
                 # Single-line matches are already handled above.

@@ -24,7 +24,6 @@ pub enum ErrorCode {
     ClipboardWriteFailed,
     SettingsInvalid,
     SettingsWriteFailed,
-    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     UnsupportedEnvironment,
     InternalError,
 }
@@ -46,23 +45,18 @@ pub enum AppError {
     CaptureCancelled,
     #[error("capture backend is unavailable")]
     CaptureBackendUnavailable,
-    // The Windows selector will construct this variant when its native adapter is wired.
+    // Both platforms map native capture failures through one public error.
     #[allow(dead_code)]
     #[error("native screen capture failed")]
     CaptureFailed,
-    #[cfg(target_os = "linux")]
     #[error("capture permission was denied")]
     CapturePermissionDenied,
-    #[cfg(target_os = "linux")]
     #[error("capture operation timed out")]
     CaptureTimedOut,
-    #[cfg(target_os = "linux")]
     #[error("capture helper failed")]
     CaptureProcessFailed,
-    #[cfg(target_os = "linux")]
     #[error("capture output is missing")]
     CaptureResultMissing,
-    #[cfg(target_os = "linux")]
     #[error("capture result URI is invalid")]
     CaptureResultUriInvalid,
     #[error("captured image is invalid")]
@@ -87,7 +81,8 @@ pub enum AppError {
     SettingsInvalid,
     #[error("settings write failed")]
     SettingsWriteFailed,
-    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+    // The unsupported-platform adapter constructs this only on other targets.
+    #[allow(dead_code)]
     #[error("operating environment is unsupported")]
     UnsupportedEnvironment,
     #[error("internal operation failed")]
@@ -121,35 +116,30 @@ impl From<AppError> for PublicError {
                 "Try selecting the region again. The clipboard was unchanged.",
                 true,
             ),
-            #[cfg(target_os = "linux")]
             AppError::CapturePermissionDenied => (
                 ErrorCode::CapturePermissionDenied,
                 "Screen-capture permission was denied.",
                 "Allow screen capture in the desktop prompt and try again.",
                 true,
             ),
-            #[cfg(target_os = "linux")]
             AppError::CaptureTimedOut => (
                 ErrorCode::CaptureTimedOut,
                 "Screen selection took too long and was stopped.",
                 "Start another capture and complete or cancel the selector. The clipboard was unchanged.",
                 true,
             ),
-            #[cfg(target_os = "linux")]
             AppError::CaptureProcessFailed => (
                 ErrorCode::CaptureProcessFailed,
                 "The screen-selection service failed.",
                 "Try again and inspect safe diagnostics if it continues.",
                 true,
             ),
-            #[cfg(target_os = "linux")]
             AppError::CaptureResultMissing => (
                 ErrorCode::CaptureResultMissing,
                 "The selector did not produce an image.",
                 "Try selecting a region again.",
                 true,
             ),
-            #[cfg(target_os = "linux")]
             AppError::CaptureResultUriInvalid => (
                 ErrorCode::CaptureResultUriInvalid,
                 "The screen-selection service returned an unsupported result.",
@@ -222,7 +212,6 @@ impl From<AppError> for PublicError {
                 "Check configuration-directory permissions and try again.",
                 true,
             ),
-            #[cfg(not(any(target_os = "linux", target_os = "windows")))]
             AppError::UnsupportedEnvironment => (
                 ErrorCode::UnsupportedEnvironment,
                 "This desktop environment is not supported.",
@@ -257,9 +246,8 @@ mod tests {
         assert!(!json.contains("/tmp/"));
     }
 
-    #[cfg(target_os = "linux")]
     #[test]
-    fn portal_errors_have_stable_public_codes() {
+    fn platform_capture_errors_keep_stable_public_codes() {
         assert_eq!(
             PublicError::from(AppError::CapturePermissionDenied).code,
             ErrorCode::CapturePermissionDenied

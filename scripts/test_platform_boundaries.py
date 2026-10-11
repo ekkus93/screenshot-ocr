@@ -143,6 +143,21 @@ class PlatformBoundaryGuardTests(unittest.TestCase):
         self.assertEqual(status, 1, report)
         self.assertIn("app.rs:1:", report)
 
+    def test_error_contract_rejects_target_gating_but_allows_test_cfg(self) -> None:
+        for source in (
+            '#[cfg(target_os = "linux")]\nenum ErrorCode {}\n',
+            '#[cfg(not(any(target_os = "linux", target_os = "windows")))]\nenum AppError {}\n',
+            '#[cfg_attr(target_os = "windows", allow(dead_code))]\nenum AppError {}\n',
+        ):
+            with self.subTest(source=source):
+                status, report = self.run_check({"error.rs": source})
+                self.assertEqual(status, 1, report)
+                self.assertIn("platform-gated public error contract", report)
+        status, report = self.run_check(
+            {"error.rs": "#[cfg(test)]\nmod tests {}\n"}
+        )
+        self.assertEqual(status, 0, report)
+
     def test_reports_multiple_file_line_numbers(self) -> None:
         status, report = self.run_check(
             {
