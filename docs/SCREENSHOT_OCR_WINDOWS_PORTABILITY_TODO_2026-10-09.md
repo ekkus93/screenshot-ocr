@@ -978,7 +978,6 @@ on physical Windows and all corresponding acceptance checkboxes stay open.
 - [x] Generate installer SHA-256.
 - [ ] Use stable artifact naming.
 
-
 - [ ] Upload only reviewed installer/checksum artifacts.
 - [x] Do not claim code signing unless actually signed.
 
