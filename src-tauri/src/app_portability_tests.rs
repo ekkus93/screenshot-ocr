@@ -360,3 +360,87 @@ async fn successful_fake_capture_propagates_cleanup_warning() {
         ["prepare", "hide", "capture", "restore", "runtime"]
     );
 }
+
+#[cfg(unix)]
+#[tokio::test]
+async fn missing_english_language_propagates_through_shared_capture() {
+    let directory = tempdir().expect("tempdir");
+    let executable = directory.path().join("fake-tesseract");
+    write_executable(
+        &executable,
+        "#!/bin/sh\nif [ \"$1\" = \"--list-langs\" ]; then printf 'osd\\n'; exit 0; fi\nexit 1\n",
+    );
+    let events: Events = Arc::new(Mutex::new(Vec::new()));
+    let services = AppServices::with_platform(
+        directory.path().to_path_buf(),
+        Arc::new(SuccessfulFakePlatform {
+            executable,
+            events: events.clone(),
+        }),
+    );
+    let result = services
+        .capture(request(), || Ok(()), || Ok(()))
+        .await;
+    assert!(matches!(result, Err(AppError::OcrLanguageMissing)));
+    assert_eq!(recorded(&events), ["prepare", "capture", "runtime"]);
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn cancelling_during_shared_ocr_preserves_job_ownership() {
+    use std::time::Duration;
+    use tokio::time::{sleep, timeout};
+
+    let directory = tempdir().expect("tempdir");
+    let executable = directory.path().join("slow-tesseract");
+    let marker = directory.path().join("recognize-started");
+    write_executable(
+        &executable,
+        &format!(
+            "#!/bin/sh\nif [ \"$1\" = \"--list-langs\" ]; then printf 'eng\\n'; exit 0; fi\ncat >/dev/null\ntouch '{}'\nsleep 30\n",
+            marker.display()
+        ),
+    );
+    let events: Events = Arc::new(Mutex::new(Vec::new()));
+    let services = AppServices::with_platform(
+        directory.path().to_path_buf(),
+        Arc::new(SuccessfulFakePlatform {
+            executable,
+            events: events.clone(),
+        }),
+    );
+    let request = request();
+    let job_id = request.job_id;
+    let capture_services = services.clone();
+    let capture = tokio::spawn(async move {
+        capture_services.capture(request, || Ok(()), || Ok(())).await
+    });
+
+    timeout(Duration::from_secs(8), async {
+        while !marker.is_file() {
+            sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("fake OCR child did not start");
+
+    {
+        let state = services.state.lock().await;
+        state.cancel(job_id).expect("cancel active capture");
+        assert_eq!(state.active_job_id(), Some(job_id));
+    }
+    let result = timeout(Duration::from_secs(4), capture)
+        .await
+        .expect("shared OCR cancellation timed out")
+        .expect("capture task panicked");
+    assert!(matches!(result, Err(AppError::CaptureCancelled)));
+    assert_eq!(recorded(&events), ["prepare", "capture", "runtime"]);
+    let mut state = services.state.lock().await;
+    assert_eq!(state.active_job_id(), Some(job_id));
+    assert!(matches!(
+        state.begin(CaptureJobId::new()),
+        Err(AppError::CaptureAlreadyActive)
+    ));
+    state.finish(job_id);
+    assert!(state.begin(CaptureJobId::new()).is_ok());
+}
