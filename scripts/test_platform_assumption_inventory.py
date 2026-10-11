@@ -41,6 +41,31 @@ class AssumptionInventoryTests(unittest.TestCase):
             self.assertNotIn("PRIVATE_FIXTURE", str(report))
             self.assertEqual(report, inventory.inventory(root))
 
+    def test_installer_metadata_and_native_windows_paths_are_in_scope(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            fixtures = {
+                "src-tauri/tauri.conf.json": '{"bundle":{"targets":["deb"]}}\\n',
+                "src-tauri/tauri.windows.conf.json": '{"bundle":{"targets":["nsis"]}}\\n',
+                "src-tauri/build.rs": 'let registry = "HKEY_CURRENT_USER";\\n',
+                "src-tauri/installer/windows.nsh": 'StrCpy $0 "$PROGRAMFILES"\\n',
+                "scripts/install.sh": 'exec /usr/bin/gnome-screenshot\\n',
+                "src-tauri/target/generated.rs": 'WindowsPlatform SECRET_FIXTURE\\n',
+            }
+            for name, source in fixtures.items():
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(source, encoding="utf-8")
+            report = inventory.inventory(root)
+            entries = {entry["path"]: entry for entry in report["entries"]}
+            self.assertEqual(entries["src-tauri/tauri.conf.json"]["lines"]["bundle_target"], [1])
+            self.assertEqual(entries["src-tauri/tauri.windows.conf.json"]["lines"]["bundle_target"], [1])
+            self.assertEqual(entries["src-tauri/build.rs"]["lines"]["windows_native"], [1])
+            self.assertEqual(entries["src-tauri/installer/windows.nsh"]["lines"]["windows_environment"], [1])
+            self.assertEqual(entries["scripts/install.sh"]["lines"]["linux_gnome"], [1])
+            self.assertNotIn("src-tauri/target/generated.rs", entries)
+            self.assertNotIn("SECRET_FIXTURE", str(report))
+
     def test_portable_source_has_no_findings(self):
         with tempfile.TemporaryDirectory() as temp:
             source = Path(temp) / "src-tauri/src/app.rs"

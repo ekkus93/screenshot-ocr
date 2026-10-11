@@ -73,6 +73,13 @@ repository-relative filename, source line number, and responsible architectural
 owner. The inventory deliberately contains no source lines, user paths,
 screenshots, or OCR text; synthetic tests enforce this output contract.
 
+The inventory also scans Tauri build scripts, capability/configuration files,
+installer `.nsh`/`.nsi` hooks, and shell scripts, rather than only Rust source.
+It classifies Windows registry/environment references and Linux/Windows bundle
+targets explicitly; synthetic fixtures check the additional coverage while
+excluding generated `target/` output. The expanded scan must pass exact-head
+CI before being treated as qualified evidence.
+
 This is a deterministic **keyword inventory**, not proof that every OS
 assumption has been semantically audited or that native loader/desktop behavior
 passes. Review the artifact, the current code, and the remaining physical

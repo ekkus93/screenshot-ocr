@@ -11,10 +11,12 @@ import json
 import re
 from pathlib import Path
 
-SUFFIXES = {".rs", ".ts", ".tsx", ".js", ".jsx", ".ps1", ".py", ".toml", ".json", ".yml", ".yaml"}
+SUFFIXES = {".rs", ".ts", ".tsx", ".js", ".jsx", ".ps1", ".py", ".toml", ".json", ".yml", ".yaml", ".sh", ".nsi", ".nsh", ".desktop"}
 IGNORED = {"node_modules", "target", "dist", "__pycache__", ".git", "coverage"}
 PATTERNS = {
-    "linux_gnome": r"(?i)\blinux\b|\bgnome\b|\bwayland\b|\bx11\b",
+    "linux_gnome": r"(?i)\blinux\b|\bgnome\b|\bwayland\b|\bx11\b|LinuxPlatform|GnomeScreenshot",
+    "windows_native": r"(?i)\bwindows\b|WindowsPlatform|\bWin32\b|SetThreadDpiAwarenessContext|\bHKEY_[A-Z_]+\b|\bReg(?:Open|Query|Get|Set|Close)Key",
+    "windows_environment": r"(?i)\b(?:APPDATA|LOCALAPPDATA|USERPROFILE|PROGRAMFILES|SYSTEMROOT|WINDIR)\b",
     "portal_ashpd": r"(?i)\bportal\b|\bashpd\b|XDG_",
     "desktop_environment": r"DISPLAY|WAYLAND_DISPLAY|XDG_|GNOME_|DESKTOP_SESSION|GDMSESSION",
     "executable_path": r"(?i)tesseract|gnome-screenshot|/usr/bin/|\.exe\b",
@@ -23,7 +25,8 @@ PATTERNS = {
     "native_error": r"GetLastError|CapturePermissionDenied|CaptureTimedOut|CaptureProcessFailed|CaptureResultUriInvalid",
     "platform_resource": r"resources/ocr|windows-ocr-runtime|tessdata|app_config_dir|resource_dir|\.desktop\b",
     "native_binding": r"windows_sys|windows-sys|Win32_|Win32::|ashpd::",
-    "linux_bundle": r"gnome-screenshot|tesseract-ocr-eng|libwebkit2gtk|libayatana",
+    "linux_bundle": r"gnome-screenshot|tesseract-ocr-eng|libwebkit2gtk|libayatana|libgtk-3",
+    "bundle_target": r"(?i)\b(?:deb|nsis|msi|appimage)\b|\.desktop\b|webviewInstallMode",
 }
 COMPILED = {name: re.compile(regex) for name, regex in PATTERNS.items()}
 
@@ -52,7 +55,10 @@ def owner(path: str) -> str:
 
 def candidates(root: Path) -> list[Path]:
     all_paths: list[Path] = []
-    for prefix in ("src-tauri/src", "src", "scripts", ".github/workflows"):
+    # Scan the entire Tauri tree, not just Rust modules: installer hooks,
+    # capability manifests, and target-specific bundle settings also encode
+    # OS assumptions. Generated build output remains excluded below.
+    for prefix in ("src-tauri", "src", "scripts", ".github/workflows"):
         base = root / prefix
         if base.is_dir():
             all_paths.extend(
@@ -60,16 +66,7 @@ def candidates(root: Path) -> list[Path]:
                 if p.is_file() and p.suffix in SUFFIXES
                 and not any(part in IGNORED for part in p.relative_to(root).parts)
             )
-    all_paths.extend(
-        p for p in (
-            root / "src-tauri/Cargo.toml",
-            root / "src-tauri/tauri.conf.json",
-            root / "src-tauri/tauri.nsis.conf.json",
-            root / "src-tauri/tauri.windows.conf.json",
-            root / "package.json",
-        )
-        if p.is_file()
-    )
+    all_paths.extend(p for p in (root / "package.json",) if p.is_file())
     return sorted(set(all_paths))
 
 
