@@ -1,0 +1,146 @@
+#!/usr/bin/env python3
+"""Inventory static and delay-loaded PE imports for staged Windows OCR binaries.
+
+This is an evidence aid, NOT a redistribution license audit or an assertion
+that externally provided DLLs are safe or available on a clean Windows host.
+Only filenames are reported; no user content, paths, or binary bytes are logged.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import struct
+from pathlib import Path
+
+
+class InvalidPE(ValueError):
+    """Malformed or unsupported PE import metadata."""
+
+
+def uint16(data: bytes, offset: int) -> int:
+    if offset < 0 or offset + 2 > len(data):
+        raise InvalidPE("truncated PE header")
+    return struct.unpack_from("<H", data, offset)[0]
+
+
+def uint32(data: bytes, offset: int) -> int:
+    if offset < 0 or offset + 4 > len(data):
+        raise InvalidPE("truncated PE header")
+    return struct.unpack_from("<I", data, offset)[0]
+
+
+def imports(data: bytes) -> set[str]:
+    if len(data) < 0x40 or data[:2] != b"MZ":
+        raise InvalidPE("invalid DOS signature")
+    pe = uint32(data, 0x3C)
+    if pe + 24 > len(data) or data[pe : pe + 4] != b"PE\0\0":
+        raise InvalidPE("invalid PE signature")
+    count = uint16(data, pe + 6)
+    optional_size = uint16(data, pe + 20)
+    opt = pe + 24
+    end = opt + optional_size
+    if end > len(data):
+        raise InvalidPE("truncated optional header")
+    magic = uint16(data, opt)
+    if magic == 0x20B:  # PE32+
+        directory = opt + 112
+        image_base = struct.unpack_from("<Q", data, opt + 24)[0]
+    elif magic == 0x10B:  # PE32
+        directory = opt + 96
+        image_base = uint32(data, opt + 28)
+    else:
+        raise InvalidPE("unsupported optional header")
+    sections = []
+    for i in range(count):
+        offset = end + 40 * i
+        if offset + 40 > len(data):
+            raise InvalidPE("truncated section table")
+        virtual_size, va, raw_size, raw = struct.unpack_from("<IIII", data, offset + 8)
+        sections.append((va, virtual_size, raw_size, raw))
+
+    def file_offset(rva: int, size: int = 1) -> int:
+        for va, virtual_size, raw_size, raw in sections:
+            delta = rva - va
+            if delta >= 0 and delta + size <= raw_size and delta < max(virtual_size, raw_size):
+                offset = raw + delta
+                if offset + size <= len(data):
+                    return offset
+        raise InvalidPE("import RVA is not backed by file data")
+
+    def name_at(rva: int) -> str:
+        offset = file_offset(rva)
+        end_offset = data.find(b"\0", offset, min(len(data), offset + 260))
+        if end_offset < 0:
+            raise InvalidPE("unterminated DLL name")
+        name = data[offset:end_offset].decode("ascii", errors="strict").lower()
+        if not name or "/" in name or "\\" in name or name in {".", ".."}:
+            raise InvalidPE("invalid DLL name")
+        return name
+
+    found: set[str] = set()
+    for index, record_size, name_pos in ((1, 20, 12), (13, 32, 4)):
+        entry = directory + 8 * index
+        if entry + 8 > end:
+            continue  # Older optional headers may omit delay import directory.
+        rva = uint32(data, entry)
+        if not rva:
+            continue
+        for number in range(1024):
+            offset = file_offset(rva + number * record_size, record_size)
+            descriptor = data[offset : offset + record_size]
+            if descriptor == bytes(record_size):
+                break
+            name_rva = struct.unpack_from("<I", descriptor, name_pos)[0]
+            if index == 13 and not (uint32(data, offset) & 1):
+                # Older delay-load descriptors use virtual addresses.
+                name_rva -= image_base
+            found.add(name_at(name_rva))
+        else:
+            raise InvalidPE("unterminated import descriptor table")
+    return found
+
+
+def audit(root: Path) -> dict[str, object]:
+    binary = root / "tesseract.exe"
+    dlls = sorted(root.glob("*.dll"), key=lambda p: p.name.lower())
+    if not binary.is_file() or not dlls:
+        raise InvalidPE("staged OCR executable or runtime DLLs missing")
+    files = [binary, *dlls]
+    names = {f.name.lower() for f in files}
+    if len(names) != len(files):
+        raise InvalidPE("case-insensitive filename collision")
+    records = []
+    external: set[str] = set()
+    for file in files:
+        dependencies = imports(file.read_bytes())
+        records.append({
+            "binary": file.name,
+            "packaged": sorted(dependencies & names),
+            "external_unreviewed": sorted(dependencies - names),
+        })
+        external.update(dependencies - names)
+    return {
+        "schema_version": 1,
+        "qualification": "static PE dependency inventory only; external DLL and license audit pending",
+        "binaries": records,
+        "external_unreviewed": sorted(external),
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("runtime", type=Path, help="staged OCR resource directory")
+    args = parser.parse_args()
+    try:
+        report = audit(args.runtime)
+    except (OSError, InvalidPE, UnicodeError, struct.error) as error:
+        # Fail without emitting install paths or raw system error strings.
+        print("Windows PE dependency audit failed: malformed or inaccessible staged payload.")
+        return 1
+    print(json.dumps(report, indent=2, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
