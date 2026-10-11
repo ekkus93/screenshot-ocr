@@ -164,6 +164,10 @@ references and architectural owner groups. Synthetic fixtures verify
 classification, repeatability, and omission of source text. Exact-head CI
 must qualify the new step; each category remains unchecked until the
 generated findings have been reviewed for coverage and boundary ownership.
+The inventory now excludes symlinked source files, preventing accidental
+inspection of files outside the checkout; a synthetic privacy regression test
+runs in repository-policy CI. This does not constitute category-by-category
+architecture review or physical desktop acceptance.
 
 ### W1.3 Inventory frontend assumptions
 
@@ -1101,6 +1105,10 @@ physical acceptance requirements.
 ## 27. W23 — Physical Windows desktop acceptance
 
 Hosted CI cannot check these boxes.
+Use `docs/WINDOWS_PHYSICAL_ACCEPTANCE_RUNBOOK.md` for a content-free,
+exact-commit record of clean installation, offline OCR, DPI/multi-monitor,
+activation, cancellation, recovery, and uninstall checks. The runbook is a
+test procedure, not evidence that any physical acceptance step passed.
 
 ### W23.1 Basic Windows 11 x86-64
 
