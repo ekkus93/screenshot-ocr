@@ -143,8 +143,10 @@ mod tests {
         let diagnostics = WindowsPlatform.diagnostics().await.unwrap();
         assert_eq!(diagnostics.platform, "windows");
         assert!(diagnostics.capture_summary.contains("validation pending"));
-        assert!(diagnostics.capture_summary == capture_capability_summary(true)
-            || diagnostics.capture_summary == capture_capability_summary(false));
+        assert!(
+            diagnostics.capture_summary == capture_capability_summary(true)
+                || diagnostics.capture_summary == capture_capability_summary(false)
+        );
         assert_eq!(WindowsPlatform.direct_shortcut(), Some("Control+Shift+O"));
     }
 }
