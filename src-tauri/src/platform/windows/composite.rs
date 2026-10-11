@@ -21,6 +21,19 @@ pub fn compose(
         if image.width() != tile_width || image.height() != tile_height {
             return Err(AppError::CaptureImageInvalid);
         }
+        // A tile must describe its actual location in the selected physical
+        // desktop region; an in-bounds but incorrect offset silently corrupts
+        // multi-monitor OCR input.
+        if tile.source.intersect(selection) != Some(tile.source) {
+            return Err(AppError::CaptureImageInvalid);
+        }
+        let expected_x = u32::try_from(i64::from(tile.source.left) - i64::from(selection.left))
+            .map_err(|_| AppError::CaptureImageInvalid)?;
+        let expected_y = u32::try_from(i64::from(tile.source.top) - i64::from(selection.top))
+            .map_err(|_| AppError::CaptureImageInvalid)?;
+        if (tile.offset_x, tile.offset_y) != (expected_x, expected_y) {
+            return Err(AppError::CaptureImageInvalid);
+        }
         result
             .copy_from(&image, tile.offset_x, tile.offset_y)
             .map_err(|_| AppError::CaptureImageInvalid)?;
@@ -68,6 +81,31 @@ mod tests {
         assert_eq!(image.get_pixel(0, 0).0, [255, 0, 0, 255]);
         assert_eq!(image.get_pixel(2, 0).0, [0, 0, 0, 0]);
         assert_eq!(image.get_pixel(4, 0).0, [0, 255, 0, 255]);
+    }
+
+    #[test]
+    fn rejects_in_bounds_but_incorrect_monitor_offset() {
+        let selection = rect(-10, -10, 10, 10);
+        let mut tile = monitor_tiles(selection, &[rect(-10, -10, -8, -8)])[0];
+        tile.offset_x = 1;
+        assert!(matches!(
+            compose(selection, [(tile, RgbaImage::new(2, 2))]),
+            Err(AppError::CaptureImageInvalid)
+        ));
+    }
+
+    #[test]
+    fn rejects_monitor_source_outside_selection_even_if_offset_fits() {
+        let selection = rect(0, 0, 10, 10);
+        let tile = MonitorTile {
+            source: rect(-1, 0, 1, 2),
+            offset_x: 0,
+            offset_y: 0,
+        };
+        assert!(matches!(
+            compose(selection, [(tile, RgbaImage::new(2, 2))]),
+            Err(AppError::CaptureImageInvalid)
+        ));
     }
 
     #[test]
