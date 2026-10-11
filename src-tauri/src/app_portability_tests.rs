@@ -362,6 +362,14 @@ async fn successful_fake_capture_propagates_cleanup_warning() {
 }
 
 #[cfg(unix)]
+fn write_executable(path: &std::path::Path, body: &str) {
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::write(path, body).expect("write test fixture");
+    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700))
+        .expect("set fixture permissions");
+}
+
+#[cfg(unix)]
 #[tokio::test]
 async fn missing_english_language_propagates_through_shared_capture() {
     let directory = tempdir().expect("tempdir");
