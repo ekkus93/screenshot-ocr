@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 RUST_ROOT = Path("src-tauri/src")
@@ -27,6 +28,21 @@ FORBIDDEN_PORTABLE_PATTERNS = {
     "windows_sys::Win32": "portable code imports a concrete Windows API",
 }
 
+# These catch valid Rust import/probe spellings that do not contain the
+# literal substrings above (grouped imports, crate aliases, whitespace).
+FORBIDDEN_PORTABLE_REGEX = (
+    (r"\\b(?:crate::)?platform::\\{\\s*(?:linux|windows)\\b",
+     "portable code imports a concrete adapter through a grouped path"),
+    (r"\\bwindows_sys\\b(?!::Win32)",
+     "portable code imports or aliases the native Windows API crate"),
+    (r"\\bwindows::Win32\\b",
+     "portable code imports a concrete Windows API"),
+    (r'\\bstd::env::(?:var|var_os)\\s*\\(\\s*"(?:DESKTOP_SESSION|GDMSESSION)"',
+     "portable code reads a Linux desktop session environment variable"),
+    (r'\\bstd::env::(?:var|var_os)\\s+\\(\\s*"(?:DISPLAY|WAYLAND_DISPLAY|XDG_[A-Za-z0-9_]*|GNOME_[A-Za-z0-9_]*)"',
+     "portable code reads a Linux desktop environment variable"),
+)
+
 ALLOWED_NON_PLATFORM_FILES = {
     # The composition root is intentionally the single place that selects the
     # current target-specific platform service.
@@ -49,6 +65,11 @@ def main() -> int:
                 if pattern in line:
                     problems.append(
                         f"{path}:{line_number}: {explanation}: found {pattern!r}"
+                    )
+            for expression, explanation in FORBIDDEN_PORTABLE_REGEX:
+                if re.search(expression, line):
+                    problems.append(
+                        f"{path}:{line_number}: {explanation}: matched {expression!r}"
                     )
 
     if problems:

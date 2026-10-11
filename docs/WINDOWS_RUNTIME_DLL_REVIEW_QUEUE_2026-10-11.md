@@ -69,6 +69,17 @@ For **each** binary, identify the actual version, SHA-256, upstream origin,
 license/copyright, NOTICE obligations, and whether it is required. Do not
 infer licensing or DLL loader safety from the filename alone.
 
+## Additional deterministic payload gate
+
+The staged PE audit now rejects a non-AMD64 or non-PE32+ executable or
+adjacent DLL, rather than merely listing its imports. Synthetic fixtures cover
+x86 executable and dependency substitution as well as mismatched COFF/optional
+headers. This check passed the repository-policy and Windows staging jobs at
+exact branch SHA `7af9043c71002237f0aa9a172f41e9a747391a6f` in CI run
+`38125955492` (2026-10-11 UTC). It establishes static architecture
+compatibility only, not DLL loader safety, completeness, redistribution rights,
+or physical Windows behavior.
+
 ## Unresolved release gates
 
 - [ ] Reproduce final input hashes and decide which DLLs are required.

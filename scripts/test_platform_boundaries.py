@@ -70,6 +70,30 @@ class PlatformBoundaryGuardTests(unittest.TestCase):
                     )
                     self.assertEqual(status, 1, report)
 
+    def test_grouped_imports_and_native_crate_aliases_are_rejected(self) -> None:
+        for source in (
+            "use crate::platform::{windows::WindowsPlatform};\\n",
+            "use crate::platform::{linux::LinuxPlatform};\\n",
+            "use windows_sys as winapi;\\n",
+            "use windows_sys::{Win32::Foundation};\\n",
+            "use windows::Win32::Foundation;\\n",
+        ):
+            with self.subTest(source=source):
+                status, report = self.run_check({"app.rs": source})
+                self.assertEqual(status, 1, report)
+
+    def test_whitespace_variants_and_session_environment_are_rejected(self) -> None:
+        for source in (
+            'let _ = std::env::var ( "DISPLAY" );\\n',
+            'let _ = std::env::var_os ( "WAYLAND_DISPLAY" );\\n',
+            'let _ = std::env::var ( "XDG_CURRENT_DESKTOP" );\\n',
+            'let _ = std::env::var("DESKTOP_SESSION");\\n',
+            'let _ = std::env::var_os("GDMSESSION");\\n',
+        ):
+            with self.subTest(source=source):
+                status, report = self.run_check({"app.rs": source})
+                self.assertEqual(status, 1, report)
+
     def test_platform_adapter_can_use_native_imports(self) -> None:
         status, report = self.run_check(
             {
