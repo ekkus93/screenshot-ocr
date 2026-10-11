@@ -38,19 +38,19 @@ Use a disposable clean Windows test environment that has **not** installed
 Tesseract or added it to PATH. Ensure the test only uses approved synthetic,
 non-sensitive content. Record `PASS`, `FAIL`, or `BLOCKED` for each row.
 
-| Check | Result | Safe evidence reference |
-| --- | --- | --- |
-| Installer opens without development tools | NOT TESTED | |
-| Clean install succeeds | NOT TESTED | |
-| Application starts and main window renders | NOT TESTED | |
-| Bundled application-controlled OCR resources exist | NOT TESTED | |
-| OCR succeeds without a system Tesseract install | NOT TESTED | |
-| Offline install from a locally transferred installer succeeds | NOT TESTED | |
-| Offline OCR succeeds without fetching language data | NOT TESTED | |
-| WebView2 availability/provisioning is verified | NOT TESTED | |
-| Uninstall removes app-owned binaries/resources | NOT TESTED | |
-| User-settings retention/removal policy is recorded | NOT TESTED | |
-| Same-version reinstall behavior is recorded | NOT TESTED | |
+| Check                                                         | Result     | Safe evidence reference |
+| ------------------------------------------------------------- | ---------- | ----------------------- |
+| Installer opens without development tools                     | NOT TESTED |                         |
+| Clean install succeeds                                        | NOT TESTED |                         |
+| Application starts and main window renders                    | NOT TESTED |                         |
+| Bundled application-controlled OCR resources exist            | NOT TESTED |                         |
+| OCR succeeds without a system Tesseract install               | NOT TESTED |                         |
+| Offline install from a locally transferred installer succeeds | NOT TESTED |                         |
+| Offline OCR succeeds without fetching language data           | NOT TESTED |                         |
+| WebView2 availability/provisioning is verified                | NOT TESTED |                         |
+| Uninstall removes app-owned binaries/resources                | NOT TESTED |                         |
+| User-settings retention/removal policy is recorded            | NOT TESTED |                         |
+| Same-version reinstall behavior is recorded                   | NOT TESTED |                         |
 
 **Offline test:** Transfer the installer to the clean environment, disconnect
 networking **before running setup**, and keep it disconnected for the initial
@@ -63,20 +63,20 @@ hosted NSIS extraction smoke or a machine with preexisting system components.
 Use generated public test text, not personal applications or terminal output.
 For every item, record only its test status and a synthetic fixture identifier.
 
-| Check | Result | Safe evidence reference |
-| --- | --- | --- |
-| Capture button opens one selector | NOT TESTED | |
-| Click-drag rectangle captures expected pixels | NOT TESTED | |
-| Escape cancels selection and restores app | NOT TESTED | |
-| App cancellation dismisses a selector | NOT TESTED | |
-| Zero-size and tiny regions fail safely | NOT TESTED | |
-| Repeated activation does not create overlapping selectors | NOT TESTED | |
-| Ctrl+Shift+O works, or registration failure is reported truthfully | NOT TESTED | |
-| Tray capture/cancel/show/quit route through shared actions | NOT TESTED | |
-| Second-instance capture/cancel/show/quit work | NOT TESTED | |
-| Unknown second-instance arguments only focus/show | NOT TESTED | |
-| Clipboard immediate and preview/manual retry paths work | NOT TESTED | |
-| Quit cleans an active job and leaves no overlay/process | NOT TESTED | |
+| Check                                                              | Result     | Safe evidence reference |
+| ------------------------------------------------------------------ | ---------- | ----------------------- |
+| Capture button opens one selector                                  | NOT TESTED |                         |
+| Click-drag rectangle captures expected pixels                      | NOT TESTED |                         |
+| Escape cancels selection and restores app                          | NOT TESTED |                         |
+| App cancellation dismisses a selector                              | NOT TESTED |                         |
+| Zero-size and tiny regions fail safely                             | NOT TESTED |                         |
+| Repeated activation does not create overlapping selectors          | NOT TESTED |                         |
+| Ctrl+Shift+O works, or registration failure is reported truthfully | NOT TESTED |                         |
+| Tray capture/cancel/show/quit route through shared actions         | NOT TESTED |                         |
+| Second-instance capture/cancel/show/quit work                      | NOT TESTED |                         |
+| Unknown second-instance arguments only focus/show                  | NOT TESTED |                         |
+| Clipboard immediate and preview/manual retry paths work            | NOT TESTED |                         |
+| Quit cleans an active job and leaves no overlay/process            | NOT TESTED |                         |
 
 ## Display geometry and OCR fixtures
 
@@ -87,19 +87,19 @@ virtual coordinates), a second monitor to the right, mixed resolution, and
 mixed-DPI configurations. Record whether cross-monitor dragging was actually
 observed and whether the captured output agrees with the selected rectangle.
 
-| Scenario | Result | Safe evidence reference |
-| --- | --- | --- |
-| Single monitor at 100% | NOT TESTED | |
-| Single monitor at 125% | NOT TESTED | |
-| Single monitor at 150% | NOT TESTED | |
-| Single monitor at 200% | NOT TESTED | |
-| Two monitors, secondary to the right | NOT TESTED | |
-| Two monitors, secondary left/above primary | NOT TESTED | |
-| Mixed resolutions | NOT TESTED | |
-| Mixed DPI with cross-monitor selection | NOT TESTED | |
-| Selection at virtual-desktop edges | NOT TESTED | |
-| Light/dark text, browser, terminal and large/small synthetic text | NOT TESTED | |
-| Punctuation and whitespace/terminal mode | NOT TESTED | |
+| Scenario                                                          | Result     | Safe evidence reference |
+| ----------------------------------------------------------------- | ---------- | ----------------------- |
+| Single monitor at 100%                                            | NOT TESTED |                         |
+| Single monitor at 125%                                            | NOT TESTED |                         |
+| Single monitor at 150%                                            | NOT TESTED |                         |
+| Single monitor at 200%                                            | NOT TESTED |                         |
+| Two monitors, secondary to the right                              | NOT TESTED |                         |
+| Two monitors, secondary left/above primary                        | NOT TESTED |                         |
+| Mixed resolutions                                                 | NOT TESTED |                         |
+| Mixed DPI with cross-monitor selection                            | NOT TESTED |                         |
+| Selection at virtual-desktop edges                                | NOT TESTED |                         |
+| Light/dark text, browser, terminal and large/small synthetic text | NOT TESTED |                         |
+| Punctuation and whitespace/terminal mode                          | NOT TESTED |                         |
 
 ## Failure recovery and privacy
 
@@ -107,15 +107,15 @@ On a disposable system only, simulate missing/corrupt packaged runtime or
 English language data using a reversible backup of test resources. Restore
 the original resources immediately afterward and retest normal startup.
 
-| Check | Result | Safe evidence reference |
-| --- | --- | --- |
-| Missing runtime yields stable safe public error | NOT TESTED | |
-| Missing English data yields stable safe public error | NOT TESTED | |
-| Clipboard failure permits manual recovery | NOT TESTED | |
-| Native capture failure restores main window | NOT TESTED | |
-| No orphan selector or Tesseract process after cancellation | NOT TESTED | |
-| No OCR text, clipboard text, screenshot pixels, raw paths, or OS messages in public logs/diagnostics | NOT TESTED | |
-| Native DLL loader behavior and app-owned search root verified | NOT TESTED | |
+| Check                                                                                                | Result     | Safe evidence reference |
+| ---------------------------------------------------------------------------------------------------- | ---------- | ----------------------- |
+| Missing runtime yields stable safe public error                                                      | NOT TESTED |                         |
+| Missing English data yields stable safe public error                                                 | NOT TESTED |                         |
+| Clipboard failure permits manual recovery                                                            | NOT TESTED |                         |
+| Native capture failure restores main window                                                          | NOT TESTED |                         |
+| No orphan selector or Tesseract process after cancellation                                           | NOT TESTED |                         |
+| No OCR text, clipboard text, screenshot pixels, raw paths, or OS messages in public logs/diagnostics | NOT TESTED |                         |
+| Native DLL loader behavior and app-owned search root verified                                        | NOT TESTED |                         |
 
 ## Windows 10 support decision
 
