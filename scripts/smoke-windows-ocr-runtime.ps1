@@ -90,7 +90,8 @@ try {
             if (-not (Test-Path -LiteralPath $pidFile -PathType Leaf)) {
                 throw "Synthetic Windows $mode child did not report its process ID."
             }
-            $childProcessId = [int](Get-Content -LiteralPath $pidFile -Raw).Trim()
+            $pidText = (Get-Content -LiteralPath $pidFile -Raw).Trim()
+            $childProcessId = [int]::Parse($pidText, [Globalization.CultureInfo]::InvariantCulture)
             if ($childProcessId -le 0) { throw "Invalid synthetic child process ID." }
             if ($null -ne (Get-Process -Id $childProcessId -ErrorAction SilentlyContinue)) {
                 throw "Shared Windows OCR cancellation left a synthetic $mode child running."
