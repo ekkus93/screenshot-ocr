@@ -215,18 +215,27 @@ mod tests {
 
         let library = ocr.join("synthetic.DLL");
         fs::write(&library, b"").unwrap();
-        assert!(matches!(resolve_at(&executable), Err(AppError::OcrEngineUnavailable)));
+        assert!(matches!(
+            resolve_at(&executable),
+            Err(AppError::OcrEngineUnavailable)
+        ));
         fs::write(&library, b"fixture").unwrap();
         assert!(resolve_at(&executable).is_ok());
         fs::remove_file(&library).unwrap();
         fs::create_dir(&library).unwrap();
-        assert!(matches!(resolve_at(&executable), Err(AppError::OcrEngineUnavailable)));
+        assert!(matches!(
+            resolve_at(&executable),
+            Err(AppError::OcrEngineUnavailable)
+        ));
         fs::remove_dir(&library).unwrap();
 
         let external = root.path().join("external.dll");
         fs::write(&external, b"fixture").unwrap();
         if std::os::windows::fs::symlink_file(&external, &library).is_ok() {
-            assert!(matches!(resolve_at(&executable), Err(AppError::OcrEngineUnavailable)));
+            assert!(matches!(
+            resolve_at(&executable),
+            Err(AppError::OcrEngineUnavailable)
+        ));
         }
     }
 
