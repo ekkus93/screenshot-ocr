@@ -59,6 +59,10 @@ FORBIDDEN_PORTABLE_MULTILINE_REGEX = (
         "portable code imports native Windows APIs",
     ),
     (
+        r"\b(?:winapi\s*::\s*(?:um|shared)|std\s*::\s*os\s*::\s*(?:windows|linux))\b",
+        "portable code imports platform-specific OS APIs",
+    ),
+    (
         r'\bstd\s*::\s*env\s*::\s*(?:var|var_os)\s*\(\s*"(?:DISPLAY|WAYLAND_DISPLAY|XDG_[A-Za-z0-9_]*|GNOME_[A-Za-z0-9_]*|DESKTOP_SESSION|GDMSESSION)"',
         "portable code probes Linux desktop environment",
     ),

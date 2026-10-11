@@ -107,6 +107,20 @@ class PlatformBoundaryGuardTests(unittest.TestCase):
                 self.assertEqual(status, 1, report)
                 self.assertIn("app.rs:1:", report)
 
+    def test_platform_specific_os_apis_are_rejected_from_portable_code(self) -> None:
+        for source in (
+            "use std::os::windows::ffi::OsStrExt;\\n",
+            "use std::os::linux::raw::stat;\\n",
+            "use winapi::um::winuser;\\n",
+            "use winapi::shared::windef;\\n",
+            "use std::os\\n  ::windows::ffi::OsStrExt;\\n",
+            "use winapi\\n  ::um::winuser;\\n",
+        ):
+            with self.subTest(source=source):
+                status, report = self.run_check({"app.rs": source})
+                self.assertEqual(status, 1, report)
+                self.assertIn("app.rs:1:", report)
+
     def test_platform_adapter_can_use_native_imports(self) -> None:
         status, report = self.run_check(
             {
