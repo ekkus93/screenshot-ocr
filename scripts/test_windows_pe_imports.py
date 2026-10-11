@@ -92,6 +92,19 @@ class PeImportTests(unittest.TestCase):
             self.assertEqual(result["qualification"].startswith("static PE"), True)
 
 
+    def test_uppercase_dll_extension_is_included_on_all_hosts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "tesseract.exe").write_bytes(fixture(delay=True))
+            (root / "vendor-extra.DLL").write_bytes(fixture())
+            result = audit.audit(root)
+            self.assertEqual(len(result["binaries"]), 2)
+            self.assertEqual(result["binaries"][0]["packaged"], ["vendor-extra.dll"])
+            self.assertEqual(
+                result["statically_reachable_binaries"],
+                ["tesseract.exe", "vendor-extra.dll"],
+            )
+
     def test_audit_rejects_x86_executable_or_dependency(self):
         for x86_executable in (True, False):
             with self.subTest(x86_executable=x86_executable):

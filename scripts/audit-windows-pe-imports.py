@@ -118,7 +118,12 @@ def imports(data: bytes) -> set[str]:
 
 def audit(root: Path) -> dict[str, object]:
     binary = root / "tesseract.exe"
-    dlls = sorted(root.glob("*.dll"), key=lambda p: p.name.lower())
+    # Windows resolves DLL names without regard to extension case. Include
+    # mixed-case names even when this inventory runs on a Linux host.
+    dlls = sorted(
+        (p for p in root.iterdir() if p.name.lower().endswith(".dll")),
+        key=lambda p: p.name.lower(),
+    )
     if not binary.is_file() or not dlls:
         raise InvalidPE("staged OCR executable or runtime DLLs missing")
     files = [binary, *dlls]
