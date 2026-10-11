@@ -34,6 +34,29 @@ Linux hosted CI does not prove physical GNOME Wayland/X11 behavior.
 The NSIS smoke does **not** publish or upload a Windows installer.
 The checksum is printed in CI logs, not distributed as a Windows asset.
 
+## Developer-only Windows build
+
+On a Windows x86-64 development machine, install the pinned Node and Rust
+toolchains, MSVC C++ build tools, Windows SDK, WebView2/Tauri prerequisites,
+Python 3, and PowerShell. These are development dependencies; Windows users
+must not install Linux GNOME/XDG Portal or Debian packages.
+
+From the repository root in PowerShell:
+
+```powershell
+npm ci
+npm run tauri -- icon src-tauri/icons/128x128.png
+./scripts/audit-windows-ocr-runtime.ps1 -StageRuntime
+python scripts/audit-windows-pe-imports.py src-tauri/windows-ocr-runtime
+npm run tauri -- build --bundles nsis --config src-tauri/tauri.nsis.conf.json
+./scripts/verify-windows-nsis-payload.ps1
+```
+
+Staging fetches checksum-pinned OCR inputs at **build time**; the app must
+not fetch OCR models at runtime. This procedure creates an unapproved NSIS
+test candidate, **not** a redistributable release. The installer remains
+unpublished pending license/NOTICE and physical Windows acceptance.
+
 ## Outstanding evidence
 
 Hosted CI cannot prove clean installation/uninstallation, fully offline
