@@ -54,11 +54,20 @@ def imports(data: bytes) -> set[str]:
     end = opt + optional_size
     if end > len(data):
         raise InvalidPE("truncated optional header")
+    # Do not read a data-directory entry from the section table when a
+    # malformed PE declares an undersized optional header. A directory can
+    # only be absent when its entire layout is valid for the PE flavor.
+    if optional_size < 2:
+        raise InvalidPE("truncated optional header")
     magic = uint16(data, opt)
     if magic == 0x20B:  # PE32+
+        if optional_size < 112:
+            raise InvalidPE("truncated PE32+ optional header")
         directory = opt + 112
         image_base = struct.unpack_from("<Q", data, opt + 24)[0]
     elif magic == 0x10B:  # PE32
+        if optional_size < 96:
+            raise InvalidPE("truncated PE32 optional header")
         directory = opt + 96
         image_base = uint32(data, opt + 28)
     else:
@@ -99,7 +108,10 @@ def imports(data: bytes) -> set[str]:
         if entry + 8 > end:
             continue  # Older optional headers may omit delay import directory.
         rva = uint32(data, entry)
+        size = uint32(data, entry + 4)
         if not rva:
+            if size:
+                raise InvalidPE("import directory size without RVA")
             continue
         for number in range(1024):
             offset = file_offset(rva + number * record_size, record_size)

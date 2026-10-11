@@ -56,6 +56,26 @@ class PeImportTests(unittest.TestCase):
             {"kernel32.dll", "vendor-extra.dll"},
         )
 
+    def test_optional_header_cannot_overlap_section_table(self):
+        for pe64, minimum in ((True, 112), (False, 96)):
+            for size in (0, 1, minimum - 1):
+                with self.subTest(pe64=pe64, size=size):
+                    data = bytearray(fixture(pe64=pe64))
+                    struct.pack_into("<H", data, 0x94, size)
+                    with self.assertRaisesRegex(audit.InvalidPE, "optional header"):
+                        audit.imports(bytes(data))
+
+    def test_import_directory_size_without_rva_is_rejected(self):
+        for delay in (False, True):
+            with self.subTest(delay=delay):
+                data = bytearray(fixture(delay=delay))
+                opt = 0x98
+                directory = opt + 112
+                entry = directory + (13 if delay else 1) * 8
+                struct.pack_into("<II", data, entry, 0, 20)
+                with self.assertRaisesRegex(audit.InvalidPE, "size without RVA"):
+                    audit.imports(bytes(data))
+
     def test_truncated_and_invalid_pe_fail_closed(self):
         for invalid in (b"", b"MZ", b"not a PE", fixture()[:0x150]):
             with self.subTest(length=len(invalid)):
