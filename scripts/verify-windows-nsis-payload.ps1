@@ -14,6 +14,15 @@ if ($LASTEXITCODE -ne 0) { throw "NSIS extraction failed." }
 $binary = @(Get-ChildItem -LiteralPath $extracted -Recurse -File -Filter "tesseract.exe")
 if ($binary.Count -ne 1) { throw "Expected one packaged Tesseract binary." }
 $root = $binary[0].DirectoryName
+# The resolver uses current_exe()/resources/ocr, not a recursive search.
+# A payload can contain valid OCR files but still fail on a clean install if
+# Tauri places them beside the wrong executable or in a different directory.
+$app = @(Get-ChildItem -LiteralPath $extracted -Recurse -File -Filter "screenshot-ocr.exe")
+if ($app.Count -ne 1) { throw "Expected exactly one packaged application executable." }
+$expectedRoot = Join-Path $app[0].DirectoryName "resources/ocr"
+if ([IO.Path]::GetFullPath($root) -ine [IO.Path]::GetFullPath($expectedRoot)) {
+    throw "Packaged OCR directory does not match the application runtime resolver."
+}
 $seen = @{}
 foreach ($entry in @($manifest.files)) {
     $name = [string]$entry.name
