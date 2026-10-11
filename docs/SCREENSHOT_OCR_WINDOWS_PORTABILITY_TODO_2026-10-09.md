@@ -303,67 +303,87 @@ At minimum inspect:
 
 ### W5.1 Environment probe
 
-- [ ] Move Linux OS guard out of portable core.
-- [ ] Move DISPLAY probing to Linux platform code.
-- [ ] Move WAYLAND_DISPLAY probing to Linux platform code.
-- [ ] Move XDG_CURRENT_DESKTOP/GNOME detection to Linux platform code.
-- [ ] Move GNOME Screenshot executable discovery to Linux platform code.
-- [ ] Return only required generic capability information to shared code.
+- [x] Move Linux OS guard out of portable core.
+- [x] Move DISPLAY probing to Linux platform code.
+- [x] Move WAYLAND_DISPLAY probing to Linux platform code.
+- [x] Move XDG_CURRENT_DESKTOP/GNOME detection to Linux platform code.
+- [x] Move GNOME Screenshot executable discovery to Linux platform code.
+- [x] Return only required generic capability information to shared code.
 
 ### W5.2 Shortcut policy
 
-- [ ] Preserve Linux X11 direct Super+Shift+O behavior.
-- [ ] Preserve GNOME Wayland custom-shortcut guidance.
-- [ ] Keep shortcut action routed through shared action router.
-- [ ] Ensure Windows can later use Control+Shift+O without changing action semantics.
+- [x] Preserve Linux X11 direct Super+Shift+O behavior.
+- [x] Preserve GNOME Wayland custom-shortcut guidance.
+- [x] Keep shortcut action routed through shared action router.
+- [x] Ensure Windows can later use Control+Shift+O without changing action semantics.
 
 ### W5.3 Tray/single-instance policy
 
-- [ ] Preserve current tray actions.
-- [ ] Preserve single-instance command allowlist.
-- [ ] Keep unknown second-instance behavior safe.
-- [ ] Keep quit cancellation/cleanup behavior shared.
+- [x] Preserve current tray actions.
+- [x] Preserve single-instance command allowlist.
+- [x] Keep unknown second-instance behavior safe.
+- [x] Keep quit cancellation/cleanup behavior shared.
 
 ### W5.4 Linux diagnostics
 
-- [ ] Keep Linux-specific capability details in Linux diagnostic provider.
-- [ ] Preserve content-free status strings.
-- [ ] Preserve direct-shortcut registration status.
-- [ ] Preserve capture backend capability status.
+- [x] Keep Linux-specific capability details in Linux diagnostic provider.
+- [x] Preserve content-free status strings.
+- [x] Preserve direct-shortcut registration status.
+- [x] Preserve capture backend capability status.
+
+**W5 source/hosted evidence (2026-10-11):** Linux desktop probing,
+GNOME helper discovery, backend capability summaries and shortcut policy
+reside under `src-tauri/src/platform/linux/`. `src-tauri/src/desktop.rs`
+and `src-tauri/src/actions.rs` retain shared tray, safe second-instance
+allowlist, bounded quit cancellation, and shortcut action routing. Unit tests
+cover the X11-only shortcut selection and content-free Linux diagnostic
+construction. This establishes code/CI preservation, not physical GNOME
+Wayland/X11, tray or shortcut acceptance (W11.3 remains unchecked).
 
 ### W5 acceptance gate
 
-- [ ] Shared application code no longer parses Linux desktop environment state.
+- [x] Shared application code no longer parses Linux desktop environment state.
 
 ## 10. W6 — OCR runtime portability
 
 ### W6.1 Separate discovery from execution
 
-- [ ] Identify existing TesseractEngine responsibilities.
-- [ ] Keep recognition/probe process control shared where feasible.
-- [ ] Extract Linux executable/tessdata location policy.
-- [ ] Introduce runtime descriptor/resolver if required.
-- [ ] Keep subprocess timeout/cancellation behavior shared.
-- [ ] Keep no-shell behavior shared.
-- [ ] Keep bounded output behavior shared.
+- [x] Identify existing TesseractEngine responsibilities.
+- [x] Keep recognition/probe process control shared where feasible.
+- [x] Extract Linux executable/tessdata location policy.
+- [x] Introduce runtime descriptor/resolver if required.
+- [x] Keep subprocess timeout/cancellation behavior shared.
+- [x] Keep no-shell behavior shared.
+- [x] Keep bounded output behavior shared.
 
 ### W6.2 Linux runtime behavior
 
-- [ ] Preserve current trusted executable-directory policy.
-- [ ] Preserve missing-engine error.
-- [ ] Preserve missing-English-language error.
-- [ ] Preserve Debian runtime dependency behavior.
+- [x] Preserve current trusted executable-directory policy.
+- [x] Preserve missing-engine error.
+- [x] Preserve missing-English-language error.
+- [x] Preserve Debian runtime dependency behavior.
 
 ### W6.3 Windows readiness
 
-- [ ] Confirm the shared engine can accept a packaged Windows executable/runtime descriptor without Linux assumptions.
-- [ ] Confirm Windows path separators do not enter OCR policy logic.
-- [ ] Confirm tessdata location can be supplied internally without frontend control.
-- [ ] Add unit tests using synthetic runtime descriptors where practical.
+- [x] Confirm the shared engine can accept a packaged Windows executable/runtime descriptor without Linux assumptions.
+- [x] Confirm Windows path separators do not enter OCR policy logic.
+- [x] Confirm tessdata location can be supplied internally without frontend control.
+- [x] Add unit tests using synthetic runtime descriptors where practical.
+
+**W6 source/hosted evidence (2026-10-11):** Shared
+`src-tauri/src/ocr/tesseract.rs` handles bounded English probing,
+subprocess execution and cancellation without shell invocation. Linux
+executable resolution is restricted in
+`src-tauri/src/platform/linux/environment.rs`; Windows supplies a packaged
+`OcrRuntime` from `src-tauri/src/platform/windows/ocr_runtime.rs` using
+`PathBuf` rather than frontend paths. Synthetic missing-engine/language
+and native Windows staged OCR tests are present. The full Linux/Windows
+hosted suite passed at `f3c866fadc1a0ad5d086c7407f70bd2d2dc77fbc`
+(run `38131090350`); physical Windows offline operation remains unproven.
 
 ### W6 acceptance gate
 
-- [ ] Shared OCR recognition code is reusable by Linux and Windows without OS branching.
+- [x] Shared OCR recognition code is reusable by Linux and Windows without OS branching.
 
 ## 11. W7 — Diagnostics, settings, and error boundary audit
 
