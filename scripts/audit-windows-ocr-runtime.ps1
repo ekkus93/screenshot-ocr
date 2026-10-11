@@ -16,7 +16,16 @@ $extracted = Join-Path $workspace "extracted"
 New-Item -ItemType Directory -Force -Path $extracted | Out-Null
 
 Write-Output "Downloading checksum-pinned Tesseract build input."
-Invoke-WebRequest -Uri $uri -OutFile $setup -TimeoutSec 240
+for ($attempt = 1; $attempt -le 3; $attempt++) {
+    try {
+        Invoke-WebRequest -Uri $uri -OutFile $setup -TimeoutSec 240
+        break
+    } catch {
+        if (Test-Path -LiteralPath $setup) { Remove-Item -LiteralPath $setup -Force }
+        if ($attempt -eq 3) { throw "Pinned OCR source unavailable after three attempts." }
+        Start-Sleep -Seconds (5 * $attempt)
+    }
+}
 $actual = (Get-FileHash -LiteralPath $setup -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($actual -cne $expectedSha256) {
     throw "Windows Tesseract installer SHA-256 mismatch; refusing extraction."
