@@ -39,7 +39,8 @@ pub fn resolve_packaged_runtime() -> Result<OcrRuntime, AppError> {
 
 pub fn packaged_runtime_status() -> String {
     match resolve_packaged_runtime() {
-        Ok(_) => "available".into(),
+        // A file-presence check is not proof that native DLLs load or OCR runs.
+        Ok(_) => "packaged files present; OCR probe separate".into(),
         Err(AppError::OcrLanguageMissing) => "missing English language data".into(),
         Err(_) => "unavailable".into(),
     }

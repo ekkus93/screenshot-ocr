@@ -5,8 +5,7 @@ mod capture;
 mod commands;
 mod desktop;
 mod diagnostics;
-// Windows capture is not wired yet; its reserved public error codes remain
-// stable while the native adapter is implemented.
+// Stable public error codes are shared by Linux and native Windows capture.
 #[cfg_attr(target_os = "windows", allow(dead_code))]
 mod error;
 mod image_pipeline;
