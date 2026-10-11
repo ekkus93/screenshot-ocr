@@ -17,7 +17,10 @@ pub fn compose(
     for (tile, image) in tiles {
         // Overlapping monitor tiles would overwrite previously captured pixels
         // and make multi-monitor OCR results dependent on enumeration order.
-        if covered.iter().any(|previous| previous.intersect(tile.source).is_some()) {
+        if covered
+            .iter()
+            .any(|previous| previous.intersect(tile.source).is_some())
+        {
             return Err(AppError::CaptureImageInvalid);
         }
         let tile_width =
@@ -120,7 +123,10 @@ mod tests {
         let selection = rect(-5, 0, 5, 4);
         let tiles = monitor_tiles(selection, &[rect(-5, 0, 1, 4), rect(0, 0, 5, 4)]);
         let images = tiles.into_iter().map(|tile| {
-            (tile, RgbaImage::new(tile.source.width() as u32, tile.source.height() as u32))
+            (
+                tile,
+                RgbaImage::new(tile.source.width() as u32, tile.source.height() as u32),
+            )
         });
         assert!(matches!(
             compose(selection, images),
@@ -133,7 +139,10 @@ mod tests {
         let selection = rect(0, 0, 4, 4);
         let tile = monitor_tiles(selection, &[selection])[0];
         assert!(matches!(
-            compose(selection, [(tile, RgbaImage::new(4, 4)), (tile, RgbaImage::new(4, 4))]),
+            compose(
+                selection,
+                [(tile, RgbaImage::new(4, 4)), (tile, RgbaImage::new(4, 4))]
+            ),
             Err(AppError::CaptureImageInvalid)
         ));
     }
