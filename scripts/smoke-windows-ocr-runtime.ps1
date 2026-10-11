@@ -83,6 +83,19 @@ try {
         $manifest = Join-Path $PSScriptRoot "../src-tauri/Cargo.toml"
         & cargo test --manifest-path $manifest --locked windows_staged_shared_engine -- --ignored
         if ($LASTEXITCODE -ne 0) { throw "Shared Windows OCR engine integration smoke failed." }
+        # A cancelled task must also terminate its spawned native process.
+        # The synthetic fixture records each PID before reporting readiness.
+        foreach ($mode in @("probe", "recognize")) {
+            $pidFile = Join-Path $workspace "$mode.pid"
+            if (-not (Test-Path -LiteralPath $pidFile -PathType Leaf)) {
+                throw "Synthetic Windows $mode child did not report its process ID."
+            }
+            $childProcessId = [int](Get-Content -LiteralPath $pidFile -Raw).Trim()
+            if ($childProcessId -le 0) { throw "Invalid synthetic child process ID." }
+            if ($null -ne (Get-Process -Id $childProcessId -ErrorAction SilentlyContinue)) {
+                throw "Shared Windows OCR cancellation left a synthetic $mode child running."
+            }
+        }
     } finally {
         Remove-Item Env:SCREENSHOT_OCR_WINDOWS_OCR_SMOKE_IMAGE -ErrorAction SilentlyContinue
         Remove-Item Env:SCREENSHOT_OCR_WINDOWS_FAKE_TESSERACT -ErrorAction SilentlyContinue
