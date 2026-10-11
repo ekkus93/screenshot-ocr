@@ -378,9 +378,7 @@ async fn missing_english_language_propagates_through_shared_capture() {
             events: events.clone(),
         }),
     );
-    let result = services
-        .capture(request(), || Ok(()), || Ok(()))
-        .await;
+    let result = services.capture(request(), || Ok(()), || Ok(())).await;
     assert!(matches!(result, Err(AppError::OcrLanguageMissing)));
     assert_eq!(recorded(&events), ["prepare", "capture", "runtime"]);
 }
@@ -413,7 +411,9 @@ async fn cancelling_during_shared_ocr_preserves_job_ownership() {
     let job_id = request.job_id;
     let capture_services = services.clone();
     let capture = tokio::spawn(async move {
-        capture_services.capture(request, || Ok(()), || Ok(())).await
+        capture_services
+            .capture(request, || Ok(()), || Ok(()))
+            .await
     });
 
     timeout(Duration::from_secs(8), async {
