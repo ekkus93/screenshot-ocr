@@ -59,9 +59,10 @@ documentation. Installer construction may fetch the WebView2 distribution
 
 The NSIS archive verifier also requires exactly one embedded
 `MicrosoftEdgeWebView2RuntimeInstaller.exe` payload with a plausible standalone
-installer size, and records its SHA-256 in hosted CI logs. This static archive
-inspection does not validate Microsoft's installer signature, native
-redistribution obligations, execution, or disconnected installation.
+installer size, records its SHA-256 in hosted CI logs, and requires a
+valid Authenticode signature chained to Windows trust with Microsoft Corporation
+as the signing organization. This hosted check does not establish native
+redistribution rights, installer execution, or disconnected installation.
 
 Bundling the offline installer is only a packaging design decision. CI does
 not execute NSIS setup on a clean disconnected Windows desktop. Physical

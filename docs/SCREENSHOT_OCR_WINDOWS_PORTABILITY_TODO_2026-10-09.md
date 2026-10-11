@@ -934,8 +934,11 @@ the approximately 127 MB installer increase and the distinction between
 build-time fetching, application-time OCR, and clean offline installation.
 Repository-policy CI now rejects removal of the offline-install setting.
 The NSIS archive verifier also checks for one embedded standalone WebView2
-installer and prints its SHA-256 for later provenance review. This static
-presence check is not proof of signature trust, execution, or installation.
+installer and prints its SHA-256 for later provenance review. The
+packaging verifier now also requires a valid Microsoft Corporation Authenticode
+signature on the extracted WebView2 installer; its exact-head Windows CI still
+needs to pass. This hosted trust check is not proof of offline installation,
+redistribution rights, or physical desktop behavior.
 Physical WebView2 provisioning and offline installation remain unchecked.
 
 ### W20.3 Installer behavior

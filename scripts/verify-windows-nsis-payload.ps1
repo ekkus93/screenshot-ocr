@@ -23,6 +23,19 @@ if ($webview2[0].Length -lt 30000000) {
 }
 $webview2Hash = (Get-FileHash -LiteralPath $webview2[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
 Write-Output "Embedded WebView2 offline payload present; SHA-256: $webview2Hash"
+$signature = Get-AuthenticodeSignature -LiteralPath $webview2[0].FullName
+if ($null -eq $signature -or
+    $signature.Status -ne [System.Management.Automation.SignatureStatus]::Valid -or
+    $null -eq $signature.SignerCertificate) {
+    throw "Embedded WebView2 offline installer does not have a valid trusted signature."
+}
+# A valid signature alone is insufficient: a third party could sign a
+# substituted payload. Require Microsoft's signing organization as well.
+$publisher = $signature.SignerCertificate.Subject
+if ($publisher -notmatch '(^|,\s*)O\s*=\s*"?Microsoft Corporation"?(,|$)') {
+    throw "Embedded WebView2 offline installer is not signed by Microsoft Corporation."
+}
+Write-Output "Embedded WebView2 Authenticode signature and Microsoft publisher verified."
 $binary = @(Get-ChildItem -LiteralPath $extracted -Recurse -File -Filter "tesseract.exe")
 if ($binary.Count -ne 1) { throw "Expected one packaged Tesseract binary." }
 $root = $binary[0].DirectoryName
