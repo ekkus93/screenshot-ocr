@@ -56,6 +56,11 @@ Shared code intentionally retains only platform-neutral concepts:
 
 The repository-policy job runs `scripts/check-platform-boundaries.py`, which rejects known concrete Linux/Windows imports, Linux environment probes, Linux executable paths, and Windows API imports outside the platform tree.
 
+The static boundary guard additionally rejects Windows registry bindings,
+registry root constants, and Windows user-profile/environment-path probes in
+shared Rust modules, including multiline environment reads. These checks are
+synthetic regression protection, not a substitute for native loader review.
+
 The shared `src-tauri/src/error.rs` error codes/variants and public error
 mapping are now platform-neutral: Linux capture failure codes remain part of
 the stable serialized domain contract even when compiled on Windows.

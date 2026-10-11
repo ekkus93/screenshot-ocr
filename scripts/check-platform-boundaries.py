@@ -39,6 +39,12 @@ FORBIDDEN_PORTABLE_REGEX = (
      "portable code imports a concrete Windows API"),
     (r"\b(?:winapi\s*::\s*(?:um|shared)|std\s*::\s*os\s*::\s*(?:windows|linux))\b",
      "portable code imports platform-specific OS APIs"),
+    (r"\b(?:winreg|windows_registry)\b",
+     "portable code references Windows registry bindings"),
+    (r"\bHKEY_(?:CURRENT_USER|LOCAL_MACHINE|CLASSES_ROOT|USERS|CURRENT_CONFIG)\b",
+     "portable code references Windows registry roots"),
+    (r'(?i)\bstd::env::(?:var|var_os)\s*\(\s*"(?:APPDATA|LOCALAPPDATA|USERPROFILE|PROGRAMFILES|SYSTEMROOT|WINDIR)"',
+     "portable code reads a Windows-specific environment path"),
     (r'\bstd::env::(?:var|var_os)\s*\(\s*"(?:DESKTOP_SESSION|GDMSESSION)"',
      "portable code reads a Linux desktop session environment variable"),
     (r'\bstd::env::(?:var|var_os)\s+\(\s*"(?:DISPLAY|WAYLAND_DISPLAY|XDG_[A-Za-z0-9_]*|GNOME_[A-Za-z0-9_]*)"',
@@ -67,6 +73,9 @@ FORBIDDEN_PORTABLE_MULTILINE_REGEX = (
     (
         r'\bstd\s*::\s*env\s*::\s*(?:var|var_os)\s*\(\s*"(?:DISPLAY|WAYLAND_DISPLAY|XDG_[A-Za-z0-9_]*|GNOME_[A-Za-z0-9_]*|DESKTOP_SESSION|GDMSESSION)"',
         "portable code probes Linux desktop environment",
+    ),    (
+        r'(?i)\bstd\s*::\s*env\s*::\s*(?:var|var_os)\s*\(\s*"(?:APPDATA|LOCALAPPDATA|USERPROFILE|PROGRAMFILES|SYSTEMROOT|WINDIR)"',
+        "portable code probes Windows-specific environment paths",
     ),
 )
 

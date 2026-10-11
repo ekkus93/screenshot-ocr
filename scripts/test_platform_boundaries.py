@@ -121,6 +121,22 @@ class PlatformBoundaryGuardTests(unittest.TestCase):
                 self.assertEqual(status, 1, report)
                 self.assertIn("app.rs:1:", report)
 
+    def test_windows_registry_and_profile_paths_stay_outside_core(self) -> None:
+        for source in (
+            'let _ = std::env::var("APPDATA");\n',
+            'let _ = std::env::var_os("LOCALAPPDATA");\n',
+            'let _ = std::env::var("userprofile");\n',
+            'let _ = std::env::var_os("PROGRAMFILES");\n',
+            'use winreg::RegKey;\n',
+            'use windows_registry as registry;\n',
+            'let _ = HKEY_CURRENT_USER;\n',
+            'let _ = std::env::var_os(\n "SYSTEMROOT"\n);\n',
+        ):
+            with self.subTest(source=source):
+                status, report = self.run_check({"app.rs": source})
+                self.assertEqual(status, 1, report)
+                self.assertIn("app.rs:1:", report)
+
     def test_platform_adapter_can_use_native_imports(self) -> None:
         status, report = self.run_check(
             {
