@@ -19,9 +19,12 @@ pub struct LinuxEnvironmentProbe;
 impl LinuxEnvironmentProbe {
     pub fn probe() -> LinuxEnvironmentInfo {
         let os_release = read_os_release();
+        // XDG variables are user-controlled. Do not echo arbitrary values into
+        // the public diagnostics panel (which must not contain private text).
         let desktop_environment =
-            env::var("XDG_CURRENT_DESKTOP").unwrap_or_else(|_| "unknown".into());
-        let session_type = env::var("XDG_SESSION_TYPE").unwrap_or_else(|_| "unknown".into());
+            safe_desktop_environment(env::var("XDG_CURRENT_DESKTOP").ok().as_deref()).into();
+        let session_type =
+            safe_session_type(env::var("XDG_SESSION_TYPE").ok().as_deref()).into();
         let gnome_screenshot = find_system_executable("gnome-screenshot");
         let tesseract = find_system_executable("tesseract");
         LinuxEnvironmentInfo {
@@ -31,6 +34,48 @@ impl LinuxEnvironmentProbe {
             gnome_screenshot,
             tesseract,
         }
+    }
+}
+
+fn safe_desktop_environment(raw: Option<&str>) -> &'static str {
+    let Some(raw) = raw else { return "unknown" };
+    for desktop in raw.split(':') {
+        let desktop = desktop.trim();
+        if desktop.eq_ignore_ascii_case("gnome")
+            || desktop.eq_ignore_ascii_case("gnome-classic")
+        {
+            return "GNOME";
+        }
+        for (known, label) in [
+            ("kde", "KDE Plasma"),
+            ("plasma", "KDE Plasma"),
+            ("xfce", "XFCE"),
+            ("lxqt", "LXQt"),
+            ("cinnamon", "Cinnamon"),
+            ("x-cinnamon", "Cinnamon"),
+            ("mate", "MATE"),
+            ("unity", "Unity"),
+            ("budgie", "Budgie"),
+            ("pantheon", "Pantheon"),
+            ("sway", "Sway"),
+            ("hyprland", "Hyprland"),
+            ("cosmic", "COSMIC"),
+        ] {
+            if desktop.eq_ignore_ascii_case(known) {
+                return label;
+            }
+        }
+    }
+    "other"
+}
+
+fn safe_session_type(raw: Option<&str>) -> &'static str {
+    match raw {
+        Some(value) if value.eq_ignore_ascii_case("wayland") => "wayland",
+        Some(value) if value.eq_ignore_ascii_case("x11") => "x11",
+        Some(value) if value.eq_ignore_ascii_case("tty") => "tty",
+        Some(_) => "other",
+        None => "unknown",
     }
 }
 
@@ -115,6 +160,18 @@ mod tests {
             find_executable_in("tool", [directory.path()]),
             Some(candidate)
         );
+    }
+
+    #[test]
+    fn diagnostic_environment_labels_never_echo_untrusted_values() {
+        assert_eq!(safe_desktop_environment(Some("ubuntu:GNOME")), "GNOME");
+        assert_eq!(safe_desktop_environment(Some("X-Cinnamon")), "Cinnamon");
+        assert_eq!(safe_desktop_environment(None), "unknown");
+        assert_eq!(safe_desktop_environment(Some("private/example/path")), "other");
+        assert_eq!(safe_session_type(Some("WAYLAND")), "wayland");
+        assert_eq!(safe_session_type(Some("X11")), "x11");
+        assert_eq!(safe_session_type(Some("private-session")), "other");
+        assert_eq!(safe_session_type(None), "unknown");
     }
 
     #[test]

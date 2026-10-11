@@ -50,7 +50,8 @@ Shared code intentionally retains only platform-neutral concepts:
 - a stable capture backend ID;
 - a generic captured image;
 - a generic OCR runtime descriptor containing an internally resolved executable and optional tessdata directory;
-- generic content-free platform diagnostics;
+- generic content-free platform diagnostics (Linux XDG desktop/session labels are
+  normalized to a bounded allowlist, never copied verbatim);
 - platform-provided shortcut text.
 
 The repository-policy job runs `scripts/check-platform-boundaries.py`, which rejects known concrete Linux/Windows imports, Linux environment probes, Linux executable paths, and Windows API imports outside the platform tree.
