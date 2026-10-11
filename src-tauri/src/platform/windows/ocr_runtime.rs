@@ -260,4 +260,61 @@ mod tests {
             ));
         }
     }
+
+    #[test]
+    fn resolver_rejects_redirected_tessdata_and_executable_when_links_are_supported() {
+        let root = tempdir().unwrap();
+        let executable = root.path().join("screenshot-ocr.exe");
+        let ocr = root.path().join("resources").join("ocr");
+        let tessdata = ocr.join("tessdata");
+        fs::create_dir_all(&tessdata).unwrap();
+        let binary = ocr.join("tesseract.exe");
+        fs::write(&binary, b"fixture").unwrap();
+        fs::write(tessdata.join("eng.traineddata"), b"fixture").unwrap();
+        assert!(resolve_at(&executable).is_ok());
+
+        let external_binary = root.path().join("external.exe");
+        fs::write(&external_binary, b"fixture").unwrap();
+        fs::remove_file(&binary).unwrap();
+        if std::os::windows::fs::symlink_file(&external_binary, &binary).is_ok() {
+            assert!(matches!(
+                resolve_at(&executable),
+                Err(AppError::OcrEngineUnavailable)
+            ));
+            fs::remove_file(&binary).unwrap();
+        }
+        fs::write(&binary, b"fixture").unwrap();
+
+        let external_data = root.path().join("external-data");
+        fs::create_dir(&external_data).unwrap();
+        fs::write(external_data.join("eng.traineddata"), b"fixture").unwrap();
+        fs::remove_dir_all(&tessdata).unwrap();
+        if std::os::windows::fs::symlink_dir(&external_data, &tessdata).is_ok() {
+            assert!(matches!(
+                resolve_at(&executable),
+                Err(AppError::OcrLanguageMissing)
+            ));
+        }
+    }
+
+    #[test]
+    fn resolver_rejects_unbounded_adjacent_runtime_entries() {
+        let root = tempdir().unwrap();
+        let executable = root.path().join("screenshot-ocr.exe");
+        let ocr = root.path().join("resources").join("ocr");
+        fs::create_dir_all(ocr.join("tessdata")).unwrap();
+        fs::write(ocr.join("tesseract.exe"), b"fixture").unwrap();
+        fs::write(ocr.join("tessdata").join("eng.traineddata"), b"fixture").unwrap();
+        assert!(resolve_at(&executable).is_ok());
+
+        // The limit includes the executable and tessdata directory; 257
+        // entries must fail closed regardless of filesystem enumeration order.
+        for index in 0..255 {
+            fs::write(ocr.join(format!("extra-{index:03}.txt")), b"fixture").unwrap();
+        }
+        assert!(matches!(
+            resolve_at(&executable),
+            Err(AppError::OcrEngineUnavailable)
+        ));
+    }
 }
