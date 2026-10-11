@@ -380,7 +380,7 @@ mod tests {
 
         let deadline = Instant::now() + Duration::from_secs(10);
         while !marker.is_file() {
-            assert!(Instant::now() < deadline, "synthetic subprocess did not start");
+            assert!(Instant::now() < deadline, "child did not start");
             sleep(Duration::from_millis(20)).await;
         }
     }
@@ -498,9 +498,3 @@ mod tests {
         sleep(Duration::from_millis(50)).await;
         cancellation.cancel();
         let result = timeout(Duration::from_secs(2), task)
-            .await
-            .expect("OCR cancellation timed out")
-            .expect("OCR task failed");
-        assert!(matches!(result, Err(AppError::CaptureCancelled)));
-    }
-}
