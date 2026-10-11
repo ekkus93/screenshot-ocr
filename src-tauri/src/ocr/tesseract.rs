@@ -317,6 +317,74 @@ mod tests {
         assert!(normalized.contains("SAMPLE 123"), "synthetic OCR mismatch");
     }
 
+    // Hosted Windows CI proves cancellation of an already-running native child.
+    #[cfg(windows)]
+    #[tokio::test]
+    #[ignore = "requires compiled synthetic Windows child fixture"]
+    async fn windows_staged_shared_engine_cancellation() {
+        use crate::models::PreprocessingVariant;
+        use image::DynamicImage;
+        use std::path::PathBuf;
+        use std::time::Duration;
+        use tokio::time::timeout;
+
+        let executable = PathBuf::from(
+            std::env::var_os("SCREENSHOT_OCR_WINDOWS_FAKE_TESSERACT")
+                .expect("synthetic Windows executable required"),
+        );
+        let marker_dir = PathBuf::from(
+            std::env::var_os("SCREENSHOT_OCR_WINDOWS_FAKE_MARKER_DIR")
+                .expect("synthetic Windows marker directory required"),
+        );
+        let engine = TesseractEngine::new(OcrRuntime::new(executable, None));
+
+        let cancellation = CancellationToken::new();
+        let token = cancellation.clone();
+        let probe_engine = engine.clone();
+        let probe = tokio::spawn(async move { probe_engine.probe_english(&token).await });
+        wait_for_windows_fake_start(&marker_dir.join("probe.started")).await;
+        cancellation.cancel();
+        let probe_result = timeout(Duration::from_secs(4), probe)
+            .await
+            .expect("Windows language-probe cancellation timed out")
+            .expect("Windows language-probe task panicked");
+        assert!(matches!(probe_result, Err(AppError::CaptureCancelled)));
+
+        let cancellation = CancellationToken::new();
+        let token = cancellation.clone();
+        let variant = PreparedVariant {
+            image: DynamicImage::new_rgb8(64, 32),
+            id: PreprocessingVariant::Original,
+        };
+        let recognition = tokio::spawn(async move {
+            engine
+                .recognize(&variant, TextMode::SingleLine, &token)
+                .await
+        });
+        wait_for_windows_fake_start(&marker_dir.join("recognize.started")).await;
+        cancellation.cancel();
+        let recognition_result = timeout(Duration::from_secs(4), recognition)
+            .await
+            .expect("Windows OCR cancellation timed out")
+            .expect("Windows OCR task panicked");
+        assert!(matches!(
+            recognition_result,
+            Err(AppError::CaptureCancelled)
+        ));
+    }
+
+    #[cfg(windows)]
+    async fn wait_for_windows_fake_start(marker: &std::path::Path) {
+        use std::time::Duration;
+        use tokio::time::{sleep, Instant};
+
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !marker.is_file() {
+            assert!(Instant::now() < deadline, "synthetic subprocess did not start");
+            sleep(Duration::from_millis(20)).await;
+        }
+    }
+
     #[cfg(unix)]
     fn write_executable(path: &std::path::Path, body: &str) {
         use std::os::unix::fs::PermissionsExt;
