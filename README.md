@@ -18,7 +18,7 @@ Screenshot OCR is a privacy-first desktop utility for selecting visible screen t
 
 Other distributions and desktop environments are unverified.
 
-## Installing the latest tagged release
+## Installing the latest tagged Linux release
 
 Each tag pushed to `master` (`vX.Y.Z`) is built by CI and published as a [GitHub release](https://github.com/ekkus93/screenshot-ocr/releases/latest) with the `.deb` package and its `sha256sum` attached.
 
@@ -88,7 +88,7 @@ See:
 - [CI status bridge](docs/CI_STATUS_BRIDGE.md)
 - [synthetic OCR fixtures](docs/OCR_SYNTHETIC_FIXTURES.md)
 
-## Development prerequisites
+## Linux development prerequisites
 
 Ubuntu 22.04 build packages:
 
@@ -107,7 +107,20 @@ sudo apt-get install --yes gnome-screenshot tesseract-ocr tesseract-ocr-eng
 
 The project pins Node and Rust versions (`.node-version`, `src-tauri/rust-toolchain.toml`). Run `scripts/check-dev-tools.sh` to inspect prerequisites without modifying the host.
 
-## Running it in development
+## Windows development prerequisites (unreleased candidate)
+
+Windows x86-64 developers need the pinned Node and Rust toolchains, MSVC C++
+build tools, the Windows SDK, WebView2/Tauri build prerequisites, Python 3,
+and PowerShell. The Linux `apt` instructions above do **not** apply to
+Windows. See [Windows hosted qualification](docs/WINDOWS_HOSTED_QUALIFICATION.md#developer-only-windows-build)
+for the exact PowerShell commands to stage checksum-pinned OCR resources,
+audit native dependencies, and build the experimental NSIS candidate.
+
+The Windows installer is not published or approved for redistribution.
+Development build success does not replace physical Windows 10/11 acceptance
+or native dependency licensing review.
+
+## Running on Linux in development
 
 ```bash
 npm ci
@@ -131,7 +144,7 @@ Hosted CI on Ubuntu 22.04 is authoritative for compilation and linting. Physical
 
 `npm run tauri build` produces `src-tauri/target/release/bundle/deb/Screenshot OCR_<version>_amd64.deb`. A separate Playwright suite (`npm run test:layout`) checks that the Capture/Settings/Diagnostics tabs never require scrolling at the app's window size; it runs in CI but is not part of `npm run validate` since it needs a browser install step.
 
-## Installing a locally built package
+## Installing a locally built Linux package
 
 ```bash
 sudo dpkg -i "./src-tauri/target/release/bundle/deb/Screenshot OCR_0.1.0_amd64.deb"

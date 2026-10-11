@@ -37,11 +37,19 @@ pub fn resolve_packaged_runtime() -> Result<OcrRuntime, AppError> {
     resolve_at(&executable)
 }
 
-pub fn packaged_runtime_status() -> String {
-    match resolve_packaged_runtime() {
+/// Stable, content-free status: never return a path or native error message.
+fn runtime_status_at(executable: &Path) -> &'static str {
+    match resolve_at(executable) {
         // A file-presence check is not proof that native DLLs load or OCR runs.
-        Ok(_) => "packaged files present; OCR probe separate".into(),
-        Err(AppError::OcrLanguageMissing) => "missing English language data".into(),
+        Ok(_) => "packaged files present; OCR probe separate",
+        Err(AppError::OcrLanguageMissing) => "missing English language data",
+        Err(_) => "unavailable",
+    }
+}
+
+pub fn packaged_runtime_status() -> String {
+    match std::env::current_exe() {
+        Ok(executable) => runtime_status_at(&executable).into(),
         Err(_) => "unavailable".into(),
     }
 }
@@ -82,6 +90,27 @@ mod tests {
         assert_eq!(runtime.executable, ocr.join("tesseract.exe"));
         assert_eq!(runtime.tessdata_dir, Some(ocr.join("tessdata")));
         assert_eq!(runtime.working_directory, Some(ocr));
+    }
+
+    #[test]
+    fn diagnostic_status_distinguishes_missing_runtime_and_english_data() {
+        let root = tempdir().unwrap();
+        let executable = root.path().join("screenshot-ocr.exe");
+        let ocr = root.path().join("resources").join("ocr");
+        assert_eq!(runtime_status_at(&executable), "unavailable");
+
+        fs::create_dir_all(ocr.join("tessdata")).unwrap();
+        fs::write(ocr.join("tesseract.exe"), b"synthetic fixture").unwrap();
+        assert_eq!(
+            runtime_status_at(&executable),
+            "missing English language data"
+        );
+
+        fs::write(ocr.join("tessdata").join("eng.traineddata"), b"fixture").unwrap();
+        assert_eq!(
+            runtime_status_at(&executable),
+            "packaged files present; OCR probe separate"
+        );
     }
 
     #[test]
