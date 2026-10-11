@@ -498,3 +498,9 @@ mod tests {
         sleep(Duration::from_millis(50)).await;
         cancellation.cancel();
         let result = timeout(Duration::from_secs(2), task)
+            .await
+            .expect("OCR cancellation timed out")
+            .expect("OCR task failed");
+        assert!(matches!(result, Err(AppError::CaptureCancelled)));
+    }
+}
