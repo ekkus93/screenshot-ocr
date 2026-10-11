@@ -68,6 +68,9 @@ jobs:
       - name: Test synthetic Windows PE dependency inventory
         run: python3 -m unittest discover -s scripts -p "test_windows_pe_imports.py" -v
 
+      - name: Test portable-core boundary guard fixtures
+        run: python3 -m unittest discover -s scripts -p "test_platform_boundaries.py" -v
+
       - name: Check content-leakage source guard
         run: python3 scripts/check-content-leakage.py
 
