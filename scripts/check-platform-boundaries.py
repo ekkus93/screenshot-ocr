@@ -31,15 +31,15 @@ FORBIDDEN_PORTABLE_PATTERNS = {
 # These catch valid Rust import/probe spellings that do not contain the
 # literal substrings above (grouped imports, crate aliases, whitespace).
 FORBIDDEN_PORTABLE_REGEX = (
-    (r"\\b(?:crate::)?platform::\\{\\s*(?:linux|windows)\\b",
+    (r"\b(?:crate::)?platform::\{\s*(?:linux|windows)\b",
      "portable code imports a concrete adapter through a grouped path"),
-    (r"\\bwindows_sys\\b(?!::Win32)",
+    (r"\bwindows_sys\b(?!::Win32)",
      "portable code imports or aliases the native Windows API crate"),
-    (r"\\bwindows::Win32\\b",
+    (r"\bwindows::Win32\b",
      "portable code imports a concrete Windows API"),
-    (r'\\bstd::env::(?:var|var_os)\\s*\\(\\s*"(?:DESKTOP_SESSION|GDMSESSION)"',
+    (r'\bstd::env::(?:var|var_os)\s*\(\s*"(?:DESKTOP_SESSION|GDMSESSION)"',
      "portable code reads a Linux desktop session environment variable"),
-    (r'\\bstd::env::(?:var|var_os)\\s+\\(\\s*"(?:DISPLAY|WAYLAND_DISPLAY|XDG_[A-Za-z0-9_]*|GNOME_[A-Za-z0-9_]*)"',
+    (r'\bstd::env::(?:var|var_os)\s+\(\s*"(?:DISPLAY|WAYLAND_DISPLAY|XDG_[A-Za-z0-9_]*|GNOME_[A-Za-z0-9_]*)"',
      "portable code reads a Linux desktop environment variable"),
 )
 
