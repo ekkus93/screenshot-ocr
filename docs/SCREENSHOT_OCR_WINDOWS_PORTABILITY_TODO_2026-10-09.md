@@ -498,6 +498,7 @@ not represented as completed physical acceptance.
 ### W10.1 Shared orchestration tests
 
 - [x] Fake capture success.
+
 - [x] Fake capture cancellation.
 - [x] Fake capture unavailable.
 - [x] Fake capture cleanup warning.
@@ -946,7 +947,15 @@ On clean Windows test system:
 - [ ] OCR works.
 - [ ] Uninstall succeeds.
 - [ ] App-owned binaries/resources are removed.
-- [ ] User-settings retention/removal policy is documented.
+- [x] User-settings retention/removal policy is documented.
+
+**W20.3 policy evidence (2026-10-11):** `README.md`,
+`docs/WINDOWS_HOSTED_QUALIFICATION.md`, and `docs/THREAT_MODEL.md`
+document the intended Windows NSIS uninstall policy: remove app-owned
+binaries/resources while retaining per-user Tauri `app_config_dir()` settings
+by default. This documents the policy only; generated NSIS uninstall,
+reinstall, settings persistence and profile-data isolation remain untested
+on physical Windows and all corresponding acceptance checkboxes stay open.
 
 ### W20.4 Upgrade/reinstall
 
@@ -998,6 +1007,7 @@ On clean Windows test system:
 - [x] cargo build.
 - [x] Tauri Windows build.
 - [x] NSIS installer build.
+
 - [x] Verify bundled OCR files.
 - [x] Generate SHA-256.
 - [ ] Upload installer/checksum artifact.

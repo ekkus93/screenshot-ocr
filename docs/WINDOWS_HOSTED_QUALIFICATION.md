@@ -79,6 +79,24 @@ not fetch OCR models at runtime. This procedure creates an unapproved NSIS
 test candidate, **not** a redistributable release. The installer remains
 unpublished pending license/NOTICE and physical Windows acceptance.
 
+## NSIS uninstall and settings policy
+
+The intended behavior is to remove the installed application and bundled OCR
+resources but retain the per-user `app_config_dir()/settings.json` and any
+`settings.corrupt.json` recovery file. This directory is outside the
+application's installed resource tree; the application does not store OCR
+history. Uninstall must not recursively delete a user's profile or another
+application's configuration. Reinstall and upgrade should preserve valid
+settings; invalid settings should trigger the existing safe quarantine and
+recovery flow.
+
+Physical acceptance must check the exact tested installer/commit: install,
+save a nondefault setting, uninstall, verify binaries/resources and shortcuts
+are removed while the app-owned settings file remains, reinstall and confirm
+the setting persists, then test reset/corrupt-settings recovery. Confirm
+uninstall does not remove unrelated files. The retention/removal behavior of
+the generated NSIS setup has **not yet been executed or verified**.
+
 ## Outstanding evidence
 
 Hosted CI cannot prove clean installation/uninstallation, fully offline

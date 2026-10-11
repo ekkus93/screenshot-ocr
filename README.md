@@ -53,6 +53,20 @@ require network access. **A clean disconnected install has not been tested**;
 the runtime prerequisite, installer behavior, and native licenses must be
 qualified on physical Windows hardware before release.
 
+### Windows uninstall and settings retention policy
+
+The intended NSIS uninstall policy is to remove installed application binaries,
+bundled OCR resources, and installer-owned shortcuts, while **retaining
+per-user settings by default**. Settings are stored through Tauri's
+`app_config_dir()` outside the installed application directory; they are not
+OCR history and must not be copied into installer logs. Reinstalling or
+upgrading should reuse valid settings and recover safely from invalid settings.
+To erase settings, the user must separately remove the application's own
+configuration directory after exiting the application; do not delete the
+entire Windows roaming-profile directory. **This is a policy, not verified
+NSIS behavior**: uninstall/reinstall/upgrade and user-data retention require
+physical Windows 10/11 acceptance before release.
+
 The candidate installer is intentionally **not published**. Transitive DLL/license review, installer integrity checks, physical Windows 10/11 acceptance, and an explicit final integration decision are required first. No code signing is claimed. Do not treat the Linux release downloads as Windows installers.
 
 For the implementation plan and remaining checks, see the [Windows portability TODO](docs/SCREENSHOT_OCR_WINDOWS_PORTABILITY_TODO_2026-10-09.md), [Windows specification](docs/SCREENSHOT_OCR_WINDOWS_PORTABILITY_SPEC_2026-10-09.md), and [runtime provenance ADR](docs/adr/0005-windows-tesseract-provenance.md).

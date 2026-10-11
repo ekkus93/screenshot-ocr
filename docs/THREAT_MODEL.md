@@ -41,4 +41,22 @@ Third-party GitHub Actions are not yet pinned by immutable commit SHA. That rema
 | Raw Windows errors or screen content escape diagnostics                            | Stable public error taxonomy, content-free platform statuses, no screenshot/OCR/clipboard payload logging                    | Physical failure-path and diagnostic audit                                                          |
 | Windows WebView2 bootstrap requires network                                        | No runtime network dependency for OCR itself                                                                                 | Verify installer bootstrap/offline provisioning policy on clean Windows 10/11                       |
 
+### Windows native loader and uninstall review
+
+The Windows OCR resolver constructs an absolute path under the application's
+own `resources/ocr/` directory and never accepts a frontend path or searches
+`PATH`. The shared OCR command sets its child working directory to that
+resource directory. These choices reduce accidental execution of unrelated
+Tesseract binaries, but do **not** prove Windows DLL loader resolution:
+application-directory precedence, system DLLs, delay-loads, dynamic
+`LoadLibrary` calls, install-directory permissions, and DLL side-loading
+still require a full audit on supported Windows versions. Static PE import
+inventory is prioritization evidence only, not proof of safe runtime loading
+or redistribution licensing. Keep the installer unpublished until reviewed.
+
+Windows uninstall should remove installed binaries and OCR resources but
+retain per-user Tauri configuration by default; neither uninstall behavior
+nor reinstall/upgrade persistence has been physically validated. Uninstall
+must never recursively remove unrelated user-profile data.
+
 The Windows NSIS build is a **non-published smoke candidate**, not a qualified release. No code signing or physical Windows acceptance is claimed.
