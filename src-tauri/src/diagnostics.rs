@@ -55,7 +55,9 @@ impl RuntimeDiagnostics {
         // Native status strings must not introduce unbounded OS error details.
         let status = status.into();
         let safe = match status.as_str() {
-            "available" | "unavailable; main window remains usable" | "not initialized" => status.as_str(),
+            "available" | "unavailable; main window remains usable" | "not initialized" => {
+                status.as_str()
+            }
             _ => "unavailable",
         };
         if let Ok(mut tray_status) = self.tray_status.lock() {
@@ -219,10 +221,19 @@ mod tests {
         let runtime = RuntimeDiagnostics::default();
         runtime.set_tray_status("unavailable; main window remains usable");
         runtime.set_shortcut_status("deferred; use the GNOME custom shortcut");
-        assert_eq!(runtime.snapshot().shortcut_status, "deferred; use the GNOME custom shortcut");
-        assert_eq!(runtime.snapshot().tray_status, "unavailable; main window remains usable");
+        assert_eq!(
+            runtime.snapshot().shortcut_status,
+            "deferred; use the GNOME custom shortcut"
+        );
+        assert_eq!(
+            runtime.snapshot().tray_status,
+            "unavailable; main window remains usable"
+        );
         runtime.set_shortcut_status("registration failed; use the documented platform shortcut");
-        assert_eq!(runtime.snapshot().shortcut_status, "registration failed; use the documented platform shortcut");
+        assert_eq!(
+            runtime.snapshot().shortcut_status,
+            "registration failed; use the documented platform shortcut"
+        );
     }
 
     #[test]
