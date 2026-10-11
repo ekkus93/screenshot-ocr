@@ -426,28 +426,30 @@ At minimum inspect:
 
 ### W9.1 Linux target dependencies
 
-- [ ] Move ashpd under cfg(target_os = "linux") dependencies.
-- [ ] Review any other Linux-only crates.
-- [ ] Keep Linux Tauri system requirements documented.
-- [ ] Ensure Linux tests still compile with locked dependencies.
+- [x] Move ashpd under cfg(target_os = "linux") dependencies.
+- [x] Review any other Linux-only crates.
+- [x] Keep Linux Tauri system requirements documented.
+- [x] Ensure Linux tests still compile with locked dependencies.
 
 ### W9.2 Shared dependencies
 
-- [ ] Confirm image remains shared.
-- [ ] Confirm tokio remains shared.
-- [ ] Confirm serde remains shared.
-- [ ] Confirm Tauri plugins used on both platforms remain shared.
-- [ ] Avoid adding a dependency merely to abstract a trivial type.
+- [x] Confirm image remains shared.
+- [x] Confirm tokio remains shared.
+- [x] Confirm serde remains shared.
+- [x] Confirm Tauri plugins used on both platforms remain shared.
+- [x] Avoid adding a dependency merely to abstract a trivial type.
 
 ### W9.3 Future Windows dependency slot
 
-- [ ] Document preferred target-specific Windows dependency section.
+- [x] Document preferred target-specific Windows dependency section.
 - [ ] Do not add large Windows bindings until the Phase 2 capture decision requires them.
-- [ ] Keep Cargo.lock deterministic.
+- [x] Keep Cargo.lock deterministic.
+
+**W9 structural/CI evidence (2026-10-11):** `src-tauri/Cargo.toml` declares `ashpd` and `url` only under `cfg(target_os = "linux")`, and `windows-sys` only under `cfg(target_os = "windows")`; `image`, `tokio`, `serde`, and the shared Tauri plugins remain common dependencies. The Linux build-package prerequisites remain in `README.md`; the pinned `src-tauri/Cargo.lock` is checked by both platform CI jobs. Earlier exact-head CI `38118651508` at `ecbe361f9fb7cf395a5b8be17494cd4384a35912` passed Linux and Windows builds. This does not assert that the latest commit or physical platforms are qualified. The Phase 2 Windows binding was added only for the selected Win32 capture implementation.
 
 ### W9 acceptance gate
 
-- [ ] A Windows target no longer inherits Linux-only Rust dependencies by default.
+- [x] A Windows target no longer inherits Linux-only Rust dependencies by default.
 
 ## 14. W10 — Portable-core tests and architecture guards
 
