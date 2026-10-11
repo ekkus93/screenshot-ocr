@@ -8,7 +8,9 @@ Set-StrictMode -Version Latest
 
 $uri = "https://digi.bib.uni-mannheim.de/tesseract/tesseract-ocr-w64-setup-5.4.0.20240606.exe"
 $expectedSha256 = "c885fff6998e0608ba4bb8ab51436e1c6775c2bafc2559a19b423e18678b60c9"
-$workspace = Join-Path $env:RUNNER_TEMP "screenshot-ocr-tesseract-audit"
+# Local acceptance uses the same staging path as CI, without requiring RUNNER_TEMP.
+$tempRoot = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { [IO.Path]::GetTempPath() }
+$workspace = Join-Path $tempRoot ("screenshot-ocr-tesseract-audit-" + [guid]::NewGuid().ToString("N"))
 $setup = Join-Path $workspace "pinned-tesseract-setup.exe"
 $extracted = Join-Path $workspace "extracted"
 New-Item -ItemType Directory -Force -Path $extracted | Out-Null

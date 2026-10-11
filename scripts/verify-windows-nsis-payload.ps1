@@ -6,7 +6,8 @@ $installers = @(Get-ChildItem -Path "src-tauri/target/release/bundle/nsis" -Filt
 if ($installers.Count -ne 1) { throw "Expected exactly one NSIS smoke installer." }
 $sevenZip = Join-Path $env:ProgramFiles "7-Zip/7z.exe"
 if (-not (Test-Path -LiteralPath $sevenZip -PathType Leaf)) { throw "7-Zip unavailable." }
-$extracted = Join-Path $env:RUNNER_TEMP "screenshot-ocr-nsis-smoke"
+$tempRoot = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { [IO.Path]::GetTempPath() }
+$extracted = Join-Path $tempRoot ("screenshot-ocr-nsis-smoke-" + [guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Force -Path $extracted | Out-Null
 & $sevenZip x "-o$extracted" -y $installers[0].FullName | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "NSIS extraction failed." }
