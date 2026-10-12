@@ -85,6 +85,14 @@ targets explicitly; synthetic fixtures check the additional coverage while
 excluding generated `target/` output. The expanded scan must pass exact-head
 CI before being treated as qualified evidence.
 
+Additional deterministic inventory coverage includes Rust `cfg!` macros,
+target-family/architecture predicates, native error probes, WinAPI/registry
+bindings, absolute Windows executable paths, Windows batch scripts, native
+resource scripts, and C/C++ source. A symlinked scan root now fails closed.
+Synthetic fixtures cover these cases without serializing matched source text.
+The generated inventory still requires category-by-category architectural
+review before any W1.2 checkbox is closed.
+
 This is a deterministic **keyword inventory**, not proof that every OS
 assumption has been semantically audited or that native loader/desktop behavior
 passes. Review the artifact, the current code, and the remaining physical

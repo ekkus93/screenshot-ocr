@@ -145,5 +145,17 @@ class AssumptionInventoryTests(unittest.TestCase):
             self.assertNotIn("PRIVATE_FIXTURE", str(report))
             self.assertEqual(report, inventory.inventory(root))
 
+    def test_symlinked_checkout_root_fails_closed(self):
+        with tempfile.TemporaryDirectory() as temp:
+            outside = Path(temp) / "private"
+            (outside / "src").mkdir(parents=True)
+            (outside / "src" / "secret.ts").write_text(
+                "GNOME PRIVATE_FIXTURE\n", encoding="utf-8"
+            )
+            linked_root = Path(temp) / "linked-repo"
+            linked_root.symlink_to(outside, target_is_directory=True)
+            with self.assertRaisesRegex(ValueError, "source root must not be a symlink"):
+                inventory.inventory(linked_root)
+
 if __name__ == "__main__":
     unittest.main()
