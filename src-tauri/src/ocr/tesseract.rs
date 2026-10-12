@@ -518,8 +518,15 @@ mod tests {
                 .recognize(&variant, TextMode::Terminal, &task_token)
                 .await
         });
-        timeout(Duration::from_secs(5), async {
+        // Hosted Linux runners may schedule this test alongside several
+        // blocking process tests. A five-second startup bound is too tight
+        // under contention; still fail promptly if OCR exited before ready.
+        timeout(Duration::from_secs(15), async {
             while !directory.path().join("ready.marker").exists() {
+                assert!(
+                    !task.is_finished(),
+                    "synthetic OCR task exited before reporting startup"
+                );
                 sleep(Duration::from_millis(10)).await;
             }
         })
