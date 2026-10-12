@@ -182,6 +182,12 @@ keyword inventory, not a completed semantic review; all W1.2 category
 checkmarks and the W1 acceptance gate stay open pending source review.
 Exact-head hosted CI must qualify these changes.
 
+**W1.2 checkout-path audit (2026-10-12):** The inventory now rejects
+checkout paths traversing symlinked parent directories, not only a symlink
+at the final checkout root. A synthetic fixture exercises this redirection.
+This narrows a privacy boundary but does not complete semantic review of
+platform assumptions. Exact-head CI is required before qualification.
+
 ### W1.3 Inventory frontend assumptions
 
 - [x] Identify visible Linux-only wording.
@@ -887,6 +893,14 @@ Deterministic Windows tests cover regular-file/directory substitution, with
 symlink fixtures exercised where the runner permits their creation.
 This does not close native DLL loader/TOCTOU/provenance, offline installation,
 or physical Windows acceptance gates; exact-head CI is still required.
+
+**W18.1 PE inventory hardening (2026-10-12):** The static import parser
+now requires normal and delay-import descriptor tables to terminate inside
+their declared PE data-directory sizes. Synthetic fixtures cover missing
+in-bounds terminators and undersized directories. This prevents misleading
+import inventories from malformed metadata; it does not establish dynamic
+DLL loading safety, required licenses, or physical Windows acceptance.
+Exact-head hosted CI remains required.
 
 ### W18.2 Bundle runtime
 

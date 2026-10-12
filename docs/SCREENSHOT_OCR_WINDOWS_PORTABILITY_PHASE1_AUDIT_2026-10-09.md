@@ -103,6 +103,12 @@ Synthetic fixtures cover these cases without serializing matched source text.
 The generated inventory still requires category-by-category architectural
 review before any W1.2 checkbox is closed.
 
+A subsequent checkout-path guard also rejects symlinked ancestor directories
+above the checkout root. The synthetic test distinguishes a real final
+checkout directory reached through a linked parent from a directly linked
+checkout root. This prevents a caller from treating a redirected tree as
+trusted first-party input; the exact-head CI gate must still qualify it.
+
 This is a deterministic **keyword inventory**, not proof that every OS
 assumption has been semantically audited or that native loader/desktop behavior
 passes. Review the artifact, the current code, and the remaining physical
