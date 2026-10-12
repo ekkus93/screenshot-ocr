@@ -383,7 +383,25 @@ jobs:
         run: ./scripts/smoke-windows-ocr-runtime.ps1
 
       - name: Build Windows NSIS smoke installer
-        run: npm run tauri -- build --bundles nsis --config src-tauri/tauri.nsis.conf.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          log="$(mktemp)"
+          trap 'rm -f "$log"' EXIT
+          for attempt in 1 2 3; do
+            if npm run tauri -- build --bundles nsis --config src-tauri/tauri.nsis.conf.json 2>&1 | tee "$log"; then
+              exit 0
+            fi
+            # Only retry explicitly transient download failures reported by
+            # Tauri's bundler. Never mask compile, integrity or policy errors.
+            if [[ "$attempt" == 3 ]] \
+              || ! grep -Fq 'failed to bundle project' "$log" \
+              || ! grep -Eq 'http status: (429|502|503|504)([^0-9]|$)' "$log"; then
+              exit 1
+            fi
+            echo "Transient NSIS bundle download error; retrying ($attempt of 2)." >&2
+            sleep 20
+          done
 
       - name: Verify complete NSIS runtime inventory and generate local checksum
         shell: pwsh

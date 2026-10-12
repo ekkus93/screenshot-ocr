@@ -67,6 +67,17 @@ verifying the extracted runtime, it normalizes the _unpublished_ candidate to
 physical acceptance record; neither file is published or uploaded. CI prints
 the basename and SHA-256 for review only.
 
+## Transient NSIS download recovery
+
+The Windows NSIS smoke retries the Tauri bundle command at most twice when
+the bundler explicitly reports an HTTP 429, 502, 503, or 504 download failure.
+All other failures, including Rust compilation failures and resource/hash
+verification errors, fail immediately. Retries occur in the same job so
+already compiled Rust artifacts remain available, and use Tauri's own
+checksum-verifying binary download path. The retry log is temporary and
+deleted on job completion. A successful hosted installer smoke still does
+not establish physical Windows installation or redistribution approval.
+
 ## WebView2 provisioning policy
 
 The experimental NSIS bundle uses
