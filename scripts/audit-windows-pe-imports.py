@@ -191,6 +191,33 @@ def audit(root: Path) -> dict[str, object]:
         is_redirected(path) for path in (absolute_root, *absolute_root.parents)
     ):
         raise InvalidPE("staged OCR payload path is not a directly owned directory")
+    # The runtime resolver rejects extra or redirected content in its
+    # app-owned OCR subtree. Apply the same fail-closed layout rule to CI's
+    # native inventory, rather than silently ignoring additional payloads.
+    # The PE parser also supports synthetic fixtures without tessdata.
+    staged_entries = list(root.iterdir())
+    if len(staged_entries) > 256:
+        raise InvalidPE("staged OCR payload has too many entries")
+    for entry in staged_entries:
+        name = entry.name.lower()
+        if is_redirected(entry):
+            raise InvalidPE("staged OCR payload contains a redirected file")
+        if name == "tessdata":
+            if not entry.is_dir():
+                raise InvalidPE("staged OCR payload has invalid language directory")
+            language_entries = list(entry.iterdir())
+            if len(language_entries) > 16 or any(
+                language.name.lower() != "eng.traineddata"
+                or is_redirected(language)
+                or not language.is_file()
+                for language in language_entries
+            ):
+                raise InvalidPE("staged OCR payload has unreviewed language files")
+        elif name == "tesseract.exe" or name.endswith(".dll"):
+            if not entry.is_file():
+                raise InvalidPE("staged OCR payload has invalid native file")
+        else:
+            raise InvalidPE("staged OCR payload has unreviewed entries")
     binary = root / "tesseract.exe"
     # Windows resolves DLL names without regard to extension case. Include
     # mixed-case names even when this inventory runs on a Linux host.

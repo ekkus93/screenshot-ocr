@@ -335,6 +335,52 @@ class PeImportTests(unittest.TestCase):
             self.assertNotIn("secret", public)
             self.assertNotIn("Private", public)
 
+    def test_audit_rejects_unreviewed_or_redirected_runtime_layout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "tesseract.exe").write_bytes(fixture())
+            (root / "vendor-extra.dll").write_bytes(fixture())
+            self.assertEqual(len(audit.audit(root)["binaries"]), 2)
+
+            unrelated = root / "unexpected.txt"
+            unrelated.write_text("synthetic fixture", encoding="utf-8")
+            with self.assertRaises(audit.InvalidPE):
+                audit.audit(root)
+            unrelated.unlink()
+
+            tessdata = root / "tessdata"
+            tessdata.mkdir()
+            english = tessdata / "eng.traineddata"
+            english.write_bytes(b"synthetic fixture")
+            self.assertEqual(len(audit.audit(root)["binaries"]), 2)
+
+            extra = tessdata / "unexpected.traineddata"
+            extra.write_bytes(b"synthetic fixture")
+            with self.assertRaises(audit.InvalidPE):
+                audit.audit(root)
+            extra.unlink()
+
+            # Reject directory impersonation even when its extension looks
+            # like an adjacent DLL, instead of silently ignoring it.
+            fake_dll = root / "imposter.dll"
+            fake_dll.mkdir()
+            with self.assertRaises(audit.InvalidPE):
+                audit.audit(root)
+            fake_dll.rmdir()
+
+            outside = Path(tmp).parent / ("linked-" + root.name)
+            try:
+                tessdata.rmdir()
+            except OSError:
+                english.unlink()
+                tessdata.rmdir()
+            try:
+                tessdata.symlink_to(root, target_is_directory=True)
+            except (OSError, NotImplementedError):
+                return  # Symlink creation may require privileges on Windows.
+            with self.assertRaises(audit.InvalidPE):
+                audit.audit(root)
+
     def test_audit_rejects_x86_executable_or_dependency(self):
         for x86_executable in (True, False):
             with self.subTest(x86_executable=x86_executable):
