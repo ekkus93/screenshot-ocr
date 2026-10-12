@@ -117,6 +117,7 @@ impl TesseractEngine {
         cancellation.check()?;
         let deadline = Instant::now() + OCR_TIMEOUT;
         let png = encode_png(&variant.image)?;
+        cancellation.check()?;
         let page_segmentation = match mode {
             TextMode::Terminal => "6",
             TextMode::Document => "3",
