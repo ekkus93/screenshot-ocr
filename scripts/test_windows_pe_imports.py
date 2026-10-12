@@ -146,6 +146,30 @@ class PeImportTests(unittest.TestCase):
             self.assertEqual(result["qualification"].startswith("static PE"), True)
 
 
+    def test_audit_rejects_symlinked_parent_of_staging_directory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            owned = base / "owned"
+            runtime = owned / "runtime"
+            runtime.mkdir(parents=True)
+            (runtime / "tesseract.exe").write_bytes(fixture())
+            (runtime / "vendor-extra.dll").write_bytes(fixture())
+            linked = base / "linked"
+            try:
+                linked.symlink_to(owned, target_is_directory=True)
+            except (OSError, NotImplementedError):
+                self.skipTest("host does not permit directory symlinks")
+            with self.assertRaisesRegex(audit.InvalidPE, "directly owned directory"):
+                audit.audit(linked / "runtime")
+
+    def test_audit_rejects_log_delimiters_in_staged_dll_filename(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "tesseract.exe").write_bytes(fixture())
+            (root / "bad;name.dll").write_bytes(fixture())
+            with self.assertRaisesRegex(audit.InvalidPE, "invalid staged OCR binary name"):
+                audit.audit(root)
+
     def test_uppercase_dll_extension_is_included_on_all_hosts(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

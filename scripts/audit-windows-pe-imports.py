@@ -143,6 +143,11 @@ def imports(data: bytes) -> set[str]:
 
 
 def audit(root: Path) -> dict[str, object]:
+    # Refuse linked staging roots and linked ancestor paths: otherwise an
+    # apparently first-party input may resolve outside the owned checkout.
+    # This is a path-layout check, not a TOCTOU or native loader guarantee.
+    if not root.is_dir() or any(path.is_symlink() for path in (root, *root.parents)):
+        raise InvalidPE("staged OCR payload path is not a directly owned directory")
     binary = root / "tesseract.exe"
     # Windows resolves DLL names without regard to extension case. Include
     # mixed-case names even when this inventory runs on a Linux host.
@@ -153,7 +158,11 @@ def audit(root: Path) -> dict[str, object]:
     if not binary.is_file() or not dlls:
         raise InvalidPE("staged OCR executable or runtime DLLs missing")
     files = [binary, *dlls]
-    if root.is_symlink() or any(file.is_symlink() for file in files):
+    # These basenames appear in artifact JSON and CI logs. Never serialize
+    # attacker-controlled path or log delimiters as audited DLL filenames.
+    if any(not re.fullmatch(r"[A-Za-z0-9_.+@-]+", file.name) for file in files):
+        raise InvalidPE("invalid staged OCR binary name")
+    if any(file.is_symlink() for file in files):
         raise InvalidPE("staged OCR payload contains a symbolic link")
     names = {f.name.lower() for f in files}
     if len(names) != len(files):
