@@ -46,6 +46,18 @@ class ContentLeakageGuardTests(unittest.TestCase):
                 self.assertIn("app.rs:2", report[0])
                 self.assertNotIn("PRIVATE_SYNTHETIC_SENTINEL", report[0])
 
+    def test_rust_structured_logging_macros_are_rejected_without_source_text(self) -> None:
+        for source in (
+            'tracing::info!(message = "PRIVATE_SYNTHETIC_SENTINEL");',
+            'tracing :: event ! (tracing::Level::INFO, "PRIVATE_SYNTHETIC_SENTINEL");',
+            'log::warn!("PRIVATE_SYNTHETIC_SENTINEL");',
+        ):
+            with self.subTest(source=source):
+                report = self.scan({"src-tauri/src/app.rs": source})
+                self.assertEqual(len(report), 1, report)
+                self.assertIn("Rust structured logging macro", report[0])
+                self.assertNotIn("PRIVATE_SYNTHETIC_SENTINEL", report[0])
+
     def test_frontend_console_forms_are_rejected(self) -> None:
         variants = [
             "console.log('PRIVATE_SYNTHETIC_SENTINEL');",

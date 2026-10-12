@@ -21,6 +21,9 @@ IGNORED_PARTS = {
 }
 
 RUST_OUTPUT = re.compile(r"\b(?:dbg|println|eprintln)\s*!\s*\(")
+RUST_LOG_OUTPUT = re.compile(
+    r"\b(?:tracing|log)\s*::\s*(?:trace|debug|info|warn|error|event|log|span)\s*!\s*\("
+)
 FRONTEND_OUTPUT = re.compile(
     r"\bconsole\s*(?:\?\.|\.)\s*(?:log|debug|info|warn|error)\s*\("
 )
@@ -28,7 +31,10 @@ FRONTEND_BRACKET_OUTPUT = re.compile(
     r"""\bconsole\s*\[\s*['"](?:log|debug|info|warn|error)['"]\s*\]\s*\("""
 )
 FORBIDDEN_RULES = {
-    ".rs": (("Rust debug/print macro", RUST_OUTPUT),),
+    ".rs": (
+        ("Rust debug/print macro", RUST_OUTPUT),
+        ("Rust structured logging macro", RUST_LOG_OUTPUT),
+    ),
     **{
         extension: (
             ("frontend console call", FRONTEND_OUTPUT),
