@@ -114,7 +114,7 @@ def is_rust_code_at(source: str, offset: int) -> bool:
     index = 0
     while index < offset:
         if source.startswith("//", index):
-            end = source.find("\\n", index)
+            end = source.find("\n", index)
             index = offset if end < 0 else end + 1
         elif source.startswith("/*", index):
             depth = 1
@@ -145,7 +145,7 @@ def is_rust_code_at(source: str, offset: int) -> bool:
             elif source[index] == '"':
                 index += 1
                 while index < offset:
-                    if source[index] == "\\\\":
+                    if source[index] == "\\":
                         index += 2
                     elif source[index] == '"':
                         index += 1
