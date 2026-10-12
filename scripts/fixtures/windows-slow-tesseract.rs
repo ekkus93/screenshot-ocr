@@ -18,6 +18,13 @@ fn main() {
             std::process::exit(2);
         }
     }
+    // The shared engine must not pass a developer-controlled DLL/executable
+    // search path into the app-owned OCR child process.
+    if env::var_os("SCREENSHOT_OCR_WINDOWS_FAKE_EXPECT_NO_PATH").is_some()
+        && env::var_os("PATH").is_some()
+    {
+        std::process::exit(3);
+    }
     fs::write(directory.join(format!("{mode}.pid")), std::process::id().to_string())
         .expect("write synthetic process id");
     fs::write(directory.join(format!("{mode}.started")), b"ready")

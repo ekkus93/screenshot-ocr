@@ -40,9 +40,12 @@ Linux hosted CI does not prove physical GNOME Wayland/X11 behavior.
 - Separate Windows OCR runtime input audit workflow.
 
 The synthetic child checks that the shared engine sets its working directory
-explicitly instead of inheriting the caller's directory. This tests process
-launch policy only; it does not establish Windows DLL loader search order,
-transitive dependency safety, or redistribution approval.
+explicitly instead of inheriting the caller's directory, and removes the
+caller's `PATH` from the app-owned OCR child environment. The shared engine
+uses the absolute packaged executable path; removing inherited `PATH`
+reduces accidental fallback to unrelated developer/user DLL directories.
+This tests process launch policy only; it does not establish Windows DLL
+loader search order, transitive dependency safety, or redistribution approval.
 
 The extracted-payload smoke executes only the verified packaged
 `tesseract.exe` against a generated public fixture, using a bounded child

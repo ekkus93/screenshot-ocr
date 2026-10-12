@@ -106,6 +106,7 @@ try {
     $env:SCREENSHOT_OCR_WINDOWS_FAKE_TESSERACT = $fakeBinary
     $env:SCREENSHOT_OCR_WINDOWS_FAKE_MARKER_DIR = $workspace
     $env:SCREENSHOT_OCR_WINDOWS_FAKE_EXPECTED_CWD = $workspace
+    $env:SCREENSHOT_OCR_WINDOWS_FAKE_EXPECT_NO_PATH = "1"
     $env:SCREENSHOT_OCR_WINDOWS_OCR_SMOKE_IMAGE = $imagePath
     try {
         $manifest = Join-Path $PSScriptRoot "../src-tauri/Cargo.toml"
@@ -130,6 +131,7 @@ try {
         Remove-Item Env:SCREENSHOT_OCR_WINDOWS_FAKE_TESSERACT -ErrorAction SilentlyContinue
         Remove-Item Env:SCREENSHOT_OCR_WINDOWS_FAKE_MARKER_DIR -ErrorAction SilentlyContinue
         Remove-Item Env:SCREENSHOT_OCR_WINDOWS_FAKE_EXPECTED_CWD -ErrorAction SilentlyContinue
+        Remove-Item Env:SCREENSHOT_OCR_WINDOWS_FAKE_EXPECT_NO_PATH -ErrorAction SilentlyContinue
     }
     }
     Write-Output "Synthetic English OCR succeeded using checksum-verified runtime files."

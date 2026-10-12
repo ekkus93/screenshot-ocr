@@ -29,6 +29,12 @@ impl TesseractEngine {
         let mut command = Command::new(&self.runtime.executable);
         if let Some(directory) = &self.runtime.working_directory {
             command.current_dir(directory);
+            // An explicitly owned OCR working directory must not inherit the
+            // caller's executable/DLL search path. Windows resolves packaged
+            // native libraries beside the absolute Tesseract executable and
+            // system libraries from trusted OS directories. This also keeps
+            // fake Windows children independent of the developer's PATH.
+            command.env_remove("PATH");
         }
         if let Some(tessdata_dir) = &self.runtime.tessdata_dir {
             command.env("TESSDATA_PREFIX", tessdata_dir);
