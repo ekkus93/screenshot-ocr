@@ -77,22 +77,31 @@ def candidates(root: Path) -> list[Path]:
         if not is_unlinked_source(root, base):
             raise ValueError("platform inventory source tree traverses a symbolic link")
         if base.is_dir():
-            all_paths.extend(
-                p for p in base.rglob("*")
-                if p.is_file() and is_unlinked_source(root, p) and p.suffix in SUFFIXES
-                and not any(part in IGNORED for part in p.relative_to(root).parts)
-            )
+            for path in base.rglob("*"):
+                # Ignore generated dependencies before inspecting their links.
+                # But never silently omit linked first-party source files or
+                # directories: an incomplete inventory is not valid evidence.
+                if any(part in IGNORED for part in path.relative_to(root).parts):
+                    continue
+                if path.is_symlink():
+                    if path.is_dir() or path.suffix in SUFFIXES:
+                        raise ValueError(
+                            "platform inventory first-party source traverses a symbolic link"
+                        )
+                    continue
+                if path.is_file() and path.suffix in SUFFIXES:
+                    all_paths.append(path)
     # Root-level tooling (Vite, Playwright, TypeScript, packaging) may encode
     # platform assumptions outside src/. Do not inventory dependency lockfiles:
     # generated third-party text is not first-party implementation evidence.
     ignored_root_files = {"package-lock.json", "pnpm-lock.yaml", "bun.lockb"}
-    all_paths.extend(
-        p for p in root.iterdir()
-        if p.is_file() and p.suffix in SUFFIXES
-        and p.name not in ignored_root_files
-        and not p.name.endswith(".lock")
-        and is_unlinked_source(root, p)
-    )
+    for path in root.iterdir():
+        if path.suffix not in SUFFIXES or path.name in ignored_root_files or path.name.endswith(".lock"):
+            continue
+        if path.is_symlink():
+            raise ValueError("platform inventory first-party source traverses a symbolic link")
+        if path.is_file():
+            all_paths.append(path)
     return sorted(set(all_paths))
 
 

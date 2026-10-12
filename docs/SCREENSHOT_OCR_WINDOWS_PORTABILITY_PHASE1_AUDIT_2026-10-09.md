@@ -115,6 +115,13 @@ checkout directory reached through a linked parent from a directly linked
 checkout root. This prevents a caller from treating a redirected tree as
 trusted first-party input; the exact-head CI gate must still qualify it.
 
+The inventory also fails closed when first-party source paths or
+directory entries are symlinked, rather than silently omitting those sources
+from W1 review. Generated dependency trees remain excluded before link
+inspection, and linked external source contents are never read or reported.
+Synthetic fixtures cover linked files, directories, root-level tooling,
+and ignored generated trees. Exact-head CI must qualify this guard.
+
 This is a deterministic **keyword inventory**, not proof that every OS
 assumption has been semantically audited or that native loader/desktop behavior
 passes. Review the artifact, the current code, and the remaining physical

@@ -110,9 +110,11 @@ class AssumptionInventoryTests(unittest.TestCase):
             outside = Path(temp) / "private.py"
             outside.write_text("GNOME PRIVATE_FIXTURE\\n", encoding="utf-8")
             (scripts / "linked.py").symlink_to(outside)
-            report = inventory.inventory(root)
-            self.assertEqual(report["entries"], [])
-            self.assertNotIn("PRIVATE_FIXTURE", str(report))
+            with self.assertRaisesRegex(
+                ValueError, "first-party source traverses a symbolic link"
+            ) as found:
+                inventory.inventory(root)
+            self.assertNotIn("PRIVATE_FIXTURE", str(found.exception))
 
     def test_symlinked_source_directories_are_not_scanned(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -134,9 +136,11 @@ class AssumptionInventoryTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "source tree traverses a symbolic link"):
                 inventory.inventory(root)
             (root / "src-tauri").unlink()
-            report = inventory.inventory(root)
-            self.assertEqual(report["entries"], [])
-            self.assertNotIn("PRIVATE_FIXTURE", str(report))
+            with self.assertRaisesRegex(
+                ValueError, "first-party source traverses a symbolic link"
+            ) as found:
+                inventory.inventory(root)
+            self.assertNotIn("PRIVATE_FIXTURE", str(found.exception))
 
     def test_symlinked_checkout_parent_fails_closed(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -149,6 +153,34 @@ class AssumptionInventoryTests(unittest.TestCase):
             self.assertFalse((alias / "repo").is_symlink())
             with self.assertRaisesRegex(ValueError, "source root must not be a symlink"):
                 inventory.inventory(alias / "repo")
+
+    def test_root_level_linked_source_is_rejected_without_following_target(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "repo"
+            root.mkdir()
+            target = Path(temp) / "external.ts"
+            target.write_text("GNOME PRIVATE_FIXTURE\\n", encoding="utf-8")
+            (root / "vite.config.ts").symlink_to(target)
+            with self.assertRaisesRegex(
+                ValueError, "first-party source traverses a symbolic link"
+            ) as found:
+                inventory.inventory(root)
+            self.assertNotIn("PRIVATE_FIXTURE", str(found.exception))
+
+    def test_linked_generated_dependencies_are_excluded(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "repo"
+            generated = root / "src" / "node_modules"
+            generated.mkdir(parents=True)
+            target = Path(temp) / "external"
+            target.mkdir()
+            (target / "fixture.ts").write_text(
+                "GNOME PRIVATE_FIXTURE\\n", encoding="utf-8"
+            )
+            (generated / "linked").symlink_to(target, target_is_directory=True)
+            report = inventory.inventory(root)
+            self.assertEqual(report["entries"], [])
+            self.assertNotIn("PRIVATE_FIXTURE", str(report))
 
     def test_portable_source_has_no_findings(self):
         with tempfile.TemporaryDirectory() as temp:
