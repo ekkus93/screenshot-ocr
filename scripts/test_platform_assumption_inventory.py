@@ -109,7 +109,7 @@ class AssumptionInventoryTests(unittest.TestCase):
                 'let unix = "/usr/sbin/helper";\n'
                 'let local = "/opt/vendor/bin/ocr";\n'
                 'let windows = "C:/Program Files/OCR/tool";\n'
-                r'let unc = r"\\server\share\tool.exe";' + "\n"
+                r'let unc = r"\\server\share\tool";' + "\n"
                 r'let system = r"System32\tool";' + "\n"
             )
             path = root / "src-tauri/src/paths.rs"
