@@ -48,7 +48,7 @@ def owner(path: str) -> str:
         return "build_or_validation"
     if path.startswith((".github/workflows/", ".github/actions/")):
         return "ci"
-    if path.endswith("Cargo.toml"):
+    if path.endswith("Cargo.toml") or path.startswith(".cargo/"):
         return "cargo_manifest"
     return "bundle_or_package_metadata"
 
@@ -69,10 +69,10 @@ def candidates(root: Path) -> list[Path]:
     if any(part.is_symlink() for part in (absolute_root, *absolute_root.parents)):
         raise ValueError("platform inventory source root must not be a symlink")
     all_paths: list[Path] = []
-    # Scan the entire Tauri tree, not just Rust modules: installer hooks,
-    # capability manifests, and target-specific bundle settings also encode
-    # OS assumptions. Generated build output remains excluded below.
-    for prefix in ("src-tauri", "src", "scripts", ".github/workflows", ".github/actions"):
+    # Scan the entire Tauri tree, including Cargo configuration and
+    # installer hooks: target-specific rustflags and bundle settings also
+    # encode OS assumptions. Generated build output remains excluded below.
+    for prefix in ("src-tauri", "src", "scripts", ".cargo", ".github/workflows", ".github/actions"):
         base = root / prefix
         if not is_unlinked_source(root, base):
             raise ValueError("platform inventory source tree traverses a symbolic link")

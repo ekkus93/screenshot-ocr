@@ -102,6 +102,34 @@ class AssumptionInventoryTests(unittest.TestCase):
             self.assertNotIn("PRIVATE_FIXTURE", str(report))
             self.assertEqual(report, inventory.inventory(root))
 
+    def test_cargo_configuration_is_included_and_owned_by_build_metadata(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            config = root / ".cargo" / "config.toml"
+            config.parent.mkdir(parents=True)
+            config.write_text(
+                '[target.x86_64-pc-windows-msvc]\n'
+                'rustflags = ["-C", "link-arg=/NODEFAULTLIB"]\n',
+                encoding="utf-8",
+            )
+            report = inventory.inventory(root)
+            entries = {entry["path"]: entry for entry in report["entries"]}
+            self.assertEqual(entries[".cargo/config.toml"]["owner"], "cargo_manifest")
+            self.assertEqual(entries[".cargo/config.toml"]["lines"]["windows_native"], [1])
+            self.assertNotIn("link-arg=/NODEFAULTLIB", str(report))
+
+    def test_linked_cargo_config_is_rejected_without_reading_external_file(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "repo"
+            cargo = root / ".cargo"
+            cargo.mkdir(parents=True)
+            external = Path(temp) / "external.toml"
+            external.write_text("PRIVATE_FIXTURE Windows", encoding="utf-8")
+            (cargo / "config.toml").symlink_to(external)
+            with self.assertRaisesRegex(ValueError, "first-party source traverses a symbolic link") as found:
+                inventory.inventory(root)
+            self.assertNotIn("PRIVATE_FIXTURE", str(found.exception))
+
     def test_symlinked_source_files_are_not_scanned(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "repo"
