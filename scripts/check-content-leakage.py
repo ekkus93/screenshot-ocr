@@ -86,12 +86,18 @@ def scan_tree(root: Path) -> list[str]:
         # Match against the whole file: source code can legally split macro
         # names, member access and argument lists across multiple lines.
         # Matching line-by-line silently misses those content-leakage paths.
-        source = path.read_text(encoding="utf-8")
+        relative = path.relative_to(root).as_posix()
+        try:
+            source = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            # Failed decoding or access must fail the guard without Python's
+            # traceback disclosing local runner paths or private file bytes.
+            problems.append(f"{relative}: unreadable first-party source")
+            continue
         for description, pattern in FORBIDDEN_RULES[path.suffix]:
             for match in pattern.finditer(source):
                 line_number = source.count("\n", 0, match.start()) + 1
                 # Never print raw matching source: it might include OCR text.
-                relative = path.relative_to(root).as_posix()
                 problems.append(f"{relative}:{line_number}: forbidden {description}")
     return problems
 

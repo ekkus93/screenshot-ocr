@@ -214,6 +214,19 @@ class ContentLeakageGuardTests(unittest.TestCase):
             self.assertNotIn(str(root), str(problems))
             self.assertNotIn("PRIVATE_RUNNER_PROFILE_", str(problems))
 
+    def test_invalid_utf8_is_reported_without_absolute_paths_or_bytes(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="PRIVATE_RUNNER_PROFILE_") as tmp:
+            root = Path(tmp) / "checkout"
+            source = root / "src" / "malformed.ts"
+            source.parent.mkdir(parents=True)
+            source.write_bytes(b"\\xffPRIVATE_SYNTHETIC_SENTINEL")
+            problems = guard.scan_tree(root)
+            self.assertEqual(
+                problems, ["src/malformed.ts: unreadable first-party source"]
+            )
+            self.assertNotIn(str(root), str(problems))
+            self.assertNotIn("PRIVATE_SYNTHETIC_SENTINEL", str(problems))
+
     def test_symlink_diagnostics_are_repository_relative(self) -> None:
         with tempfile.TemporaryDirectory(prefix="PRIVATE_RUNNER_PROFILE_") as tmp:
             root = Path(tmp) / "checkout"
