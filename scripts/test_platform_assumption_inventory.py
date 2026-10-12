@@ -126,6 +126,9 @@ class AssumptionInventoryTests(unittest.TestCase):
             (root / "scripts" / "linked").symlink_to(
                 outside, target_is_directory=True
             )
+            with self.assertRaisesRegex(ValueError, "source tree traverses a symbolic link"):
+                inventory.inventory(root)
+            (root / "src-tauri").unlink()
             report = inventory.inventory(root)
             self.assertEqual(report["entries"], [])
             self.assertNotIn("PRIVATE_FIXTURE", str(report))

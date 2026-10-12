@@ -74,7 +74,9 @@ def candidates(root: Path) -> list[Path]:
     # OS assumptions. Generated build output remains excluded below.
     for prefix in ("src-tauri", "src", "scripts", ".github/workflows", ".github/actions"):
         base = root / prefix
-        if base.is_dir() and not base.is_symlink():
+        if not is_unlinked_source(root, base):
+            raise ValueError("platform inventory source tree traverses a symbolic link")
+        if base.is_dir():
             all_paths.extend(
                 p for p in base.rglob("*")
                 if p.is_file() and is_unlinked_source(root, p) and p.suffix in SUFFIXES
