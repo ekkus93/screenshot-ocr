@@ -102,6 +102,25 @@ class AssumptionInventoryTests(unittest.TestCase):
             self.assertNotIn("PRIVATE_FIXTURE", str(report))
             self.assertEqual(report, inventory.inventory(root))
 
+    def test_executable_inventory_covers_cross_platform_absolute_paths(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = (
+                'let unix = "/usr/sbin/helper";\n'
+                'let local = "/opt/vendor/bin/ocr";\n'
+                'let windows = "C:/Program Files/OCR/tool";\n'
+                r'let unc = r"\\server\share\tool.exe";' + "\n"
+                r'let system = r"System32\tool";' + "\n"
+            )
+            path = root / "src-tauri/src/paths.rs"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(source, encoding="utf-8")
+            report = inventory.inventory(root)
+            entry = next(item for item in report["entries"] if item["path"] == "src-tauri/src/paths.rs")
+            self.assertEqual(entry["lines"]["executable_path"], [1, 2, 3, 4, 5])
+            self.assertNotIn("Program Files", str(report))
+            self.assertEqual(report, inventory.inventory(root))
+
     def test_cargo_configuration_is_included_and_owned_by_build_metadata(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

@@ -19,7 +19,7 @@ PATTERNS = {
     "windows_environment": r"(?i)\b(?:APPDATA|LOCALAPPDATA|USERPROFILE|PROGRAMFILES|SYSTEMROOT|WINDIR)\b",
     "portal_ashpd": r"(?i)\bportal\b|\bashpd\b|XDG_",
     "desktop_environment": r"DISPLAY|WAYLAND_DISPLAY|XDG_|GNOME_|DESKTOP_SESSION|GDMSESSION",
-    "executable_path": r"(?i)tesseract|gnome-screenshot|/usr/(?:local/)?bin/|\.exe\b|[A-Z]:\\",
+    "executable_path": r"(?i)tesseract|gnome-screenshot|/(?:usr/(?:local/)?(?:s?bin)|s?bin|opt/[A-Za-z0-9_.-]+/(?:s?bin))/|\.exe\b|[A-Z]:[\\/]|\\\\[A-Za-z0-9_.-]+\\[A-Za-z0-9_.$-]+\\|\b(?:System32|SysWOW64)\\",
     "shortcut": r"(?i)shortcut|Control\+Shift\+O|Super\+Shift\+O",
     "target_conditional": r"(?i)\btarget_(?:os|family|env|vendor|arch)\b|#\s*\[\s*cfg(?:_attr)?\b|\bcfg!\s*\(|\bcfg\s*\(\s*(?:windows|unix)\b|\bstd\s*::\s*os\s*::\s*(?:unix|linux|windows)\b",
     "native_error": r"(?i)GetLastError|HRESULT|last_os_error|CapturePermissionDenied|CaptureTimedOut|CaptureProcessFailed|CaptureResultUriInvalid",
