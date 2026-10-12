@@ -96,7 +96,8 @@ if ($dlls.Count -eq 0) { throw "No adjacent runtime DLLs found; packaging invent
 function Get-BoundedNativeFileVersion([string]$Path) {
     # PE version resources are self-reported hints, not trusted provenance.
     # Only bounded numeric components enter the content-free manifest.
-    $value = [string][System.Diagnostics.FileVersionInfo]::GetVersionInfo($Path).FileVersion
+    $info = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($Path)
+    $value = [string]$info.FileVersion
     if ($value -cmatch '^[0-9]{1,10}(\.[0-9]{1,10}){0,3}$') {
         return $value
     }
@@ -107,7 +108,7 @@ $entries = @(
     [pscustomobject]@{
         name = "tesseract.exe"
         sha256 = (Get-FileHash -LiteralPath $selected.Binary.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-        self_reported_file_version = Get-BoundedNativeFileVersion $selected.Binary.FullName
+        self_reported_file_version = (Get-BoundedNativeFileVersion $selected.Binary.FullName)
     }
     [pscustomobject]@{
         name = "tessdata/eng.traineddata"
@@ -117,7 +118,7 @@ $entries = @(
         [pscustomobject]@{
             name = $dll.Name
             sha256 = (Get-FileHash -LiteralPath $dll.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-            self_reported_file_version = Get-BoundedNativeFileVersion $dll.FullName
+            self_reported_file_version = (Get-BoundedNativeFileVersion $dll.FullName)
         }
     }
 )
