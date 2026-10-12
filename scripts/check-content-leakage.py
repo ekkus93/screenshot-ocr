@@ -74,7 +74,6 @@ def scan_tree(root: Path) -> list[str]:
         if (
             not any(part in IGNORED_PARTS for part in path.parts)
             and path.is_symlink()
-            and (path.suffix in SOURCE_SUFFIXES or path.is_dir())
         ):
             # Diagnostic reports may be retained as public CI artifacts.
             # Emit only repository-relative paths, never private runner roots.

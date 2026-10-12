@@ -184,6 +184,32 @@ class ContentLeakageGuardTests(unittest.TestCase):
             finally:
                 os.chdir(old_cwd)
 
+    def test_dangling_and_unknown_extension_links_cannot_hide_source(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "checkout"
+            root.mkdir()
+            outside = Path(tmp) / "private.data"
+            outside.write_text("PRIVATE_SYNTHETIC_SENTINEL", encoding="utf-8")
+            link = root / "src" / "opaque.data"
+            link.parent.mkdir(parents=True)
+            try:
+                link.symlink_to(outside)
+                dangling = root / "src" / "missing-source-tree"
+                dangling.symlink_to(
+                    Path(tmp) / "not-present", target_is_directory=True
+                )
+            except (OSError, NotImplementedError):
+                self.skipTest("host does not permit source symlinks")
+            report = guard.scan_tree(root)
+            self.assertEqual(
+                report,
+                [
+                    "src/missing-source-tree: symbolic link in source scan",
+                    "src/opaque.data: symbolic link in source scan",
+                ],
+            )
+            self.assertNotIn("PRIVATE_SYNTHETIC_SENTINEL", str(report))
+
     def test_generated_symlink_is_not_treated_as_first_party_source(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "checkout"
