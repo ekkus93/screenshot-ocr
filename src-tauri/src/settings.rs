@@ -96,8 +96,18 @@ impl SettingsStore {
 
     pub fn load(&self) -> Result<AppSettings, AppError> {
         let path = self.directory.join(SETTINGS_FILE);
-        if !path.exists() {
-            return Ok(AppSettings::default());
+        let metadata = match fs::symlink_metadata(&path) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                return Ok(AppSettings::default());
+            }
+            Err(_) => return Err(AppError::SettingsInvalid),
+        };
+        // A link (including a dangling one) is not an app-owned settings
+        // file. Quarantine the link itself rather than following its target.
+        if metadata.file_type().is_symlink() || !metadata.is_file() {
+            self.quarantine(&path)?;
+            return Err(AppError::SettingsInvalid);
         }
         let bytes = fs::read(&path).map_err(|_| AppError::SettingsInvalid)?;
         match serde_json::from_slice::<AppSettings>(&bytes) {
@@ -301,6 +311,43 @@ mod tests {
         let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
         assert!(matches!(store.load(), Err(AppError::SettingsInvalid)));
         assert!(dir.path().join("settings.corrupt.json").exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn linked_settings_are_quarantined_without_changing_external_file() {
+        use std::os::unix::fs::symlink;
+        let dir = tempdir().expect("tempdir");
+        let outside = tempdir().expect("outside");
+        let target = outside.path().join("external.json");
+        fs::write(
+            &target,
+            serde_json::to_vec(&AppSettings::default()).expect("serialize"),
+        )
+        .expect("write external file");
+        let original = fs::read(&target).expect("original content");
+        symlink(&target, dir.path().join(SETTINGS_FILE)).expect("create settings link");
+        let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
+        assert!(matches!(store.load(), Err(AppError::SettingsInvalid)));
+        assert_eq!(fs::read(&target).expect("read external file"), original);
+        assert!(fs::symlink_metadata(dir.path().join("settings.corrupt.json"))
+            .unwrap()
+            .file_type()
+            .is_symlink());
+        assert_eq!(store.load().expect("load after quarantine"), AppSettings::default());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn dangling_settings_link_is_not_treated_as_missing_configuration() {
+        use std::os::unix::fs::symlink;
+        let dir = tempdir().expect("tempdir");
+        symlink(dir.path().join("missing"), dir.path().join(SETTINGS_FILE))
+            .expect("create dangling settings link");
+        let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
+        assert!(matches!(store.load(), Err(AppError::SettingsInvalid)));
+        assert!(dir.path().join("settings.corrupt.json").is_symlink());
+        assert_eq!(store.load().expect("load after quarantine"), AppSettings::default());
     }
 
     #[test]
