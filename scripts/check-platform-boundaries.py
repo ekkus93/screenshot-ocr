@@ -95,6 +95,18 @@ PLATFORM_CFG_TOKEN = re.compile(
 )
 
 
+# Only an actual inline unit-test module ends portable production source.
+# A marker embedded in a comment or raw string must not hide later code.
+TEST_MODULE_START = re.compile(
+    r"(?m)^[ \\t]*#\\[cfg\\(test\\)\\][ \\t]*\\r?\\n[ \\t]*mod[ \\t]+tests[ \\t]*\\{"
+)
+
+
+def production_source(source: str) -> str:
+    match = TEST_MODULE_START.search(source)
+    return source[: match.start()] if match else source
+
+
 def production_platform_cfg_lines(source: str) -> list[int]:
     locations = []
     for match in PLATFORM_CFG_START.finditer(source):
@@ -153,7 +165,7 @@ def main() -> int:
         # stand-alone test fixtures, but reject platform selection in the
         # portable production core. Bootstrap files own only composition.
         if path.name not in {"lib.rs", "main.rs"} and not path.name.endswith("_tests.rs"):
-            production = text.split("#[cfg(test)]\nmod tests", 1)[0]
+            production = production_source(text)
             for line_number in production_platform_cfg_lines(production):
                 problems.append(
                     f"{path}:{line_number}: platform-specific cfg outside adapter"
@@ -164,7 +176,7 @@ def main() -> int:
         # these extensions to validate platform behavior without leaking them
         # into the shipping core.
         if path.name not in {"lib.rs", "main.rs"} and not path.name.endswith("_tests.rs"):
-            production = text.split("#[cfg(test)]\nmod tests", 1)[0]
+            production = production_source(text)
             for match in re.finditer(r"\bstd\s*::\s*os\s*::\s*unix\b", production):
                 line_number = production.count("\n", 0, match.start()) + 1
                 problems.append(
@@ -175,7 +187,7 @@ def main() -> int:
         # and target-specific filesystem mechanics belong to platform adapters;
         # unit-test fixtures after the test module boundary are exempt.
         if path == RUST_ROOT / "settings.rs":
-            production = text.split("#[cfg(test)]\nmod tests", 1)[0]
+            production = production_source(text)
             if re.search(
                 r"\bstd\s*::\s*os\s*::\s*(?:unix|windows|linux)\b"
                 r"|\bfs\s*::\s*set_permissions\s*\("
