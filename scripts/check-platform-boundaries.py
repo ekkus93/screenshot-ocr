@@ -159,6 +159,18 @@ def main() -> int:
                     f"{path}:{line_number}: platform-specific cfg outside adapter"
                 )
 
+        # Unix-only std::os extensions are implementation details of the
+        # Linux adapter, not portable production code. Test fixtures may use
+        # these extensions to validate platform behavior without leaking them
+        # into the shipping core.
+        if path.name not in {"lib.rs", "main.rs"} and not path.name.endswith("_tests.rs"):
+            production = text.split("#[cfg(test)]\\nmod tests", 1)[0]
+            for match in re.finditer(r"\\bstd\\s*::\\s*os\\s*::\\s*unix\\b", production):
+                line_number = production.count("\\n", 0, match.start()) + 1
+                problems.append(
+                    f"{path}:{line_number}: portable code imports Unix-only OS APIs"
+                )
+
         # The settings schema and persistence policy are portable. Unix chmod
         # and target-specific filesystem mechanics belong to platform adapters;
         # unit-test fixtures after the test module boundary are exempt.

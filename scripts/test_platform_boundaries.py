@@ -123,6 +123,24 @@ class PlatformBoundaryGuardTests(unittest.TestCase):
                 self.assertEqual(status, 1, report)
                 self.assertIn("app.rs:1:", report)
 
+    def test_unix_only_os_extensions_stay_outside_portable_production(self) -> None:
+        for source in (
+            "use std::os::unix::fs::PermissionsExt;\\n",
+            "use std::os\\n  ::unix::ffi::OsStrExt;\\n",
+        ):
+            with self.subTest(source=source):
+                status, report = self.run_check({"app.rs": source})
+                self.assertEqual(status, 1, report)
+                self.assertIn("portable code imports Unix-only OS APIs", report)
+
+        status, report = self.run_check({
+            "app.rs": (
+                "fn shared() {}\\n#[cfg(test)]\\nmod tests {\\n"
+                "  use std::os::unix::fs::PermissionsExt;\\n}\\n"
+            ),
+        })
+        self.assertEqual(status, 0, report)
+
     def test_windows_registry_and_profile_paths_stay_outside_core(self) -> None:
         for source in (
             'let _ = std::env::var("APPDATA");\n',
