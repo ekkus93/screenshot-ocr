@@ -65,7 +65,8 @@ def is_unlinked_source(root: Path, path: Path) -> bool:
 def candidates(root: Path) -> list[Path]:
     # Do not silently scan a caller-supplied checkout root redirected elsewhere.
     # In CI this fails the inventory gate rather than trusting external content.
-    if root.is_symlink():
+    absolute_root = root.absolute()
+    if any(part.is_symlink() for part in (absolute_root, *absolute_root.parents)):
         raise ValueError("platform inventory source root must not be a symlink")
     all_paths: list[Path] = []
     # Scan the entire Tauri tree, not just Rust modules: installer hooks,

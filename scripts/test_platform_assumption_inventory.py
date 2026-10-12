@@ -99,6 +99,18 @@ class AssumptionInventoryTests(unittest.TestCase):
             self.assertEqual(report["entries"], [])
             self.assertNotIn("PRIVATE_FIXTURE", str(report))
 
+    def test_symlinked_checkout_parent_fails_closed(self):
+        with tempfile.TemporaryDirectory() as temp:
+            actual = Path(temp) / "actual"
+            checkout = actual / "repo"
+            (checkout / "src").mkdir(parents=True)
+            (checkout / "src" / "fixture.ts").write_text("GNOME fixture\n", encoding="utf-8")
+            alias = Path(temp) / "alias"
+            alias.symlink_to(actual, target_is_directory=True)
+            self.assertFalse((alias / "repo").is_symlink())
+            with self.assertRaisesRegex(ValueError, "source root must not be a symlink"):
+                inventory.inventory(alias / "repo")
+
     def test_portable_source_has_no_findings(self):
         with tempfile.TemporaryDirectory() as temp:
             source = Path(temp) / "src-tauri/src/app.rs"
