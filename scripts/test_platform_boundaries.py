@@ -187,8 +187,8 @@ class PlatformBoundaryGuardTests(unittest.TestCase):
         # unit-test boundary, silently skipping the production cfg below.
         status, report = self.run_check({
             "app.rs": (
-                'const EXAMPLE: &str = r#"#[cfg(test)]\\nmod tests {"#;\\n'
-                '#[cfg(windows)]\\nfn native() {}\\n'
+                'const EXAMPLE: &str = r#"#[cfg(test)]\nmod tests {"#;\n'
+                '#[cfg(windows)]\nfn native() {}\n'
             )
         })
         self.assertEqual(status, 1, report)
@@ -196,8 +196,8 @@ class PlatformBoundaryGuardTests(unittest.TestCase):
 
         status, report = self.run_check({
             "app.rs": (
-                "fn shared() {}\\n  #[cfg(test)]  \\n  mod tests {\\n"
-                "  #[cfg(windows)] fn test_only() {}\\n}\\n"
+                "fn shared() {}\n  #[cfg(test)]  \n  mod tests {\n"
+                "  #[cfg(windows)] fn test_only() {}\n}\n"
             )
         })
         self.assertEqual(status, 0, report)
