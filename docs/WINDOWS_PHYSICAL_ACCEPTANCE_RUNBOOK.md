@@ -43,7 +43,10 @@ monitors left and right of primary, negative virtual coordinates, mixed DPI,
 and a cross-monitor drag. Check that selected pixels match the rectangle,
 that cancellation releases the selector, and that failed capture or clipboard
 operations restore the main window. Exercise second-instance commands and
-rapid repeated shortcuts without allowing overlapping selectors.
+rapid repeated shortcuts without allowing overlapping selectors. Also cancel
+while a synthetic OCR subprocess is actively recognizing text; verify the
+child exits, the UI recovers, and another capture can start. This is distinct
+from cancelling the region selector before OCR begins.
 
 ## Windows 10
 

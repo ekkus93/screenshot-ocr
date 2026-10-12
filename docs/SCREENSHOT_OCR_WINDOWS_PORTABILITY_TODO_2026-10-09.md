@@ -1293,6 +1293,7 @@ Use non-sensitive test content.
 - [ ] Language data missing/corrupt simulation if safely testable.
 - [ ] Clipboard failure recovery if safely injectable.
 - [ ] Selector cancellation restores UI.
+- [ ] Cancel during active Tesseract OCR; child exits/reaps and UI recovers.
 - [ ] Native capture failure restores UI.
 - [ ] No orphan overlay/window.
 - [ ] No user content appears in diagnostics/logs.
@@ -1373,7 +1374,9 @@ any unrun desktop, installer, or redistribution acceptance tasks.
 - [x] Leave unrun physical tests unchecked.
 - [x] Do not delete incomplete tasks to make the project look complete.
 - [x] Add evidence notes where useful.
-- [ ] Re-read companion spec for untracked normative requirements.
+- [x] Re-read companion spec for untracked normative requirements.
+
+**W24.5 normative-spec reconciliation (2026-10-12):** Reviewed the companion specification's architecture, Windows requirements, testing, release, and change-control sections against the TODO. The physical Windows acceptance matrix explicitly requires cancellation during **OCR**, not just region selection; W23.6 and the physical acceptance record now track a bounded OCR-cancel/reap/recovery case. This is a checklist-coverage correction, not evidence that the physical test ran. All physical and final merge gates remain unchecked.
 
 ### W24 acceptance gate
 

@@ -98,6 +98,7 @@ second display to exercise negative coordinates and cross-monitor drags.
 | ERR-04 | Cancellation and native failure restore UI and release selector | NOT RUN | |
 | ERR-05 | Diagnostics/logs contain no screenshot, OCR, clipboard, profile or installation paths | NOT RUN | |
 | ERR-06 | Offline operation never downloads OCR language data | NOT RUN | |
+| ERR-07 | Cancel during an active OCR subprocess; child is reaped and UI can capture again | NOT RUN | |
 
 ## Windows 10 22H2 support decision
 
