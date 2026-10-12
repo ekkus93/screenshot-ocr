@@ -4,6 +4,8 @@ mod monitors;
 mod ocr_runtime;
 mod pixels;
 mod selector;
+#[cfg(test)]
+pub(crate) mod test_support;
 
 use crate::cancellation::CancellationToken;
 use crate::capture::CaptureBackend;

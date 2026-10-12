@@ -25,3 +25,6 @@ pub fn current() -> Arc<dyn PlatformServices> {
 pub fn current() -> Arc<dyn PlatformServices> {
     Arc::new(unsupported::UnsupportedPlatform)
 }
+
+#[cfg(all(test, target_os = "windows"))]
+pub(crate) use windows::test_support as native_child_test;
