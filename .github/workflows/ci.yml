@@ -132,6 +132,12 @@ jobs:
       - name: Check portable-core platform boundary
         run: python3 scripts/check-platform-boundaries.py
 
+      - name: Test public offline Windows OCR fixture guard
+        run: python3 -m unittest discover -s scripts -p "test_windows_acceptance_fixture.py" -v
+
+      - name: Enforce public offline Windows OCR fixture
+        run: python3 scripts/check_windows_acceptance_fixture.py docs/fixtures/windows-ocr-acceptance.html
+
       - name: Test Windows TODO integrity guard fixtures
         run: python3 -m unittest discover -s scripts -p "test_windows_todo_integrity.py" -v
 

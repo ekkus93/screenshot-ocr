@@ -1255,6 +1255,12 @@ test procedure, not evidence that any physical acceptance step passed.
 monospace, small/large, punctuation, whitespace, edge and grid examples.
 See the physical acceptance runbook for fixture IDs and instructions.
 No physical Windows OCR, selection, DPI or clipboard result is implied.
+A repository-policy guard now checks that this public fixture remains
+self-contained (no active HTML, external resource attributes, or CSS imports),
+retains all seven unique fixture IDs, and preserves terminal whitespace.
+Synthetic negative tests exercise remote resources, active markup, duplicate
+IDs and formatting drift. This is source-integrity evidence only; exact-head
+CI must pass and W23 physical tests remain open.
 
 Use non-sensitive test content.
 
