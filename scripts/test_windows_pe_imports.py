@@ -309,12 +309,12 @@ class PeImportTests(unittest.TestCase):
                 f"- {q}{name}{q}"
                 for name in report["external_unreviewed_from_statically_reachable"]
             )
-            content = "\\n".join(rows)
+            content = "\n".join(rows)
             audit.verify_review_register(report, content)
             duplicate = content.replace(
                 "## External imports still unreviewed",
                 rows[2].replace("Vendor-Extra.DLL", "vendor-extra.dll")
-                + "\\n## External imports still unreviewed",
+                + "\n## External imports still unreviewed",
             )
             with self.assertRaisesRegex(audit.InvalidPE, "invalid native review identity"):
                 audit.verify_review_register(report, duplicate)
