@@ -257,6 +257,31 @@ class PlatformBoundaryGuardTests(unittest.TestCase):
             self.assertEqual(status, 1)
             self.assertIn("platform: symlinked Rust source path is forbidden", output.getvalue())
 
+    def test_linked_source_root_and_parent_fail_before_reading(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            actual = base / "actual"
+            source = actual / "src-tauri" / "src"
+            source.mkdir(parents=True)
+            (source / "secret.rs").write_text(
+                "GNOME PRIVATE_FIXTURE\\n", encoding="utf-8"
+            )
+            alias = base / "alias"
+            alias.symlink_to(actual, target_is_directory=True)
+            for linked_root in (alias / "src-tauri" / "src", base / "linked-src"):
+                if linked_root == base / "linked-src":
+                    linked_root.symlink_to(source, target_is_directory=True)
+                output = io.StringIO()
+                with (
+                    patch.object(checker, "RUST_ROOT", linked_root),
+                    patch.object(checker, "PLATFORM_ROOT", linked_root / "platform"),
+                    contextlib.redirect_stdout(output),
+                ):
+                    status = checker.main()
+                self.assertEqual(status, 1)
+                self.assertIn("source root traverses a symlink", output.getvalue())
+                self.assertNotIn("PRIVATE_FIXTURE", output.getvalue())
+
     def test_reports_multiple_file_line_numbers(self) -> None:
         status, report = self.run_check(
             {

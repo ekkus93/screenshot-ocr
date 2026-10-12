@@ -120,6 +120,13 @@ def is_platform_file(path: Path) -> bool:
 
 
 def main() -> int:
+    # A redirected checkout source root can make an otherwise read-only
+    # boundary audit inspect files outside the repository. Reject the path
+    # before traversing or reading any source files.
+    absolute_root = RUST_ROOT.absolute()
+    if any(path.is_symlink() for path in (absolute_root, *absolute_root.parents)):
+        print("Platform-boundary guard failed: Rust source root traverses a symlink")
+        return 1
     problems: list[str] = []
     for path in sorted(RUST_ROOT.rglob("*")):
         if path.is_symlink() and (path.suffix == ".rs" or path.is_dir()):
