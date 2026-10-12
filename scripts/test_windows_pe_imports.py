@@ -285,6 +285,40 @@ class PeImportTests(unittest.TestCase):
             with self.assertRaisesRegex(audit.InvalidPE, "incomplete"):
                 audit.verify_review_register(report, modified)
 
+    def test_review_register_accepts_mixed_case_native_dll_identity(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "tesseract.exe").write_bytes(fixture(delay=True))
+            # The actual pinned distribution contains libLerc.dll.
+            (root / "Vendor-Extra.DLL").write_bytes(fixture())
+            report = audit.audit(root)
+            q = chr(96)
+            reachable = set(report["statically_reachable_binaries"])
+            rows = ["## Packaged binary review register"]
+            for record in report["binaries"]:
+                name = record["binary"]
+                yes = "YES" if name.lower() in reachable else "NO"
+                rows.append(
+                    f'| {q}{name}{q} | {yes} | {record["size_bytes"]} '
+                    f'| {q}{record["sha256"]}{q} | UNREVIEWED |'
+                )
+            rows.extend(["## External imports still unreviewed", "All external basenames:"])
+            rows.extend(f"- {q}{name}{q}" for name in report["external_unreviewed"])
+            rows.append("External basenames from statically reachable binaries:")
+            rows.extend(
+                f"- {q}{name}{q}"
+                for name in report["external_unreviewed_from_statically_reachable"]
+            )
+            content = "\\n".join(rows)
+            audit.verify_review_register(report, content)
+            duplicate = content.replace(
+                "## External imports still unreviewed",
+                rows[2].replace("Vendor-Extra.DLL", "vendor-extra.dll")
+                + "\\n## External imports still unreviewed",
+            )
+            with self.assertRaisesRegex(audit.InvalidPE, "invalid native review identity"):
+                audit.verify_review_register(report, duplicate)
+
     def test_audit_rejects_x86_executable_or_dependency(self):
         for x86_executable in (True, False):
             with self.subTest(x86_executable=x86_executable):
