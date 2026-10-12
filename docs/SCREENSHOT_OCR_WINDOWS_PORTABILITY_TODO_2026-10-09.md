@@ -483,6 +483,13 @@ failures to static path-free public codes and guidance. Unit/frontend tests
 cover migration, recovery and synthetic privacy cases. Physical Windows
 acceptance still remains open under W23.
 
+**Additional settings-read hardening (2026-10-12):** Shared settings loading
+now bounds JSON reads to 64 KiB plus one sentinel byte, quarantines oversized
+profiles, and returns safe defaults through the existing frontend recovery
+contract. A synthetic oversized-file regression test was added. This is
+deterministic privacy/availability protection, not physical Windows
+qualification; exact-head CI remains required.
+
 ### W7 acceptance gate
 
 - [x] Diagnostics/settings/errors can serve both platforms without misleading platform assumptions.
@@ -586,6 +593,14 @@ The guard should cover at least:
 - [x] Windows API imports in portable core once Windows code exists.
 
 **W10.2 guard evidence (2026-10-11):** `scripts/check-platform-boundaries.py` runs in repository-policy CI; `scripts/test_platform_boundaries.py` supplies synthetic positive and negative guard cases for platform import, environment probing, and composition-root exceptions. Repository-policy completed successfully in run `38121203139` at `167cb5652a6043c6affdefb05730fc9785d73795` (the overall run was later cancelled by a newer branch push). This does not close W10 overall or replace final exact-head qualification.
+
+**Additional architecture-guard hardening (2026-10-12):** The Rust
+platform-boundary scanner now rejects fake inline-test-module markers embedded
+in multiline raw/ordinary strings or nested comments, and continues scanning
+production code after a real inline test module. Synthetic fixtures exercise
+both evasion cases. This improves static guard coverage but does not replace
+the outstanding category-by-category W1.2 source review. Exact-head CI
+qualification remains pending.
 
 ### W10.3 Content-leakage guard
 
@@ -917,6 +932,13 @@ in-bounds terminators and undersized directories. This prevents misleading
 import inventories from malformed metadata; it does not establish dynamic
 DLL loading safety, required licenses, or physical Windows acceptance.
 Exact-head hosted CI remains required.
+
+**Additional Windows resource ancestry check (2026-10-12):** The packaged
+OCR resolver now rejects redirected executable-directory ancestors before
+constructing the app-relative runtime paths. A Windows synthetic fixture
+exercises symlinked ancestors when runner privileges permit. This does not
+prove DLL loader behavior, cryptographic provenance, redistribution licenses,
+or physical offline installation; W18 release gates remain open.
 
 ### W18.2 Bundle runtime
 
