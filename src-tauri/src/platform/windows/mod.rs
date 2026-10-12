@@ -37,6 +37,30 @@ fn settings_path_is_owned(path: &Path, directory: bool) -> bool {
     })
 }
 
+// Fail closed before create_dir_all: a linked existing ancestor could
+// redirect directory creation outside the app-owned profile. Missing leaf
+// components are permitted only until the first existing ancestor is found.
+fn settings_directory_can_be_created(path: &Path) -> bool {
+    if !path.is_absolute() {
+        return false;
+    }
+    let mut found_existing = false;
+    for ancestor in path.ancestors() {
+        match ancestor.symlink_metadata() {
+            Ok(metadata) => {
+                if !metadata.is_dir() || metadata.file_attributes() & REPARSE_POINT != 0 {
+                    return false;
+                }
+                found_existing = true;
+            }
+            Err(error)
+                if error.kind() == std::io::ErrorKind::NotFound && !found_existing => {}
+            Err(_) => return false,
+        }
+    }
+    found_existing
+}
+
 #[derive(Debug, Default)]
 pub struct WindowsPlatform;
 
@@ -84,6 +108,22 @@ impl PlatformServices for WindowsPlatform {
             Ok(())
         } else {
             Err(AppError::SettingsWriteFailed)
+        }
+    }
+
+    fn validate_settings_create_directory(&self, path: &Path) -> Result<(), AppError> {
+        if settings_directory_can_be_created(path) {
+            Ok(())
+        } else {
+            Err(AppError::SettingsWriteFailed)
+        }
+    }
+
+    fn validate_settings_read_directory(&self, path: &Path) -> Result<(), AppError> {
+        if settings_path_is_owned(path, true) {
+            Ok(())
+        } else {
+            Err(AppError::SettingsInvalid)
         }
     }
 
@@ -160,6 +200,38 @@ mod tests {
             Path::new("relative/settings.tmp"),
             false
         ));
+    }
+
+    #[test]
+    fn settings_io_never_traverses_redirected_parent() {
+        use crate::settings::{AppSettings, SettingsStore};
+        use std::fs;
+        use std::sync::Arc;
+
+        let temp = tempfile::tempdir().expect("tempdir");
+        let real = temp.path().join("external");
+        fs::create_dir(&real).expect("create external fixture");
+        assert!(settings_directory_can_be_created(&temp.path().join("new")));
+        assert!(!settings_directory_can_be_created(Path::new("relative/config")));
+
+        let alias = temp.path().join("redirect");
+        // Symlink creation is privilege-gated on some Windows CI runners.
+        if std::os::windows::fs::symlink_dir(&real, &alias).is_ok() {
+            let config = alias.join("config");
+            let store = SettingsStore::new(config.clone(), Arc::new(WindowsPlatform));
+            assert!(matches!(
+                store.save(&AppSettings::default()),
+                Err(AppError::SettingsWriteFailed)
+            ));
+            assert!(!real.join("config").exists());
+
+            fs::create_dir(real.join("config")).expect("create target config");
+            fs::write(real.join("config/settings.json"), b"invalid fixture")
+                .expect("write target settings");
+            assert!(matches!(store.load(), Err(AppError::SettingsInvalid)));
+            assert!(real.join("config/settings.json").exists());
+            assert!(!real.join("config/settings.corrupt.json").exists());
+        }
     }
 
     #[tokio::test]
