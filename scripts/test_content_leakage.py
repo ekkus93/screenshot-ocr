@@ -219,7 +219,7 @@ class ContentLeakageGuardTests(unittest.TestCase):
             root = Path(tmp) / "checkout"
             source = root / "src" / "malformed.ts"
             source.parent.mkdir(parents=True)
-            source.write_bytes(b"\\xffPRIVATE_SYNTHETIC_SENTINEL")
+            source.write_bytes(bytes([0xFF]) + b"PRIVATE_SYNTHETIC_SENTINEL")
             problems = guard.scan_tree(root)
             self.assertEqual(
                 problems, ["src/malformed.ts: unreadable first-party source"]
