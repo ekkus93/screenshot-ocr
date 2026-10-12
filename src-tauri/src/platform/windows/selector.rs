@@ -15,7 +15,7 @@ use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::HiDpi::{
     SetThreadDpiAwarenessContext, DPI_AWARENESS_CONTEXT, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2,
 };
-use windows_sys::Win32::UI::Input::KeyboardAndMouse::{ReleaseCapture, SetCapture};
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetCapture, ReleaseCapture, SetCapture};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetClientRect, GetCursorPos,
     GetSystemMetrics, GetWindowLongPtrW, LoadCursorW, PeekMessageW, RegisterClassW,
@@ -126,6 +126,12 @@ unsafe extern "system" fn window_proc(
                     Ok(point) => {
                         if selection.begin(point) {
                             SetCapture(hwnd);
+                            // Without mouse ownership, release outside the
+                            // overlay may never arrive. Fail rather than
+                            // leave an orphaned selector waiting for input.
+                            if GetCapture() != hwnd {
+                                selection.result = Some(Err(AppError::CaptureFailed));
+                            }
                         }
                     }
                     Err(error) => selection.result = Some(Err(error)),
