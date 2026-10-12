@@ -1263,7 +1263,6 @@ ordered. Synthetic tests reject truncation, duplicate sections, and missing
 safety gates. This protects the checklist document but does not qualify
 any unrun desktop, installer, or redistribution acceptance tasks.
 
-
 - [ ] Check only tasks supported by evidence.
 - [x] Leave unrun physical tests unchecked.
 - [x] Do not delete incomplete tasks to make the project look complete.

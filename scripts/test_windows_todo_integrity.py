@@ -43,16 +43,14 @@ class WindowsTodoIntegrityTests(unittest.TestCase):
         original = fixture()
         duplicate = original + "## 10. W6 — duplicate\n"
         self.assertTrue(any("W6" in e for e in guard.validate(duplicate, 26)))
-        swapped = original.replace(
-            "## 9. W5 — test milestone", "## 10. W6 — test milestone", 1
-        ).replace(
-            "## 10. W6 — test milestone\n- [ ] synthetic fixture\n"
-            "## 10. W6 — test milestone",
-            "## 9. W5 — test milestone\n- [ ] synthetic fixture\n"
-            "## 10. W6 — test milestone",
-            1,
+        headings = original.splitlines()
+        first = headings.index("## 9. W5 — test milestone")
+        second = headings.index("## 10. W6 — test milestone")
+        headings[first], headings[second] = headings[second], headings[first]
+        out_of_order = "\n".join(headings) + "\n"
+        self.assertTrue(
+            any("out of order" in error for error in guard.validate(out_of_order, 26))
         )
-        self.assertTrue(guard.validate(swapped, 26))
 
     def test_rejects_empty_sections_and_missing_newline(self) -> None:
         original = fixture()
