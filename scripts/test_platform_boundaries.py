@@ -202,6 +202,24 @@ class PlatformBoundaryGuardTests(unittest.TestCase):
         })
         self.assertEqual(status, 0, report)
 
+    def test_indented_unit_test_module_remains_exempt_without_hiding_following_code(self) -> None:
+        for indentation in (" ", "    ", "\t", " \t"):
+            with self.subTest(indentation=repr(indentation)):
+                code = (
+                    "fn shared() {}\n"
+                    + indentation + "#[cfg(test)]\n"
+                    + indentation + "mod tests {\n"
+                    + "    #[cfg(windows)] fn test_only() {}\n"
+                    + "}\n"
+                )
+                status, report = self.run_check({"app.rs": code})
+                self.assertEqual(status, 0, report)
+                status, report = self.run_check({
+                    "app.rs": code + '#[cfg(target_os = "windows")]\nfn production() {}\n'
+                })
+                self.assertEqual(status, 1, report)
+                self.assertIn("platform-specific cfg outside adapter", report)
+
     def test_fake_test_module_in_multiline_literals_or_comments_does_not_hide_cfg(self) -> None:
         examples = (
             'const EXAMPLE: &str = r#"\n#[cfg(test)]\nmod tests {\n"#;\n',

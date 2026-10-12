@@ -164,7 +164,15 @@ def production_source(source: str) -> str:
     # Preserve newlines so diagnostic line numbers remain accurate.
     production = list(source)
     for match in TEST_MODULE_START.finditer(source):
-        if production[match.start()] == " " or not is_rust_code_at(source, match.start()):
+        # Indentation is permitted before a real attribute. Compare the
+        # entire candidate marker with the progressively masked source:
+        # previously masked nested test modules are skipped, but whitespace
+        # preceding a live marker must not make it look already masked.
+        if (
+            production[match.start():match.end()]
+            != list(source[match.start():match.end()])
+            or not is_rust_code_at(source, match.start())
+        ):
             continue
         depth = 1
         opening = match.end() - 1
