@@ -361,12 +361,16 @@ mod tests {
         let probe_engine = engine.clone();
         let probe = tokio::spawn(async move { probe_engine.probe_english(&token).await });
         wait_for_windows_fake_start(&marker_dir.join("probe.started")).await;
+        // Hold the exact child handle before cancellation so a reused PID
+        // cannot make the process-exit assertion falsely pass.
+        let probe_handle = windows_fake_process_handle(&marker_dir, "probe");
         cancellation.cancel();
         let probe_result = timeout(Duration::from_secs(4), probe)
             .await
             .expect("Windows language-probe cancellation timed out")
             .expect("Windows language-probe task panicked");
         assert!(matches!(probe_result, Err(AppError::CaptureCancelled)));
+        assert_windows_fake_process_exited(&probe_handle);
 
         let cancellation = CancellationToken::new();
         let token = cancellation.clone();
@@ -380,6 +384,7 @@ mod tests {
                 .await
         });
         wait_for_windows_fake_start(&marker_dir.join("recognize.started")).await;
+        let recognition_handle = windows_fake_process_handle(&marker_dir, "recognize");
         cancellation.cancel();
         let recognition_result = timeout(Duration::from_secs(4), recognition)
             .await
@@ -389,6 +394,44 @@ mod tests {
             recognition_result,
             Err(AppError::CaptureCancelled)
         ));
+        assert_windows_fake_process_exited(&recognition_handle);
+    }
+
+    // Test-only native process inspection. The portable engine itself does
+    // not depend on Windows APIs or expose any native process identifiers.
+    #[cfg(windows)]
+    fn windows_fake_process_handle(
+        marker_dir: &std::path::Path,
+        mode: &str,
+    ) -> std::os::windows::io::OwnedHandle {
+        use std::os::windows::io::{FromRawHandle, OwnedHandle};
+        use windows_sys::Win32::System::Threading::OpenProcess;
+
+        let pid = std::fs::read_to_string(marker_dir.join(format!("{mode}.pid")))
+            .expect("synthetic Windows child PID marker")
+            .trim()
+            .parse::<u32>()
+            .expect("numeric synthetic child PID");
+        // SYNCHRONIZE alone permits waiting; no process mutation rights.
+        let handle = unsafe { OpenProcess(0x0010_0000, 0, pid) };
+        assert!(!handle.is_null(), "synthetic Windows child must still be running");
+        // SAFETY: OpenProcess returned a distinct non-null owned handle.
+        unsafe { OwnedHandle::from_raw_handle(handle as _) }
+    }
+
+    #[cfg(windows)]
+    fn assert_windows_fake_process_exited(handle: &std::os::windows::io::OwnedHandle) {
+        use std::os::windows::io::AsRawHandle;
+        use windows_sys::Win32::Foundation::WAIT_OBJECT_0;
+        use windows_sys::Win32::System::Threading::WaitForSingleObject;
+
+        // A completed cancellation must leave the exact child terminated,
+        // not merely mark the task cancelled while it keeps running.
+        let result = unsafe { WaitForSingleObject(handle.as_raw_handle() as _, 0) };
+        assert_eq!(
+            result, WAIT_OBJECT_0,
+            "synthetic Windows OCR child still running after cancellation"
+        );
     }
 
     #[cfg(windows)]
