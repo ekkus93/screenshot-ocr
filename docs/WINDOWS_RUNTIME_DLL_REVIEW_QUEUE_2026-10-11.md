@@ -115,6 +115,37 @@ redistribution permission. Compare them with authoritative upstream sources
 before checking any W18 license or dependency acceptance box. Hosted Windows
 packaging CI must qualify the manifest change on its exact commit.
 
+## Preliminary upstream licensing references (2026-10-12)
+
+These references establish **project-level** licensing statements, not the
+identity or redistribution rights of any binary extracted from the pinned
+third-party Windows installer:
+
+- The upstream Tesseract documentation describes the OCR engine as
+  Apache-2.0 licensed:
+  https://tesseract-ocr.github.io/tessdoc/Home.html
+- Tesseract's own dependency notice states that Leptonica uses essentially
+  BSD-2-Clause terms and that other dependencies can carry different licenses:
+  https://sources.debian.org/src/tesseract/5.3.0-2/README.md
+- SPDX documents that older Leptonica releases used a distinct Leptonica
+  license, whereas current Leptonica uses BSD-2-Clause. The actual bundled
+  DLL version and corresponding license text must be established:
+  https://spdx.github.io/license-list-data/Leptonica.html
+- Upstream Tesseract documentation explicitly distinguishes the third-party
+  UB Mannheim Windows installer from an official Tesseract Windows installer:
+  https://tesseract-ocr.github.io/tessdoc/Downloads.html
+- The official traineddata documentation distinguishes the three model sets;
+  the source, checksum, and applicable license of the **actual** bundled
+  `eng.traineddata` must be matched before publication:
+  https://tesseract-ocr.github.io/tessdoc/Data-Files.html
+
+Do not assume that the Mannheim-built `libtesseract-5.dll`,
+`libleptonica-6.dll`, or language model is the same release as the upstream
+documentation. Resolve each pinned binary to an upstream version and license
+record, obtain required copyright/NOTICE texts, and review all other adjacent
+DLLs individually. No W18 licensing checkbox is satisfied by this preliminary
+research; no installer publication is authorized.
+
 ## Unresolved release gates
 
 - [ ] Reproduce final input hashes and decide which DLLs are required.
