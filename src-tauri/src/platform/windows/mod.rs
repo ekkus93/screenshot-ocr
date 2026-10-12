@@ -162,7 +162,9 @@ mod tests {
         let temp = tempdir().expect("temporary directory");
         let settings = temp.path().join("settings.json");
         fs::write(&settings, b"synthetic").expect("regular file");
-        assert!(WindowsPlatform.validate_settings_read_file(&settings).is_ok());
+        assert!(WindowsPlatform
+            .validate_settings_read_file(&settings)
+            .is_ok());
 
         fs::remove_file(&settings).expect("remove file");
         fs::create_dir(&settings).expect("substituted directory");
