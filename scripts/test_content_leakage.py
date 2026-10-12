@@ -63,11 +63,11 @@ class ContentLeakageGuardTests(unittest.TestCase):
             with self.subTest(name=name):
                 report = self.scan({
                     "src-tauri/src/app.rs": (
-                        f'use tracing::{name};\\n{name}!("PRIVATE_SYNTHETIC_SENTINEL");\\n'
+                        f'use tracing::{name};\n{name}!("PRIVATE_SYNTHETIC_SENTINEL");\n'
                     )
                 })
                 self.assertEqual(len(report), 1, report)
-                self.assertIn("Rust imported logging macro", report[0])
+                self.assertIn("Rust structured logging macro", report[0])
                 self.assertNotIn("PRIVATE_SYNTHETIC_SENTINEL", report[0])
 
     def test_frontend_console_forms_are_rejected(self) -> None:

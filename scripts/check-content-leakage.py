@@ -21,13 +21,10 @@ IGNORED_PARTS = {
 }
 
 RUST_OUTPUT = re.compile(r"\b(?:dbg|print|println|eprint|eprintln)\s*!\s*\(")
+# Also reject macros imported directly with `use tracing::info` or
+# `use log::warn`, not only their qualified invocation forms.
 RUST_LOG_OUTPUT = re.compile(
-    r"\b(?:tracing|log)\s*::\s*(?:trace|debug|info|warn|error|event|log|span)\s*!\s*\("
-)
-# Rust permits importing these macros directly (e.g. use tracing::info;).
-# A qualified-only guard would silently miss their invocation.
-RUST_IMPORTED_LOG_OUTPUT = re.compile(
-    r"\b(?:trace|debug|info|warn|error|event|span)\s*!\s*\("
+    r"\b(?:(?:tracing|log)\s*::\s*)?(?:trace|debug|info|warn|error|event|log|span)\s*!\s*\("
 )
 FRONTEND_OUTPUT = re.compile(
     r"\bconsole\s*(?:\?\.|\.)\s*(?:log|debug|info|warn|error)\s*(?:\?\.)?\s*\("
@@ -39,7 +36,6 @@ FORBIDDEN_RULES = {
     ".rs": (
         ("Rust debug/print macro", RUST_OUTPUT),
         ("Rust structured logging macro", RUST_LOG_OUTPUT),
-        ("Rust imported logging macro", RUST_IMPORTED_LOG_OUTPUT),
     ),
     **{
         extension: (
