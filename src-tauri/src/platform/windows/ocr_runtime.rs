@@ -29,30 +29,69 @@ fn nonempty_file(path: &Path) -> bool {
     })
 }
 
-// Reject suspicious adjacent native dependencies before launching Tesseract.
-// This is a bounded file-type/reparse check, not a loader or hash audit:
-// native libraries can be loaded dynamically and files can change afterward.
-fn adjacent_dlls_are_regular_files(root: &Path) -> bool {
+// Fail closed on unexpected or redirected app-owned runtime entries, not
+// just malformed adjacent DLLs. The pinned NSIS staging layout consists of
+// tesseract.exe, tessdata/eng.traineddata and adjacent DLLs only. In particular,
+// an unrelated reparse-pointed file or directory must not be silently ignored.
+// This is a bounded layout check, not a native-loader or cryptographic audit.
+fn packaged_runtime_tree_is_regular(root: &Path) -> bool {
     let Ok(entries) = std::fs::read_dir(root) else {
         return false;
     };
+    let mut saw_binary = false;
+    let mut saw_tessdata = false;
     for (index, entry) in entries.enumerate() {
-        // An unexpected, unbounded directory is not a trusted runtime layout.
         if index >= 256 {
             return false;
         }
         let Ok(entry) = entry else {
             return false;
         };
-        if entry
-            .file_name()
-            .to_string_lossy()
-            .to_ascii_lowercase()
-            .ends_with(".dll")
-            && !nonempty_file(&entry.path())
-        {
+        let Some(name) = entry.file_name().to_str().map(str::to_ascii_lowercase) else {
+            return false;
+        };
+        let path = entry.path();
+        match name.as_str() {
+            "tesseract.exe" => {
+                if saw_binary || !nonempty_file(&path) {
+                    return false;
+                }
+                saw_binary = true;
+            }
+            "tessdata" => {
+                if saw_tessdata || !directly_owned_directory(&path) {
+                    return false;
+                }
+                saw_tessdata = true;
+            }
+            name if name.ends_with(".dll") => {
+                if !nonempty_file(&path) {
+                    return false;
+                }
+            }
+            _ => return false,
+        }
+    }
+    if !saw_binary || !saw_tessdata {
+        return false;
+    }
+    let Ok(entries) = std::fs::read_dir(root.join("tessdata")) else {
+        return false;
+    };
+    let mut saw_english = false;
+    for (index, entry) in entries.enumerate() {
+        if index >= 16 {
             return false;
         }
+        let Ok(entry) = entry else {
+            return false;
+        };
+        // Missing, empty, or redirected English data is reported separately
+        // by resolve_at as OcrLanguageMissing, not a generic engine failure.
+        if entry.file_name().to_str() != Some("eng.traineddata") || saw_english {
+            return false;
+        }
+        saw_english = true;
     }
     true
 }
@@ -75,7 +114,7 @@ fn resolve_at(executable: &Path) -> Result<OcrRuntime, AppError> {
     if !directly_owned_directory(&resources) || !directly_owned_directory(&root) {
         return Err(AppError::OcrEngineUnavailable);
     }
-    if !adjacent_dlls_are_regular_files(&root) {
+    if !packaged_runtime_tree_is_regular(&root) {
         return Err(AppError::OcrEngineUnavailable);
     }
     let binary = root.join("tesseract.exe");
@@ -320,6 +359,63 @@ mod tests {
                 resolve_at(&alias.join("screenshot-ocr.exe")),
                 Err(AppError::OcrEngineUnavailable)
             ));
+        }
+    }
+
+    #[test]
+    fn resolver_rejects_unreviewed_runtime_files_and_nested_directories() {
+        let root = tempdir().unwrap();
+        let executable = root.path().join("screenshot-ocr.exe");
+        let ocr = root.path().join("resources").join("ocr");
+        let tessdata = ocr.join("tessdata");
+        fs::create_dir_all(&tessdata).unwrap();
+        fs::write(ocr.join("tesseract.exe"), b"fixture").unwrap();
+        fs::write(tessdata.join("eng.traineddata"), b"fixture").unwrap();
+        fs::write(ocr.join("synthetic.dll"), b"fixture").unwrap();
+        assert!(resolve_at(&executable).is_ok());
+
+        let unexpected = ocr.join("unreviewed.txt");
+        fs::write(&unexpected, b"fixture").unwrap();
+        assert!(matches!(
+            resolve_at(&executable),
+            Err(AppError::OcrEngineUnavailable)
+        ));
+        fs::remove_file(&unexpected).unwrap();
+
+        fs::create_dir(&unexpected).unwrap();
+        assert!(matches!(
+            resolve_at(&executable),
+            Err(AppError::OcrEngineUnavailable)
+        ));
+        fs::remove_dir(&unexpected).unwrap();
+
+        let extra_data = tessdata.join("unreviewed.traineddata");
+        fs::write(&extra_data, b"fixture").unwrap();
+        assert!(matches!(
+            resolve_at(&executable),
+            Err(AppError::OcrEngineUnavailable)
+        ));
+        fs::remove_file(&extra_data).unwrap();
+        assert!(resolve_at(&executable).is_ok());
+    }
+
+    #[test]
+    fn resolver_rejects_unrelated_linked_entries_when_symlinks_are_available() {
+        let root = tempdir().unwrap();
+        let executable = root.path().join("screenshot-ocr.exe");
+        let ocr = root.path().join("resources").join("ocr");
+        fs::create_dir_all(ocr.join("tessdata")).unwrap();
+        fs::write(ocr.join("tesseract.exe"), b"fixture").unwrap();
+        fs::write(ocr.join("tessdata").join("eng.traineddata"), b"fixture").unwrap();
+        let external = root.path().join("external.txt");
+        fs::write(&external, b"PRIVATE_SYNTHETIC_FIXTURE").unwrap();
+        let link = ocr.join("unexpected.txt");
+        if std::os::windows::fs::symlink_file(&external, &link).is_ok() {
+            assert!(matches!(
+                resolve_at(&executable),
+                Err(AppError::OcrEngineUnavailable)
+            ));
+            assert_eq!(fs::read(&external).unwrap(), b"PRIVATE_SYNTHETIC_FIXTURE");
         }
     }
 

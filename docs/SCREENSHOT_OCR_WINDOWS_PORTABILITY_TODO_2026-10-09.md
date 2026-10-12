@@ -969,6 +969,16 @@ or physical offline installation; W18 release gates remain open.
 
 **W18 native binary review register (2026-10-12):** A review worksheet records all 52 staged PE binaries (Tesseract plus 51 adjacent DLLs), per-file hashes, static reachability, and 17 unresolved external DLL names from passing CI run 38260144405 at 93251891f2f542661e7ebb5457663bf8b12b95af. License/NOTICE, dynamic loader, physical Windows, and redistribution gates remain open; later commits require exact-head requalification.
 
+**W18.2 runtime-layout hardening (2026-10-12):** The Windows
+runtime resolver now fails closed on unexpected adjacent files/directories,
+including unrelated linked entries, and unexpected nested tessdata files.
+The allowed app-owned layout remains Tesseract, English trained data, and
+adjacent DLLs. Windows synthetic tests exercise extra files, directories,
+language files, and linked entries where privileges permit. Missing or empty
+English data retains the distinct `OcrLanguageMissing` error. This does
+not prove immutable binaries, DLL load-order safety, license clearance, or
+physical offline installation; those gates remain unchecked pending evidence.
+
 ### W18.2 Bundle runtime
 
 - [ ] Bundle tesseract executable.
