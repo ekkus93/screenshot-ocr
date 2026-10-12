@@ -164,3 +164,10 @@ Portable orchestration fake-platform tests were subsequently added on the same b
 ## Physical evidence boundary
 
 No new physical Linux desktop acceptance is asserted by this audit. The TODO's GNOME Wayland/X11, tray, shortcut, clipboard, and display checks remain unchecked unless they are actually re-run. They are not treated as hosted-CI evidence.
+
+A subsequent portable-production boundary check rejects Rust `cfg`,
+`cfg_attr`, and `cfg!` platform switches (including nested `all`/`any`/`not`)
+outside platform adapters and bootstrap code. Test-only fixtures remain
+permitted to use target conditionals. Synthetic regressions cover these
+cases; this is architecture source-gating evidence, not physical or native
+loader acceptance, and requires exact-head CI before qualification.

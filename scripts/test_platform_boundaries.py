@@ -137,6 +137,31 @@ class PlatformBoundaryGuardTests(unittest.TestCase):
                 self.assertEqual(status, 1, report)
                 self.assertIn("app.rs:1:", report)
 
+    def test_platform_cfg_stays_outside_portable_production(self) -> None:
+        for source in (
+            '#[cfg(target_os = "windows")]\\nfn native() {}\\n',
+            '#[cfg(not(unix))]\\nfn native() {}\\n',
+            '#[cfg(any(feature = "x", target_family = "windows"))]\\nfn native() {}\\n',
+            '#[cfg_attr(target_arch = "x86_64", allow(dead_code))]\\nfn native() {}\\n',
+            'let native = cfg!(target_os = "linux");\\n',
+            '#[cfg(all(\\nfeature = "x",\\nnot(target_os = "windows")\\n))]\\nfn native() {}\\n',
+        ):
+            with self.subTest(source=source):
+                status, report = self.run_check({"app.rs": source})
+                self.assertEqual(status, 1, report)
+                self.assertIn("platform-specific cfg outside adapter", report)
+
+    def test_platform_cfg_in_test_only_modules_and_bootstrap_is_allowed(self) -> None:
+        status, report = self.run_check({
+            "app.rs": ('fn shared() {}\\n#[cfg(test)]\\nmod tests {\\n'
+                       '  #[cfg(unix)] fn only_unix_test() {}\\n}\\n'),
+            "app_portability_tests.rs": '#[cfg(windows)]\\nfn fixture() {}\\n',
+            "lib.rs": '#[cfg_attr(target_os = "windows", allow(dead_code))]\\nfn entry() {}\\n',
+            "main.rs": '#[cfg(windows)]\\nfn main() {}\\n',
+            "platform/windows/mod.rs": '#[cfg(target_os = "windows")]\\nfn adapter() {}\\n',
+        })
+        self.assertEqual(status, 0, report)
+
     def test_platform_adapter_can_use_native_imports(self) -> None:
         status, report = self.run_check(
             {
