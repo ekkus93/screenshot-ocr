@@ -48,6 +48,11 @@ pub fn compose(
             .map_err(|_| AppError::CaptureImageInvalid)?;
         covered.push(tile.source);
     }
+    // A selection outside every active display must never produce an empty,
+    // fully transparent OCR image even if this pure composer is called directly.
+    if covered.is_empty() {
+        return Err(AppError::CaptureImageInvalid);
+    }
     Ok(result)
 }
 
@@ -64,6 +69,15 @@ mod tests {
             right,
             bottom,
         }
+    }
+
+    #[test]
+    fn rejects_selection_without_any_display_tiles() {
+        let selection = rect(0, 0, 20, 20);
+        assert!(matches!(
+            compose(selection, std::iter::empty()),
+            Err(AppError::CaptureImageInvalid)
+        ));
     }
 
     #[test]
