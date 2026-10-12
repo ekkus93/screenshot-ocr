@@ -487,6 +487,26 @@ mod tests {
         ));
     }
 
+    #[tokio::test]
+    async fn pre_cancelled_recognition_never_requires_an_ocr_executable() {
+        let engine = TesseractEngine::new(OcrRuntime::new(
+            std::path::PathBuf::from("missing-ocr-fixture-executable"),
+            None,
+        ));
+        let variant = PreparedVariant {
+            image: image::DynamicImage::new_rgb8(2, 2),
+            id: crate::models::PreprocessingVariant::Original,
+        };
+        let cancellation = CancellationToken::new();
+        cancellation.cancel();
+        assert!(matches!(
+            engine
+                .recognize(&variant, TextMode::SingleLine, &cancellation)
+                .await,
+            Err(AppError::CaptureCancelled)
+        ));
+    }
+
     #[cfg(unix)]
     #[tokio::test]
     async fn cancellation_terminates_ocr_process() {
