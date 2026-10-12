@@ -154,6 +154,33 @@ class AssumptionInventoryTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "source root must not be a symlink"):
                 inventory.inventory(alias / "repo")
 
+    def test_dangling_directory_link_cannot_hide_first_party_inventory(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "repo"
+            source = root / "src" / "platform"
+            source.mkdir(parents=True)
+            (source / "missing-source-tree").symlink_to(
+                Path(temp) / "not-present", target_is_directory=True
+            )
+            with self.assertRaisesRegex(
+                ValueError, "first-party source traverses a symbolic link"
+            ):
+                inventory.inventory(root)
+
+    def test_unrecognized_source_link_is_rejected_without_reading_target(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "repo"
+            source = root / "scripts"
+            source.mkdir(parents=True)
+            target = Path(temp) / "external.data"
+            target.write_text("PRIVATE_FIXTURE", encoding="utf-8")
+            (source / "fixture.data").symlink_to(target)
+            with self.assertRaisesRegex(
+                ValueError, "first-party source traverses a symbolic link"
+            ) as found:
+                inventory.inventory(root)
+            self.assertNotIn("PRIVATE_FIXTURE", str(found.exception))
+
     def test_root_level_linked_source_is_rejected_without_following_target(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "repo"

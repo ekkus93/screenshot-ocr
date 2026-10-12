@@ -84,11 +84,12 @@ def candidates(root: Path) -> list[Path]:
                 if any(part in IGNORED for part in path.relative_to(root).parts):
                     continue
                 if path.is_symlink():
-                    if path.is_dir() or path.suffix in SUFFIXES:
-                        raise ValueError(
-                            "platform inventory first-party source traverses a symbolic link"
-                        )
-                    continue
+                    # A dangling directory link has is_dir() == False and
+                    # often no recognized suffix. Fail closed on *all* links
+                    # within first-party scan roots, including that case.
+                    raise ValueError(
+                        "platform inventory first-party source traverses a symbolic link"
+                    )
                 if path.is_file() and path.suffix in SUFFIXES:
                     all_paths.append(path)
     # Root-level tooling (Vite, Playwright, TypeScript, packaging) may encode
