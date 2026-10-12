@@ -88,6 +88,12 @@ repository-relative filename, source line number, and responsible architectural
 owner. The inventory deliberately contains no source lines, user paths,
 screenshots, or OCR text; synthetic tests enforce this output contract.
 
+The Linux environment adapter additionally normalizes public
+distribution/version diagnostics to fixed distro labels and bounded numeric
+versions, rather than forwarding arbitrary `PRETTY_NAME` content from
+`/etc/os-release`. Synthetic parser tests exercise unrecognized and malformed
+values; hosted exact-head CI must still qualify this change.
+
 The inventory also scans Tauri build scripts, capability/configuration files,
 installer `.nsh`/`.nsi` hooks, and shell scripts, rather than only Rust source.
 It classifies Windows registry/environment references and Linux/Windows bundle

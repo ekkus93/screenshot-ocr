@@ -282,6 +282,14 @@ unchecked.
 - [ ] Do not expose raw OS version strings unless needed.
 - [ ] Keep diagnostic capability values content-free.
 
+**W3.2 Linux diagnostic normalization (2026-10-12):** The Linux adapter
+now maps `/etc/os-release` IDs to a fixed distribution-label allowlist and
+accepts only bounded numeric version identifiers. Arbitrary `PRETTY_NAME`
+or vendor-provided release text is no longer echoed to public diagnostics.
+Synthetic tests cover known, unknown, and malformed labels. This narrows the
+portable diagnostics contract; exact-head CI and broader W3.2 review remain
+outstanding.
+
 ### W3.3 OCR runtime resolver contract
 
 - [x] Separate runtime discovery/resource resolution from shared OCR recognition.
