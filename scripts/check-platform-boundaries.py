@@ -89,9 +89,9 @@ ALLOWED_NON_PLATFORM_FILES = {
 # Platform conditionals inside the shared production core are architectural
 # leakage even when they do not import a native API. Inspect each balanced
 # cfg/cfg_attr/cfg! expression so nested all()/any()/not() forms are covered.
-PLATFORM_CFG_START = re.compile(r"(?:#\\s*\\[\\s*cfg(?:_attr)?\\s*\\(|\\bcfg\\s*!\\s*\\()")
+PLATFORM_CFG_START = re.compile(r"(?:#\s*\[\s*cfg(?:_attr)?\s*\(|\bcfg\s*!\s*\()")
 PLATFORM_CFG_TOKEN = re.compile(
-    r"\\b(?:target_os|target_family|target_arch|target_env|target_vendor|windows|unix|linux)\\b"
+    r"\b(?:target_os|target_family|target_arch|target_env|target_vendor|windows|unix|linux)\b"
 )
 
 
@@ -99,7 +99,7 @@ def production_platform_cfg_lines(source: str) -> list[int]:
     locations = []
     for match in PLATFORM_CFG_START.finditer(source):
         # Ignore source examples in full-line Rust comments.
-        line_start = source.rfind("\\n", 0, match.start()) + 1
+        line_start = source.rfind("\n", 0, match.start()) + 1
         if source[line_start:match.start()].lstrip().startswith("//"):
             continue
         depth = 1
@@ -111,7 +111,7 @@ def production_platform_cfg_lines(source: str) -> list[int]:
                 depth -= 1
             offset += 1
         if depth == 0 and PLATFORM_CFG_TOKEN.search(source[match.end():offset - 1]):
-            locations.append(source.count("\\n", 0, match.start()) + 1)
+            locations.append(source.count("\n", 0, match.start()) + 1)
     return locations
 
 
@@ -146,7 +146,7 @@ def main() -> int:
         # stand-alone test fixtures, but reject platform selection in the
         # portable production core. Bootstrap files own only composition.
         if path.name not in {"lib.rs", "main.rs"} and not path.name.endswith("_tests.rs"):
-            production = text.split("#[cfg(test)]\\nmod tests", 1)[0]
+            production = text.split("#[cfg(test)]\nmod tests", 1)[0]
             for line_number in production_platform_cfg_lines(production):
                 problems.append(
                     f"{path}:{line_number}: platform-specific cfg outside adapter"
