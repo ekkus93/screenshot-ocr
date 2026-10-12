@@ -72,6 +72,38 @@ class ContentLeakageGuardTests(unittest.TestCase):
             [],
         )
 
+    def test_symlinked_source_is_rejected_without_reading_private_target(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            checkout = directory / "checkout"
+            checkout.mkdir()
+            outside = directory / "private.rs"
+            outside.write_text("PRIVATE_SYNTHETIC_SENTINEL", encoding="utf-8")
+            link = checkout / "linked.rs"
+            try:
+                link.symlink_to(outside)
+            except (OSError, NotImplementedError):
+                self.skipTest("host does not permit source symlinks")
+            report = guard.scan_tree(checkout)
+            self.assertEqual(len(report), 1, report)
+            self.assertIn("symbolic link in source scan", report[0])
+            self.assertNotIn("PRIVATE_SYNTHETIC_SENTINEL", report[0])
+
+    def test_symlinked_ancestor_root_fails_closed_without_reading_content(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            real = directory / "actual"
+            checkout = real / "src"
+            checkout.mkdir(parents=True)
+            (checkout / "safe.rs").write_text("fn empty() {}", encoding="utf-8")
+            alias = directory / "alias"
+            try:
+                alias.symlink_to(real, target_is_directory=True)
+            except (OSError, NotImplementedError):
+                self.skipTest("host does not permit directory symlinks")
+            report = guard.scan_tree(alias / "src")
+            self.assertEqual(report, ["source scan root traverses a symbolic link"])
+
     def test_multiple_findings_have_file_and_line_without_source_content(self) -> None:
         report = self.scan({
             "src/a.ts": "export const a = 1;\nconsole.error('PRIVATE_SYNTHETIC_SENTINEL');\n",
