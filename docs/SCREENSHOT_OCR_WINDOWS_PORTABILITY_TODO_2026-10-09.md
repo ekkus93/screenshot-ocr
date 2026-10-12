@@ -1015,22 +1015,35 @@ physical offline installation; those gates remain unchecked pending evidence.
 
 ### W19.1 Diagnostics
 
-- [ ] Add Windows capture backend status.
-- [ ] Add packaged OCR runtime status.
-- [ ] Add English language status.
-- [ ] Add shortcut status.
-- [ ] Add tray status if useful.
-- [ ] Keep statuses content-free.
+- [x] Add Windows capture backend status.
+- [x] Add packaged OCR runtime status.
+- [x] Add English language status.
+- [x] Add shortcut status.
+- [x] Add tray status if useful.
+- [x] Keep statuses content-free.
 
 ### W19.2 Public errors
 
-- [ ] Map selector cancelled.
-- [ ] Map capture unavailable.
-- [ ] Map native capture failure.
-- [ ] Map OCR runtime unavailable.
-- [ ] Map OCR language missing.
-- [ ] Map clipboard unavailable/write failure.
-- [ ] Map internal platform failures without raw OS text.
+- [x] Map selector cancelled.
+- [x] Map capture unavailable.
+- [x] Map native capture failure.
+- [x] Map OCR runtime unavailable.
+- [x] Map OCR language missing.
+- [x] Map clipboard unavailable/write failure.
+- [x] Map internal platform failures without raw OS text.
+
+**W19.1/W19.2 hosted evidence (2026-10-12):** The Windows platform
+adapter reports bounded native-capture capability and packaged-runtime
+status. Shared `get_diagnostics` uses a bounded English-language probe and
+returns allowlisted tray and shortcut statuses. Portable `PublicError::from`
+maps cancellation, capture, OCR runtime/language, clipboard, and internal
+failures to fixed public codes and guidance without exposing native error
+text. Source-level tests passed at commit
+`f8b857da770317811bfda54fd46663f8d862ac5a` in PR CI run
+38297371808. W19.1/W19.2 are source and hosted-test checks only: physical
+desktop reporting, complete native loader/licensing review, exhaustive
+content-leakage verification, and the W19 acceptance gate remain open.
+This documentation change requires exact-head CI qualification.
 
 ### W19.3 Privacy review
 
