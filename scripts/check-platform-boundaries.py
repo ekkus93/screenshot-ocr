@@ -160,10 +160,24 @@ def is_rust_code_at(source: str, offset: int) -> bool:
 
 
 def production_source(source: str) -> str:
+    # Mask only the inline test module, not production that follows it.
+    # Preserve newlines so diagnostic line numbers remain accurate.
+    production = list(source)
     for match in TEST_MODULE_START.finditer(source):
-        if is_rust_code_at(source, match.start()):
-            return source[: match.start()]
-    return source
+        if production[match.start()] == " " or not is_rust_code_at(source, match.start()):
+            continue
+        depth = 1
+        opening = match.end() - 1
+        for offset in range(opening + 1, len(source)):
+            if source[offset] not in "{}" or not is_rust_code_at(source, offset):
+                continue
+            depth += 1 if source[offset] == "{" else -1
+            if depth == 0:
+                for index in range(match.start(), offset + 1):
+                    if production[index] != "\n":
+                        production[index] = " "
+                break
+    return "".join(production)
 
 
 def production_platform_cfg_lines(source: str) -> list[int]:

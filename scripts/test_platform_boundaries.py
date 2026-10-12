@@ -228,6 +228,19 @@ class PlatformBoundaryGuardTests(unittest.TestCase):
         })
         self.assertEqual(status, 0, report)
 
+    def test_platform_cfg_after_test_module_is_still_production(self) -> None:
+        status, report = self.run_check({
+            "app.rs": (
+                "fn shared() {}\n#[cfg(test)]\nmod tests {\n"
+                "    fn nested() { let _ = (1, 2); }\n"
+                "    #[cfg(windows)] fn test_only() {}\n}\n"
+                '#[cfg(target_os = "windows")]\nfn native() {}\n'
+            ),
+        })
+        self.assertEqual(status, 1, report)
+        self.assertIn("app.rs:7:", report)
+        self.assertIn("platform-specific cfg outside adapter", report)
+
     def test_platform_adapter_can_use_native_imports(self) -> None:
         status, report = self.run_check(
             {
