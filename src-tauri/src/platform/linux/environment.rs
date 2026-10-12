@@ -115,9 +115,9 @@ fn os_release_field<'a>(text: &'a str, key: &str) -> Option<&'a str> {
 fn safe_numeric_version(version: &str) -> bool {
     !version.is_empty()
         && version.len() <= 16
-        && version
-            .bytes()
-            .all(|byte| byte.is_ascii_digit() || byte == b'.')
+        && version.split('.').all(|component| {
+            !component.is_empty() && component.bytes().all(|byte| byte.is_ascii_digit())
+        })
 }
 
 pub fn find_system_executable(name: &str) -> Option<PathBuf> {
@@ -217,6 +217,25 @@ mod tests {
             safe_os_release("ID=custom\nPRETTY_NAME=\"personal build\"\n"),
             "Linux (release unknown)"
         );
+    }
+
+    #[test]
+    fn os_release_rejects_empty_numeric_version_components() {
+        for version in [".", ".24", "24.", "24..04", "..24", "24.04.", "24...04"] {
+            assert!(!safe_numeric_version(version), "{version}");
+            assert_eq!(
+                safe_os_release(&format!("ID=ubuntu\\nVERSION_ID={version}\\n")),
+                "Ubuntu",
+                "{version}"
+            );
+        }
+        for version in ["24", "24.04", "2026.10.12"] {
+            assert!(safe_numeric_version(version), "{version}");
+            assert_eq!(
+                safe_os_release(&format!("ID=ubuntu\\nVERSION_ID={version}\\n")),
+                format!("Ubuntu {version}")
+            );
+        }
     }
 
     #[test]
