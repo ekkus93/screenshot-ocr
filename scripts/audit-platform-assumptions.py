@@ -36,7 +36,7 @@ def owner(path: str) -> str:
         return "linux_adapter"
     if path.startswith("src-tauri/src/platform/windows/"):
         return "windows_adapter"
-    if path == "src-tauri/src/platform.rs":
+    if path in {"src-tauri/src/platform.rs", "src-tauri/src/platform/mod.rs"}:
         return "platform_composition"
     if path.startswith("src-tauri/src/platform/"):
         return "platform_contract"
