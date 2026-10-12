@@ -64,6 +64,10 @@ class ContentLeakageGuardTests(unittest.TestCase):
             "console . warn ( 'PRIVATE_SYNTHETIC_SENTINEL' );",
             "console?.error('PRIVATE_SYNTHETIC_SENTINEL');",
             "console ['debug'] ('PRIVATE_SYNTHETIC_SENTINEL');",
+            "console?.['warn']('PRIVATE_SYNTHETIC_SENTINEL');",
+            "console?.['warn']?.('PRIVATE_SYNTHETIC_SENTINEL');",
+            "console.log?.('PRIVATE_SYNTHETIC_SENTINEL');",
+            "console?.error?.('PRIVATE_SYNTHETIC_SENTINEL');",
         ]
         for source in variants:
             with self.subTest(source=source):

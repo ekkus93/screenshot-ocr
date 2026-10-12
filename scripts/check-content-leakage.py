@@ -25,10 +25,10 @@ RUST_LOG_OUTPUT = re.compile(
     r"\b(?:tracing|log)\s*::\s*(?:trace|debug|info|warn|error|event|log|span)\s*!\s*\("
 )
 FRONTEND_OUTPUT = re.compile(
-    r"\bconsole\s*(?:\?\.|\.)\s*(?:log|debug|info|warn|error)\s*\("
+    r"\bconsole\s*(?:\?\.|\.)\s*(?:log|debug|info|warn|error)\s*(?:\?\.)?\s*\("
 )
 FRONTEND_BRACKET_OUTPUT = re.compile(
-    r"""\bconsole\s*\[\s*['"](?:log|debug|info|warn|error)['"]\s*\]\s*\("""
+    r"""\bconsole\s*(?:\?\.)?\s*\[\s*['"](?:log|debug|info|warn|error)['"]\s*\]\s*(?:\?\.)?\s*\("""
 )
 FORBIDDEN_RULES = {
     ".rs": (
