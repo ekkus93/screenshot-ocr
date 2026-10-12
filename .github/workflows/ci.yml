@@ -129,6 +129,13 @@ jobs:
       - name: Check portable-core platform boundary
         run: python3 scripts/check-platform-boundaries.py
 
+      - name: Test Windows TODO integrity guard fixtures
+        run: python3 -m unittest discover -s scripts -p "test_windows_todo_integrity.py" -v
+
+      - name: Enforce Windows TODO milestones and acceptance gates
+        if: github.ref == 'refs/heads/ralph/windows-support'
+        run: python3 scripts/check_windows_todo_integrity.py docs/SCREENSHOT_OCR_WINDOWS_PORTABILITY_TODO_2026-10-09.md
+
       - name: Test synthetic platform inventory fixtures
         run: python3 -m unittest discover -s scripts -p "test_platform_assumption_inventory.py" -v
 

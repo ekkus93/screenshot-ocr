@@ -1256,6 +1256,14 @@ If Windows 10 support is dropped because the chosen API/toolchain cannot support
 
 ### W24.5 TODO reconciliation
 
+**W24 structural protection (2026-10-11):** A repository-policy check
+validates that all W0–W25 milestones, final acceptance, physical Windows,
+and explicit owner-approved integration requirements remain present and
+ordered. Synthetic tests reject truncation, duplicate sections, and missing
+safety gates. This protects the checklist document but does not qualify
+any unrun desktop, installer, or redistribution acceptance tasks.
+
+
 - [ ] Check only tasks supported by evidence.
 - [x] Leave unrun physical tests unchecked.
 - [x] Do not delete incomplete tasks to make the project look complete.
