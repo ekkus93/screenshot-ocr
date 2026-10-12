@@ -254,6 +254,7 @@ exact-head Linux/Windows CI. Broader core-purity and physical gates remain
 unchecked.
 
 ### W2 acceptance gate
+
 - [ ] The portable core can be described without mentioning Linux or Windows implementation mechanisms.
 
 ## 7. W3 — Platform service contracts

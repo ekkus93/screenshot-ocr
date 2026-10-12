@@ -187,8 +187,18 @@ mod tests {
         let dir = tempdir().expect("tempdir");
         let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
         store.save(&AppSettings::default()).expect("save");
-        assert_eq!(fs::metadata(dir.path()).unwrap().permissions().mode() & 0o777, 0o700);
-        assert_eq!(fs::metadata(dir.path().join(SETTINGS_FILE)).unwrap().permissions().mode() & 0o777, 0o600);
+        assert_eq!(
+            fs::metadata(dir.path()).unwrap().permissions().mode() & 0o777,
+            0o700
+        );
+        assert_eq!(
+            fs::metadata(dir.path().join(SETTINGS_FILE))
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777,
+            0o600
+        );
     }
 
     #[test]
