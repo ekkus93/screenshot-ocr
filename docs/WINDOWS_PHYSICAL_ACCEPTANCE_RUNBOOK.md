@@ -11,6 +11,19 @@ monitor arrangement, and whether networking was disconnected. Confirm the
 installer checksum before executing it. Do not upload screenshots containing
 personal information, OCR text, clipboard data, user paths, or machine IDs.
 
+## Offline synthetic test fixture
+
+Open `docs/fixtures/windows-ocr-acceptance.html` directly from disk in a
+browser at **100% browser zoom**, without a network connection. It contains
+no JavaScript, remote assets, personal information, or system-specific paths.
+Use fixture IDs LIGHT-01, DARK-02, MONO-03, SIZE-04, PUNCT-05,
+EDGE-06, and GRID-07 to record content-free pass/fail observations.
+The repeated `SAMPLE 123` marker provides a simple recognition sanity
+check; evaluate whitespace/punctuation and selection alignment separately.
+Change **Windows display scaling** independently of browser zoom, and move
+the browser window between monitors for mixed-DPI and cross-monitor tests.
+The fixture is test input, not evidence that any test has passed.
+
 ## Clean-install exercise
 
 On a disposable clean Windows 11 x64 desktop or VM with a real interactive

@@ -1250,6 +1250,12 @@ test procedure, not evidence that any physical acceptance step passed.
 
 ### W23.5 Content cases
 
+**Fixture prepared (2026-10-12):** The offline, self-contained
+`docs/fixtures/windows-ocr-acceptance.html` provides public light/dark,
+monospace, small/large, punctuation, whitespace, edge and grid examples.
+See the physical acceptance runbook for fixture IDs and instructions.
+No physical Windows OCR, selection, DPI or clipboard result is implied.
+
 Use non-sensitive test content.
 
 - [ ] Light background/dark text.
