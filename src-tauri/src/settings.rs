@@ -169,6 +169,18 @@ impl SettingsStore {
         fs::create_dir_all(&self.directory).map_err(|_| AppError::SettingsWriteFailed)?;
         self.platform.protect_settings_directory(&self.directory)?;
         let destination = self.directory.join(SETTINGS_FILE);
+        // Reject a redirected or non-file destination before replacing it.
+        // The platform adapter can also reject Windows native reparse points.
+        match fs::symlink_metadata(&destination) {
+            Ok(metadata) if metadata.is_file() && !metadata.file_type().is_symlink() => {
+                self.platform
+                    .validate_settings_read_file(&destination)
+                    .map_err(|_| AppError::SettingsWriteFailed)?;
+            }
+            Ok(_) => return Err(AppError::SettingsWriteFailed),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(_) => return Err(AppError::SettingsWriteFailed),
+        }
         // A unique, exclusively created file avoids following a pre-existing
         // settings.json.tmp symlink and lets interrupted writes recover without
         // requiring users to delete a stale temporary file.
