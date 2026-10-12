@@ -999,7 +999,6 @@ physical offline installation; those gates remain unchecked pending evidence.
 - [ ] Missing executable maps safely.
 - [ ] Missing eng data maps safely.
 
-
 - [ ] Raw process output is not logged.
 
 ### W18.4 Offline proof
