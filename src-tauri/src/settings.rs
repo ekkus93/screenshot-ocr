@@ -114,6 +114,12 @@ impl SettingsStore {
             self.quarantine(&path)?;
             return Err(AppError::SettingsInvalid);
         }
+        // NTFS reparse-pointed regular files are not always Rust symlinks.
+        // Reject native redirection before opening the settings leaf.
+        if self.platform.validate_settings_read_file(&path).is_err() {
+            self.quarantine(&path)?;
+            return Err(AppError::SettingsInvalid);
+        }
         let file = fs::File::open(&path).map_err(|_| AppError::SettingsInvalid)?;
         let mut bytes = Vec::new();
         file.take(MAX_SETTINGS_BYTES + 1)

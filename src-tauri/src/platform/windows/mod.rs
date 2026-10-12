@@ -126,6 +126,14 @@ impl PlatformServices for WindowsPlatform {
         }
     }
 
+    fn validate_settings_read_file(&self, path: &Path) -> Result<(), AppError> {
+        if settings_path_is_owned(path, false) {
+            Ok(())
+        } else {
+            Err(AppError::SettingsInvalid)
+        }
+    }
+
     async fn diagnostics(&self) -> Result<PlatformDiagnostics, AppError> {
         Ok(PlatformDiagnostics {
             platform: "windows".into(),
@@ -145,6 +153,40 @@ impl PlatformServices for WindowsPlatform {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn settings_read_preflight_rejects_substituted_leaf_types() {
+        use std::fs;
+        use tempfile::tempdir;
+
+        let temp = tempdir().expect("temporary directory");
+        let settings = temp.path().join("settings.json");
+        fs::write(&settings, b"synthetic").expect("regular file");
+        assert!(WindowsPlatform.validate_settings_read_file(&settings).is_ok());
+
+        fs::remove_file(&settings).expect("remove file");
+        fs::create_dir(&settings).expect("substituted directory");
+        assert!(matches!(
+            WindowsPlatform.validate_settings_read_file(&settings),
+            Err(AppError::SettingsInvalid)
+        ));
+        fs::remove_dir(&settings).expect("remove directory");
+
+        let outside = temp.path().join("external.json");
+        fs::write(&outside, b"PRIVATE_SYNTHETIC_FIXTURE").expect("external fixture");
+        // Symlink creation can require privileges on Windows CI runners.
+        // The regular-file and directory cases above always execute.
+        if std::os::windows::fs::symlink_file(&outside, &settings).is_ok() {
+            assert!(matches!(
+                WindowsPlatform.validate_settings_read_file(&settings),
+                Err(AppError::SettingsInvalid)
+            ));
+            assert_eq!(
+                fs::read(&outside).expect("target unchanged"),
+                b"PRIVATE_SYNTHETIC_FIXTURE"
+            );
+        }
+    }
 
     #[test]
     fn windows_settings_protection_rejects_substituted_file_types() {

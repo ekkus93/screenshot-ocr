@@ -32,6 +32,12 @@ pub trait PlatformServices: Send + Sync {
         Ok(())
     }
 
+    // Allow adapters to reject native file redirection not classified as a
+    // Rust symbolic link before the portable settings store opens the leaf.
+    fn validate_settings_read_file(&self, _path: &Path) -> Result<(), AppError> {
+        Ok(())
+    }
+
     async fn diagnostics(&self) -> Result<PlatformDiagnostics, AppError>;
 
     fn direct_shortcut(&self) -> Option<&'static str>;

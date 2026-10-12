@@ -164,9 +164,9 @@ references and architectural owner groups. Synthetic fixtures verify
 classification, repeatability, and omission of source text. Exact-head CI
 must qualify the new step; each category remains unchecked until the
 generated findings have been reviewed for coverage and boundary ownership.
-The inventory now excludes symlinked source files, preventing accidental
-inspection of files outside the checkout; a synthetic privacy regression test
-runs in repository-policy CI. This does not constitute category-by-category
+The inventory now fails closed on symlinked first-party source paths instead
+of silently omitting them; generated dependency trees remain excluded, and
+a synthetic privacy regression test runs in repository-policy CI. This does not constitute category-by-category
 architecture review or physical desktop acceptance. The inventory now also
 rejects symlinked scan roots and linked ancestor directories, with synthetic
 privacy fixtures; the remaining category reviews are still open.
@@ -482,6 +482,16 @@ capture and Ctrl+Shift+O truthfully. `src-tauri/src/error.rs` maps native
 failures to static path-free public codes and guidance. Unit/frontend tests
 cover migration, recovery and synthetic privacy cases. Physical Windows
 acceptance still remains open under W23.
+
+**W7 Windows settings read-leaf hardening (2026-10-12):** The shared
+settings loader now invokes a platform preflight on the existing file before
+reading it. Windows rejects native reparse-pointed settings leaves and
+ancestors, even when Rust does not classify a leaf as a symbolic link.
+Rejected leaves are quarantined without opening the redirected target.
+Deterministic file/directory tests and a privilege-conditional symlink test
+exercise the boundary. This is a pre-open mitigation, not an atomic no-follow
+open or a reviewed Windows ACL claim; exact-head CI and physical acceptance
+are still required.
 
 **Additional settings-read hardening (2026-10-12):** Shared settings loading
 now bounds JSON reads to 64 KiB plus one sentinel byte, quarantines oversized
