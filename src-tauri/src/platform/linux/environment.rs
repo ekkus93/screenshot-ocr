@@ -85,12 +85,7 @@ fn read_os_release() -> String {
 // /etc/os-release can contain administrator-provided free-form text. Public
 // diagnostics must never echo PRETTY_NAME or arbitrary vendor/version strings.
 fn safe_os_release(text: &str) -> String {
-    let value = |key: &str| {
-        text.lines()
-            .find_map(|line| line.strip_prefix(key))
-            .map(|value| value.trim_matches('"'))
-    };
-    let label = match value("ID=") {
+    let label = match os_release_field(text, "ID=") {
         Some("ubuntu") => "Ubuntu",
         Some("debian") => "Debian",
         Some("fedora") => "Fedora",
@@ -105,16 +100,22 @@ fn safe_os_release(text: &str) -> String {
         Some("kali") => "Kali Linux",
         _ => return "Linux (release unknown)".into(),
     };
-    match value("VERSION_ID=") {
-        Some(version)
-            if !version.is_empty()
-                && version.len() <= 16
-                && version.bytes().all(|byte| byte.is_ascii_digit() || byte == b'.') =>
-        {
-            format!("{label} {version}")
-        }
+    match os_release_field(text, "VERSION_ID=") {
+        Some(version) if safe_numeric_version(version) => format!("{label} {version}"),
         _ => label.into(),
     }
+}
+
+fn os_release_field<'a>(text: &'a str, key: &str) -> Option<&'a str> {
+    text.lines()
+        .find_map(|line| line.strip_prefix(key))
+        .map(|value| value.trim_matches('"'))
+}
+
+fn safe_numeric_version(version: &str) -> bool {
+    !version.is_empty()
+        && version.len() <= 16
+        && version.bytes().all(|byte| byte.is_ascii_digit() || byte == b'.')
 }
 
 pub fn find_system_executable(name: &str) -> Option<PathBuf> {

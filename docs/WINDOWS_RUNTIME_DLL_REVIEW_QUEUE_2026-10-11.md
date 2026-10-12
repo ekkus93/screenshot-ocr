@@ -98,13 +98,13 @@ filesystem layout check only: it does **not** verify DLL hashes, guarantee
 native loader behavior, prevent post-check substitution, or establish legal
 redistribution rights. Its exact-head CI qualification remains required.
 
-## Unresolved release gates
 The static PE parser now bounds both ordinary and delay-import descriptor
 scans by the declared data-directory size, rejecting a table whose null
 terminator is outside that bound. Synthetic fixtures exercise this failure
 mode. This is parser-integrity hardening only, not native DLL loader,
 provenance, or redistribution approval. Exact-head CI must qualify it.
 
+## Unresolved release gates
 
 - [ ] Reproduce final input hashes and decide which DLLs are required.
 - [ ] Classify every `external_unreviewed` PE import and loader resolution.
