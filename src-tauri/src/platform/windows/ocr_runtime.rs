@@ -497,9 +497,8 @@ mod tests {
     fn reviewed_dll_allowlist_matches_pinned_native_review_register() {
         // Keep the production runtime's fail-closed basename policy aligned
         // with the exact staged binaries whose hashes are reviewed in CI.
-        let register = include_str!(
-            "../../../../docs/WINDOWS_OCR_NATIVE_BINARY_REVIEW_2026-10-12.md"
-        );
+        let register =
+            include_str!("../../../../docs/WINDOWS_OCR_NATIVE_BINARY_REVIEW_2026-10-12.md");
         let documented: std::collections::BTreeSet<String> = register
             .lines()
             .filter_map(|line| {
