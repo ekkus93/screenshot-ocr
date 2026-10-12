@@ -164,9 +164,9 @@ def main() -> int:
         # these extensions to validate platform behavior without leaking them
         # into the shipping core.
         if path.name not in {"lib.rs", "main.rs"} and not path.name.endswith("_tests.rs"):
-            production = text.split("#[cfg(test)]\\nmod tests", 1)[0]
-            for match in re.finditer(r"\\bstd\\s*::\\s*os\\s*::\\s*unix\\b", production):
-                line_number = production.count("\\n", 0, match.start()) + 1
+            production = text.split("#[cfg(test)]\nmod tests", 1)[0]
+            for match in re.finditer(r"\bstd\s*::\s*os\s*::\s*unix\b", production):
+                line_number = production.count("\n", 0, match.start()) + 1
                 problems.append(
                     f"{path}:{line_number}: portable code imports Unix-only OS APIs"
                 )

@@ -125,8 +125,8 @@ class PlatformBoundaryGuardTests(unittest.TestCase):
 
     def test_unix_only_os_extensions_stay_outside_portable_production(self) -> None:
         for source in (
-            "use std::os::unix::fs::PermissionsExt;\\n",
-            "use std::os\\n  ::unix::ffi::OsStrExt;\\n",
+            "use std::os::unix::fs::PermissionsExt;\n",
+            "use std::os\n  ::unix::ffi::OsStrExt;\n",
         ):
             with self.subTest(source=source):
                 status, report = self.run_check({"app.rs": source})
@@ -135,8 +135,8 @@ class PlatformBoundaryGuardTests(unittest.TestCase):
 
         status, report = self.run_check({
             "app.rs": (
-                "fn shared() {}\\n#[cfg(test)]\\nmod tests {\\n"
-                "  use std::os::unix::fs::PermissionsExt;\\n}\\n"
+                "fn shared() {}\n#[cfg(test)]\nmod tests {\n"
+                "  use std::os::unix::fs::PermissionsExt;\n}\n"
             ),
         })
         self.assertEqual(status, 0, report)
