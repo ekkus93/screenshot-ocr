@@ -1,9 +1,11 @@
 use crate::error::AppError;
 use crate::models::{CaptureBackendPreference, TextMode};
+use crate::platform::PlatformServices;
 use serde::{Deserialize, Serialize};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 const SETTINGS_FILE: &str = "settings.json";
 
@@ -79,14 +81,14 @@ pub struct SettingsLoadResult {
     pub warning: Option<SettingsRecoveryWarning>,
 }
 
-#[derive(Debug)]
 pub struct SettingsStore {
     directory: PathBuf,
+    platform: Arc<dyn PlatformServices>,
 }
 
 impl SettingsStore {
-    pub fn new(directory: PathBuf) -> Self {
-        Self { directory }
+    pub fn new(directory: PathBuf, platform: Arc<dyn PlatformServices>) -> Self {
+        Self { directory, platform }
     }
 
     pub fn load(&self) -> Result<AppSettings, AppError> {
@@ -131,7 +133,7 @@ impl SettingsStore {
     pub fn save(&self, settings: &AppSettings) -> Result<(), AppError> {
         settings.validate()?;
         fs::create_dir_all(&self.directory).map_err(|_| AppError::SettingsWriteFailed)?;
-        set_directory_permissions(&self.directory)?;
+        self.platform.protect_settings_directory(&self.directory)?;
         let destination = self.directory.join(SETTINGS_FILE);
         let temporary = self.directory.join("settings.json.tmp");
         let serialized =
@@ -142,7 +144,7 @@ impl SettingsStore {
             .write(true)
             .open(&temporary)
             .map_err(|_| AppError::SettingsWriteFailed)?;
-        set_file_permissions(&temporary)?;
+        self.platform.protect_settings_file(&temporary)?;
         file.write_all(&serialized)
             .and_then(|_| file.write_all(b"\n"))
             .and_then(|_| file.sync_all())
@@ -163,30 +165,6 @@ impl SettingsStore {
     }
 }
 
-#[cfg(unix)]
-fn set_directory_permissions(path: &Path) -> Result<(), AppError> {
-    use std::os::unix::fs::PermissionsExt;
-    fs::set_permissions(path, fs::Permissions::from_mode(0o700))
-        .map_err(|_| AppError::SettingsWriteFailed)
-}
-
-#[cfg(not(unix))]
-fn set_directory_permissions(_path: &Path) -> Result<(), AppError> {
-    Ok(())
-}
-
-#[cfg(unix)]
-fn set_file_permissions(path: &Path) -> Result<(), AppError> {
-    use std::os::unix::fs::PermissionsExt;
-    fs::set_permissions(path, fs::Permissions::from_mode(0o600))
-        .map_err(|_| AppError::SettingsWriteFailed)
-}
-
-#[cfg(not(unix))]
-fn set_file_permissions(_path: &Path) -> Result<(), AppError> {
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -195,17 +173,28 @@ mod tests {
     #[test]
     fn settings_round_trip_atomically() {
         let dir = tempdir().expect("tempdir");
-        let store = SettingsStore::new(dir.path().to_path_buf());
+        let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
         let settings = AppSettings::default();
         store.save(&settings).expect("save");
         assert_eq!(store.load().expect("load"), settings);
         assert!(!dir.path().join("settings.json.tmp").exists());
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn unix_settings_permissions_remain_private_through_platform_adapter() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempdir().expect("tempdir");
+        let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
+        store.save(&AppSettings::default()).expect("save");
+        assert_eq!(fs::metadata(dir.path()).unwrap().permissions().mode() & 0o777, 0o700);
+        assert_eq!(fs::metadata(dir.path().join(SETTINGS_FILE)).unwrap().permissions().mode() & 0o777, 0o600);
+    }
+
     #[test]
     fn updating_settings_replaces_existing_file_and_reset_replaces_it_again() {
         let dir = tempdir().expect("tempdir");
-        let store = SettingsStore::new(dir.path().to_path_buf());
+        let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
         let original = AppSettings::default();
         store.save(&original).expect("initial save");
         let mut changed = original.clone();
@@ -222,7 +211,7 @@ mod tests {
     fn corrupt_settings_are_quarantined() {
         let dir = tempdir().expect("tempdir");
         fs::write(dir.path().join(SETTINGS_FILE), b"not json").expect("write corrupt settings");
-        let store = SettingsStore::new(dir.path().to_path_buf());
+        let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
         assert!(matches!(store.load(), Err(AppError::SettingsInvalid)));
         assert!(dir.path().join("settings.corrupt.json").exists());
     }
@@ -240,7 +229,7 @@ mod tests {
             serde_json::to_vec(&invalid).expect("serialize invalid settings"),
         )
         .expect("write invalid settings");
-        let store = SettingsStore::new(dir.path().to_path_buf());
+        let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
 
         // First read reports the problem and quarantines the file...
         assert!(matches!(store.load(), Err(AppError::SettingsInvalid)));
@@ -267,7 +256,7 @@ mod tests {
             serde_json::to_vec(&invalid).expect("serialize invalid settings"),
         )
         .expect("write invalid settings");
-        let store = SettingsStore::new(dir.path().to_path_buf());
+        let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
 
         let recovered = store.load_for_frontend().expect("frontend load");
         assert!(recovered.warning.is_some());
@@ -283,7 +272,7 @@ mod tests {
             br#"{"secret":"SYNTHETIC_SECRET_9f33","path":"/tmp/private"}"#,
         )
         .expect("write corrupt settings");
-        let store = SettingsStore::new(dir.path().to_path_buf());
+        let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
         let result = store.load_for_frontend().expect("recovery result");
         assert_eq!(result.settings, AppSettings::default());
         assert!(result.warning.is_some());

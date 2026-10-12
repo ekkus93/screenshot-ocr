@@ -9,6 +9,9 @@ use crate::models::CaptureBackendPreference;
 use crate::ocr::OcrRuntime;
 use crate::platform::PlatformServices;
 use async_trait::async_trait;
+use std::fs;
+use std::os::unix::fs::PermissionsExt;
+use std::path::Path;
 use capture::{prepare_capture_backend, PortalScreenshotBackend};
 use environment::{LinuxEnvironmentInfo, LinuxEnvironmentProbe};
 
@@ -32,6 +35,16 @@ impl PlatformServices for LinuxPlatform {
             .tesseract
             .map(|executable| OcrRuntime::new(executable, None))
             .ok_or(AppError::OcrEngineUnavailable)
+    }
+
+    fn protect_settings_directory(&self, path: &Path) -> Result<(), AppError> {
+        fs::set_permissions(path, fs::Permissions::from_mode(0o700))
+            .map_err(|_| AppError::SettingsWriteFailed)
+    }
+
+    fn protect_settings_file(&self, path: &Path) -> Result<(), AppError> {
+        fs::set_permissions(path, fs::Permissions::from_mode(0o600))
+            .map_err(|_| AppError::SettingsWriteFailed)
     }
 
     async fn diagnostics(&self) -> Result<PlatformDiagnostics, AppError> {

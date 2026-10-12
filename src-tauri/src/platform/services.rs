@@ -5,6 +5,7 @@ use crate::error::AppError;
 use crate::models::CaptureBackendPreference;
 use crate::ocr::OcrRuntime;
 use async_trait::async_trait;
+use std::path::Path;
 
 #[async_trait]
 pub trait PlatformServices: Send + Sync {
@@ -15,6 +16,10 @@ pub trait PlatformServices: Send + Sync {
     ) -> Result<Box<dyn CaptureBackend>, AppError>;
 
     fn resolve_ocr_runtime(&self) -> Result<OcrRuntime, AppError>;
+
+    // File privacy is an OS mechanism, not part of the portable settings model.
+    fn protect_settings_directory(&self, path: &Path) -> Result<(), AppError>;
+    fn protect_settings_file(&self, path: &Path) -> Result<(), AppError>;
 
     async fn diagnostics(&self) -> Result<PlatformDiagnostics, AppError>;
 

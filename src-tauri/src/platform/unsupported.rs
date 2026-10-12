@@ -6,6 +6,7 @@ use crate::models::CaptureBackendPreference;
 use crate::ocr::OcrRuntime;
 use crate::platform::PlatformServices;
 use async_trait::async_trait;
+use std::path::Path;
 
 #[derive(Debug, Default)]
 pub struct UnsupportedPlatform;
@@ -22,6 +23,14 @@ impl PlatformServices for UnsupportedPlatform {
     }
 
     fn resolve_ocr_runtime(&self) -> Result<OcrRuntime, AppError> {
+        Err(AppError::UnsupportedEnvironment)
+    }
+
+    fn protect_settings_directory(&self, _path: &Path) -> Result<(), AppError> {
+        Err(AppError::UnsupportedEnvironment)
+    }
+
+    fn protect_settings_file(&self, _path: &Path) -> Result<(), AppError> {
         Err(AppError::UnsupportedEnvironment)
     }
 

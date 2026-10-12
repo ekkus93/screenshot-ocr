@@ -31,7 +31,7 @@ impl AppServices {
     pub(crate) fn with_platform(config_dir: PathBuf, platform: Arc<dyn PlatformServices>) -> Self {
         Self {
             state: Arc::new(Mutex::new(CaptureStateMachine::default())),
-            settings: Arc::new(SettingsStore::new(config_dir)),
+            settings: Arc::new(SettingsStore::new(config_dir, platform.clone())),
             runtime_diagnostics: Arc::new(RuntimeDiagnostics::default()),
             platform,
             pending_app_action: Arc::new(StdMutex::new(None)),

@@ -9,6 +9,7 @@ use crate::models::{
 };
 use async_trait::async_trait;
 use image::DynamicImage;
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 use tempfile::tempdir;
 
@@ -99,6 +100,14 @@ impl PlatformServices for FakePlatform {
             capture_summary: "available".into(),
             ocr_runtime: "unavailable".into(),
         })
+    }
+
+    fn protect_settings_directory(&self, _path: &Path) -> Result<(), AppError> {
+        Ok(())
+    }
+
+    fn protect_settings_file(&self, _path: &Path) -> Result<(), AppError> {
+        Ok(())
     }
 
     fn direct_shortcut(&self) -> Option<&'static str> {
@@ -285,6 +294,14 @@ impl PlatformServices for SuccessfulFakePlatform {
             capture_summary: "available".into(),
             ocr_runtime: "available".into(),
         })
+    }
+
+    fn protect_settings_directory(&self, _path: &Path) -> Result<(), AppError> {
+        Ok(())
+    }
+
+    fn protect_settings_file(&self, _path: &Path) -> Result<(), AppError> {
+        Ok(())
     }
 
     fn direct_shortcut(&self) -> Option<&'static str> {

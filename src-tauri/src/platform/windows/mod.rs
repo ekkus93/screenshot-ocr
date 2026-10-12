@@ -13,6 +13,7 @@ use crate::models::CaptureBackendPreference;
 use crate::ocr::OcrRuntime;
 use crate::platform::PlatformServices;
 use async_trait::async_trait;
+use std::path::Path;
 
 #[derive(Debug, Default)]
 pub struct WindowsPlatform;
@@ -44,6 +45,16 @@ impl PlatformServices for WindowsPlatform {
 
     fn resolve_ocr_runtime(&self) -> Result<OcrRuntime, AppError> {
         ocr_runtime::resolve_packaged_runtime()
+    }
+
+    // Preserve the existing Windows app-config ACL inheritance policy; do not
+    // apply Unix permission bits or claim a reviewed Windows ACL policy.
+    fn protect_settings_directory(&self, _path: &Path) -> Result<(), AppError> {
+        Ok(())
+    }
+
+    fn protect_settings_file(&self, _path: &Path) -> Result<(), AppError> {
+        Ok(())
     }
 
     async fn diagnostics(&self) -> Result<PlatformDiagnostics, AppError> {
