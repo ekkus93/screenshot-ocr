@@ -98,7 +98,7 @@ PLATFORM_CFG_TOKEN = re.compile(
 # Only an actual inline unit-test module ends portable production source.
 # A marker embedded in a comment or raw string must not hide later code.
 TEST_MODULE_START = re.compile(
-    r"(?m)^[ \\t]*#\\[cfg\\(test\\)\\][ \\t]*\\r?\\n[ \\t]*mod[ \\t]+tests[ \\t]*\\{"
+    r"(?m)^[ \t]*#\[cfg\(test\)\][ \t]*\r?\n[ \t]*mod[ \t]+tests[ \t]*\{"
 )
 
 
