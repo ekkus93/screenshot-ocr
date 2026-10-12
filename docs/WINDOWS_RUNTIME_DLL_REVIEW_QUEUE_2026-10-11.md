@@ -104,6 +104,17 @@ terminator is outside that bound. Synthetic fixtures exercise this failure
 mode. This is parser-integrity hardening only, not native DLL loader,
 provenance, or redistribution approval. Exact-head CI must qualify it.
 
+## Version metadata collection (2026-10-12)
+
+The pinned-input PowerShell audit records bounded numeric PE `FileVersion`
+resource strings for the executable and adjacent DLLs when present. Missing,
+non-numeric, or unusually long values remain null; the source manifest still
+uses SHA-256 as the file-identity key. These are **self-reported binary
+metadata**, not verified upstream versions, provenance, licenses, or
+redistribution permission. Compare them with authoritative upstream sources
+before checking any W18 license or dependency acceptance box. Hosted Windows
+packaging CI must qualify the manifest change on its exact commit.
+
 ## Unresolved release gates
 
 - [ ] Reproduce final input hashes and decide which DLLs are required.
