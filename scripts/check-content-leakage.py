@@ -76,7 +76,10 @@ def scan_tree(root: Path) -> list[str]:
             and path.is_symlink()
             and (path.suffix in SOURCE_SUFFIXES or path.is_dir())
         ):
-            problems.append(f"{path}: symbolic link in source scan")
+            # Diagnostic reports may be retained as public CI artifacts.
+            # Emit only repository-relative paths, never private runner roots.
+            relative = path.relative_to(root).as_posix()
+            problems.append(f"{relative}: symbolic link in source scan")
             continue
         if not should_scan(path):
             continue
@@ -88,7 +91,8 @@ def scan_tree(root: Path) -> list[str]:
             for match in pattern.finditer(source):
                 line_number = source.count("\n", 0, match.start()) + 1
                 # Never print raw matching source: it might include OCR text.
-                problems.append(f"{path}:{line_number}: forbidden {description}")
+                relative = path.relative_to(root).as_posix()
+                problems.append(f"{relative}:{line_number}: forbidden {description}")
     return problems
 
 

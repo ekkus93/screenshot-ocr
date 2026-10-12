@@ -198,6 +198,37 @@ class ContentLeakageGuardTests(unittest.TestCase):
                 self.skipTest("host does not permit source symlinks")
             self.assertEqual(guard.scan_tree(root), [])
 
+    def test_diagnostics_do_not_disclose_absolute_checkout_location(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="PRIVATE_RUNNER_PROFILE_") as tmp:
+            root = Path(tmp) / "private" / "checkout"
+            source = root / "src" / "panel.tsx"
+            source.parent.mkdir(parents=True)
+            source.write_text(
+                "console.error('PRIVATE_SYNTHETIC_SENTINEL')\\n",
+                encoding="utf-8",
+            )
+            problems = guard.scan_tree(root)
+            self.assertEqual(
+                problems, ["src/panel.tsx:1: forbidden frontend console call"]
+            )
+            self.assertNotIn(str(root), str(problems))
+            self.assertNotIn("PRIVATE_RUNNER_PROFILE_", str(problems))
+
+    def test_symlink_diagnostics_are_repository_relative(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="PRIVATE_RUNNER_PROFILE_") as tmp:
+            root = Path(tmp) / "checkout"
+            root.mkdir()
+            outside = Path(tmp) / "private.rs"
+            outside.write_text("PRIVATE_SYNTHETIC_SENTINEL", encoding="utf-8")
+            link = root / "linked.rs"
+            try:
+                link.symlink_to(outside)
+            except (OSError, NotImplementedError):
+                self.skipTest("host does not permit source symlinks")
+            self.assertEqual(
+                guard.scan_tree(root), ["linked.rs: symbolic link in source scan"]
+            )
+
     def test_multiple_findings_have_file_and_line_without_source_content(self) -> None:
         report = self.scan({
             "src/a.ts": "export const a = 1;\nconsole.error('PRIVATE_SYNTHETIC_SENTINEL');\n",
