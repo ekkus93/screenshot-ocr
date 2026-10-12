@@ -237,6 +237,25 @@ mod tests {
         }));
     }
 
+    #[test]
+    fn failed_settings_replace_removes_partial_temporary_file() {
+        let dir = tempdir().expect("tempdir");
+        // A directory at the destination prevents replacement on all targets.
+        fs::create_dir(dir.path().join(SETTINGS_FILE)).expect("blocking destination");
+        let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
+        assert!(matches!(
+            store.save(&AppSettings::default()),
+            Err(AppError::SettingsWriteFailed)
+        ));
+        assert!(!dir.path().read_dir().unwrap().any(|entry| {
+            entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with("settings-")
+        }));
+    }
+
     #[cfg(unix)]
     #[test]
     fn stale_legacy_temporary_symlink_is_never_followed() {
