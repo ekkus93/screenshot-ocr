@@ -109,5 +109,41 @@ class AssumptionInventoryTests(unittest.TestCase):
             self.assertTrue(all(count == 0 for count in result["counts"].values()))
 
 
+    def test_windows_build_conditions_native_bindings_and_resource_files(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            fixtures = {
+                "src-tauri/src/cfg.rs": (
+                    "let enabled = cfg!(windows);\n"
+                    "#[cfg(unix)]\n"
+                    '#[cfg(target_family = "windows")]\n'
+                    "use std::os::windows::ffi::OsStrExt;\n"
+                ),
+                "src-tauri/src/ffi.rs": (
+                    "use winapi::um::winuser;\n"
+                    "let error = std::io::Error::last_os_error();\n"
+                ),
+                "src-tauri/installer/version.rc": 'VALUE "FileDescription", "Windows app"\n',
+                "scripts/launch.cmd": "set OCR=C:\\Program Files\\OCR\\tesseract.exe\n",
+                "src-tauri/target/generated.cmd": "GNOME PRIVATE_FIXTURE\n",
+            }
+            for name, content in fixtures.items():
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(content, encoding="utf-8")
+            report = inventory.inventory(root)
+            entries = {entry["path"]: entry for entry in report["entries"]}
+            self.assertEqual(
+                entries["src-tauri/src/cfg.rs"]["lines"]["target_conditional"],
+                [1, 2, 3, 4],
+            )
+            self.assertEqual(entries["src-tauri/src/ffi.rs"]["lines"]["native_binding"], [1])
+            self.assertEqual(entries["src-tauri/src/ffi.rs"]["lines"]["native_error"], [2])
+            self.assertEqual(entries["scripts/launch.cmd"]["lines"]["executable_path"], [1])
+            self.assertEqual(entries["src-tauri/installer/version.rc"]["lines"]["windows_native"], [1])
+            self.assertNotIn("src-tauri/target/generated.cmd", entries)
+            self.assertNotIn("PRIVATE_FIXTURE", str(report))
+            self.assertEqual(report, inventory.inventory(root))
+
 if __name__ == "__main__":
     unittest.main()

@@ -11,7 +11,7 @@ import json
 import re
 from pathlib import Path
 
-SUFFIXES = {".rs", ".ts", ".tsx", ".js", ".jsx", ".ps1", ".py", ".toml", ".json", ".yml", ".yaml", ".sh", ".nsi", ".nsh", ".desktop"}
+SUFFIXES = {".rs", ".ts", ".tsx", ".js", ".jsx", ".ps1", ".psm1", ".py", ".toml", ".json", ".yml", ".yaml", ".sh", ".cmd", ".bat", ".nsi", ".nsh", ".desktop", ".c", ".h", ".cpp", ".hpp", ".rc", ".manifest", ".wxs", ".wxi"}
 IGNORED = {"node_modules", "target", "dist", "__pycache__", ".git", "coverage"}
 PATTERNS = {
     "linux_gnome": r"(?i)\blinux\b|\bgnome\b|\bwayland\b|\bx11\b|LinuxPlatform|GnomeScreenshot",
@@ -19,12 +19,12 @@ PATTERNS = {
     "windows_environment": r"(?i)\b(?:APPDATA|LOCALAPPDATA|USERPROFILE|PROGRAMFILES|SYSTEMROOT|WINDIR)\b",
     "portal_ashpd": r"(?i)\bportal\b|\bashpd\b|XDG_",
     "desktop_environment": r"DISPLAY|WAYLAND_DISPLAY|XDG_|GNOME_|DESKTOP_SESSION|GDMSESSION",
-    "executable_path": r"(?i)tesseract|gnome-screenshot|/usr/bin/|\.exe\b",
+    "executable_path": r"(?i)tesseract|gnome-screenshot|/usr/(?:local/)?bin/|\.exe\b|[A-Z]:\\",
     "shortcut": r"(?i)shortcut|Control\+Shift\+O|Super\+Shift\+O",
-    "target_conditional": r"target_os|#\s*\[\s*cfg(?:_attr)?\b|std::os::(?:unix|linux|windows)",
-    "native_error": r"GetLastError|CapturePermissionDenied|CaptureTimedOut|CaptureProcessFailed|CaptureResultUriInvalid",
+    "target_conditional": r"(?i)\btarget_(?:os|family|env|vendor|arch)\b|#\s*\[\s*cfg(?:_attr)?\b|\bcfg!\s*\(|\bcfg\s*\(\s*(?:windows|unix)\b|\bstd\s*::\s*os\s*::\s*(?:unix|linux|windows)\b",
+    "native_error": r"(?i)GetLastError|HRESULT|last_os_error|CapturePermissionDenied|CaptureTimedOut|CaptureProcessFailed|CaptureResultUriInvalid",
     "platform_resource": r"resources/ocr|windows-ocr-runtime|tessdata|app_config_dir|resource_dir|\.desktop\b",
-    "native_binding": r"windows_sys|windows-sys|Win32_|Win32::|ashpd::",
+    "native_binding": r"(?i)windows_sys|windows-sys|windows\s*::\s*Win32|Win32_|Win32::|ashpd::|winapi\s*::|winreg\s*::|windows_registry",
     "linux_bundle": r"gnome-screenshot|tesseract-ocr-eng|libwebkit2gtk|libayatana|libgtk-3",
     "bundle_target": r"(?i)\b(?:deb|nsis|msi|appimage)\b|\.desktop\b|webviewInstallMode",
 }
