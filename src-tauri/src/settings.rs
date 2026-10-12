@@ -321,6 +321,24 @@ mod tests {
         assert_eq!(store.load().expect("load"), AppSettings::default());
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn save_rejects_existing_settings_symlink_without_changing_target() {
+        use std::os::unix::fs::symlink;
+        let dir = tempdir().expect("tempdir");
+        let target = dir.path().join("unrelated.txt");
+        fs::write(&target, b"unchanged").expect("write target");
+        let settings = dir.path().join(SETTINGS_FILE);
+        symlink(&target, &settings).expect("create symlink");
+        let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
+        assert!(matches!(
+            store.save(&AppSettings::default()),
+            Err(AppError::SettingsWriteFailed)
+        ));
+        assert_eq!(fs::read(&target).expect("read target"), b"unchanged");
+        assert!(settings.is_symlink());
+    }
+
     #[test]
     fn updating_settings_replaces_existing_file_and_reset_replaces_it_again() {
         let dir = tempdir().expect("tempdir");
