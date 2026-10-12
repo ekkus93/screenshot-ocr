@@ -330,11 +330,16 @@ mod tests {
         let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
         assert!(matches!(store.load(), Err(AppError::SettingsInvalid)));
         assert_eq!(fs::read(&target).expect("read external file"), original);
-        assert!(fs::symlink_metadata(dir.path().join("settings.corrupt.json"))
-            .unwrap()
-            .file_type()
-            .is_symlink());
-        assert_eq!(store.load().expect("load after quarantine"), AppSettings::default());
+        assert!(
+            fs::symlink_metadata(dir.path().join("settings.corrupt.json"))
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
+        assert_eq!(
+            store.load().expect("load after quarantine"),
+            AppSettings::default()
+        );
     }
 
     #[cfg(unix)]
@@ -347,7 +352,10 @@ mod tests {
         let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
         assert!(matches!(store.load(), Err(AppError::SettingsInvalid)));
         assert!(dir.path().join("settings.corrupt.json").is_symlink());
-        assert_eq!(store.load().expect("load after quarantine"), AppSettings::default());
+        assert_eq!(
+            store.load().expect("load after quarantine"),
+            AppSettings::default()
+        );
     }
 
     #[test]
@@ -403,7 +411,7 @@ mod tests {
         let dir = tempdir().expect("tempdir");
         fs::write(
             dir.path().join(SETTINGS_FILE),
-            br#"{"secret":"SYNTHETIC_SECRET_9f33","path":"/tmp/private"}"#,
+            br#"{"secret":"FAKE_FIXTURE_MARKER_9f33","path":"/synthetic/fixture"}"#,
         )
         .expect("write corrupt settings");
         let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
@@ -411,8 +419,8 @@ mod tests {
         assert_eq!(result.settings, AppSettings::default());
         assert!(result.warning.is_some());
         let json = serde_json::to_string(&result).expect("serialize recovery result");
-        assert!(!json.contains("SYNTHETIC_SECRET_9f33"));
-        assert!(!json.contains("/tmp/private"));
+        assert!(!json.contains("FAKE_FIXTURE_MARKER_9f33"));
+        assert!(!json.contains("/synthetic/fixture"));
     }
 
     #[test]
