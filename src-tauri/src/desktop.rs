@@ -72,8 +72,14 @@ mod tests {
 
     #[test]
     fn tray_actions_route_only_the_four_approved_commands() {
-        assert_eq!(tray_action_from_id("capture"), Some(AppAction::StartCapture));
-        assert_eq!(tray_action_from_id("cancel"), Some(AppAction::CancelCapture));
+        assert_eq!(
+            tray_action_from_id("capture"),
+            Some(AppAction::StartCapture)
+        );
+        assert_eq!(
+            tray_action_from_id("cancel"),
+            Some(AppAction::CancelCapture)
+        );
         assert_eq!(tray_action_from_id("show"), Some(AppAction::ShowMainWindow));
         assert_eq!(tray_action_from_id("quit"), Some(AppAction::Quit));
         for unrecognized in ["", "toggle", "Capture", "capture --quit", "../quit"] {
