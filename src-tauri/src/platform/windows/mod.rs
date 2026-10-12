@@ -19,13 +19,21 @@ use std::path::Path;
 const REPARSE_POINT: u32 = 0x400;
 
 fn settings_path_is_owned(path: &Path, directory: bool) -> bool {
-    path.symlink_metadata().is_ok_and(|metadata| {
-        let expected_type = if directory {
-            metadata.is_dir()
-        } else {
-            metadata.is_file()
-        };
-        expected_type && metadata.file_attributes() & REPARSE_POINT == 0
+    // A regular leaf under a junctioned parent still redirects writes
+    // outside the intended settings tree. Inspect every ancestor without
+    // following reparse points; relative paths cannot establish ownership.
+    if !path.is_absolute() {
+        return false;
+    }
+    path.ancestors().enumerate().all(|(depth, candidate)| {
+        candidate.symlink_metadata().is_ok_and(|metadata| {
+            let expected_type = if depth == 0 && !directory {
+                metadata.is_file()
+            } else {
+                metadata.is_dir()
+            };
+            expected_type && metadata.file_attributes() & REPARSE_POINT == 0
+        })
     })
 }
 
@@ -121,6 +129,34 @@ mod tests {
         fs::remove_dir(&settings).expect("remove directory");
         fs::write(&settings, b"fixture").expect("write regular file");
         assert!(WindowsPlatform.protect_settings_file(&settings).is_ok());
+    }
+
+    #[test]
+    fn windows_settings_protection_rejects_reparse_pointed_parent() {
+        use std::fs;
+        let temp = tempfile::tempdir().expect("tempdir");
+        let actual = temp.path().join("actual");
+        let config = actual.join("config");
+        fs::create_dir_all(&config).expect("create config");
+        let settings = config.join("settings.tmp");
+        fs::write(&settings, b"synthetic").expect("write settings");
+        assert!(WindowsPlatform.protect_settings_directory(&config).is_ok());
+        assert!(WindowsPlatform.protect_settings_file(&settings).is_ok());
+
+        let linked = temp.path().join("linked");
+        // Some hosted Windows accounts cannot create directory symlinks.
+        // The regular-ancestor assertions above still run in that case.
+        if std::os::windows::fs::symlink_dir(&actual, &linked).is_ok() {
+            assert!(matches!(
+                WindowsPlatform.protect_settings_directory(&linked.join("config")),
+                Err(AppError::SettingsWriteFailed)
+            ));
+            assert!(matches!(
+                WindowsPlatform.protect_settings_file(&linked.join("config/settings.tmp")),
+                Err(AppError::SettingsWriteFailed)
+            ));
+        }
+        assert!(!settings_path_is_owned(Path::new("relative/settings.tmp"), false));
     }
 
     #[tokio::test]
