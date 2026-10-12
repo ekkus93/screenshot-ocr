@@ -26,11 +26,17 @@ RUST_OUTPUT = re.compile(r"\b(?:dbg|print|println|eprint|eprintln)\s*!\s*\(")
 RUST_LOG_OUTPUT = re.compile(
     r"\b(?:(?:tracing|log)\s*::\s*)?(?:trace|debug|info|warn|error|event|log|span)\s*!\s*\("
 )
+# Console's diagnostic APIs can leak OCR, clipboard, or screenshot data
+# even when they do not use the familiar log/debug/info/warn/error methods.
+FRONTEND_LOG_METHODS = (
+    r"(?:log|debug|info|warn|error|trace|table|dir|dirxml|assert|"
+    r"count|countReset|group|groupCollapsed|groupEnd|time|timeEnd|timeLog)"
+)
 FRONTEND_OUTPUT = re.compile(
-    r"\bconsole\s*(?:\?\.|\.)\s*(?:log|debug|info|warn|error)\s*(?:\?\.)?\s*\("
+    rf"\bconsole\s*(?:\?\.|\.)\s*{FRONTEND_LOG_METHODS}\s*(?:\?\.)?\s*\("
 )
 FRONTEND_BRACKET_OUTPUT = re.compile(
-    r"""\bconsole\s*(?:\?\.)?\s*\[\s*['"](?:log|debug|info|warn|error)['"]\s*\]\s*(?:\?\.)?\s*\("""
+    rf"""\bconsole\s*(?:\?\.)?\s*\[\s*['"]{FRONTEND_LOG_METHODS}['"]\s*\]\s*(?:\?\.)?\s*\("""
 )
 FORBIDDEN_RULES = {
     ".rs": (

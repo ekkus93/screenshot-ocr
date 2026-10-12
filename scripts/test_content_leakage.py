@@ -87,6 +87,22 @@ class ContentLeakageGuardTests(unittest.TestCase):
                 self.assertEqual(len(report), 1, report)
                 self.assertNotIn("PRIVATE_SYNTHETIC_SENTINEL", report[0])
 
+    def test_extended_console_diagnostics_are_rejected_without_source_text(self) -> None:
+        methods = (
+            "trace", "table", "dir", "dirxml", "assert", "count",
+            "countReset", "group", "groupCollapsed", "groupEnd",
+            "time", "timeEnd", "timeLog",
+        )
+        for method in methods:
+            for expression in (
+                f"console.{method}('PRIVATE_SYNTHETIC_SENTINEL');",
+                f"console?.['{method}']?.('PRIVATE_SYNTHETIC_SENTINEL');",
+            ):
+                with self.subTest(method=method, expression=expression):
+                    report = self.scan({"src/panel.tsx": expression})
+                    self.assertEqual(len(report), 1, report)
+                    self.assertNotIn("PRIVATE_SYNTHETIC_SENTINEL", report[0])
+
     def test_multiline_output_calls_cannot_bypass_guard(self) -> None:
         fixtures = (
             ("src-tauri/src/app.rs", 'println!\n ( "PRIVATE_SYNTHETIC_SENTINEL" );'),
