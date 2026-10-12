@@ -203,12 +203,17 @@ def production_platform_cfg_lines(source: str) -> list[int]:
         depth = 1
         offset = match.end()
         while offset < len(source) and depth:
-            if source[offset] == "(":
-                depth += 1
-            elif source[offset] == ")":
-                depth -= 1
+            # Delimiters in a feature value are not Rust cfg parentheses.
+            if source[offset] in "()" and is_rust_code_at(source, offset):
+                depth += 1 if source[offset] == "(" else -1
             offset += 1
-        if depth == 0 and PLATFORM_CFG_TOKEN.search(source[match.end():offset - 1]):
+        if depth != 0:
+            continue
+        # A quoted feature value named "windows" is not target selection.
+        if any(
+            is_rust_code_at(source, match.end() + token.start())
+            for token in PLATFORM_CFG_TOKEN.finditer(source[match.end():offset - 1])
+        ):
             locations.append(source.count("\n", 0, match.start()) + 1)
     return locations
 

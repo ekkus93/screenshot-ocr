@@ -237,6 +237,27 @@ class PlatformBoundaryGuardTests(unittest.TestCase):
                 self.assertEqual(status, 1, report)
                 self.assertIn("platform-specific cfg outside adapter", report)
 
+    def test_cfg_string_values_do_not_masquerade_as_platform_gates(self) -> None:
+        for source in (
+            '#[cfg(feature = "windows")]\nfn portable() {}\n',
+            '#[cfg(feature = "unix")]\nfn portable() {}\n',
+            '#[cfg(feature = "target_os")]\nfn portable() {}\n',
+            '#[cfg(all(feature = ")", feature = "linux"))]\nfn portable() {}\n',
+        ):
+            with self.subTest(source=source):
+                status, report = self.run_check({"app.rs": source})
+                self.assertEqual(status, 0, report)
+
+    def test_parentheses_inside_cfg_strings_cannot_hide_actual_target_gate(self) -> None:
+        source = '#[cfg(all(feature = ")", target_os = "windows"))]\nfn native() {}\n'
+        status, report = self.run_check({"app.rs": source})
+        self.assertEqual(status, 1, report)
+        self.assertIn("platform-specific cfg outside adapter", report)
+        source = '#[cfg_attr(feature = ")", target_os = "windows")]\nfn native() {}\n'
+        status, report = self.run_check({"app.rs": source})
+        self.assertEqual(status, 1, report)
+        self.assertIn("platform-specific cfg outside adapter", report)
+
     def test_cfg_macro_inside_raw_string_does_not_trigger_platform_guard(self) -> None:
         code = 'const DOC: &str = r#"cfg!(target_os = "windows")"#;\n'
         status, report = self.run_check({"app.rs": code + "fn portable() {}\n"})
