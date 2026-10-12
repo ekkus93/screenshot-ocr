@@ -105,22 +105,7 @@ impl TesseractEngine {
         if !status.success() || output.len() > MAX_LANGUAGE_LIST_BYTES {
             return Err(AppError::OcrEngineUnavailable);
         }
-        let text = String::from_utf8_lossy(&output);
-        let languages: Vec<String> = text
-            .lines()
-            .map(str::trim)
-            .filter(|line| {
-                line.len() <= 32
-                    && line.chars().all(|character| {
-                        character.is_ascii_alphanumeric() || matches!(character, '_' | '-')
-                    })
-            })
-            .map(str::to_owned)
-            .collect();
-        if !languages.iter().any(|language| language == "eng") {
-            return Err(AppError::OcrLanguageMissing);
-        }
-        Ok(languages)
+        parse_languages(&output)
     }
 
     pub async fn recognize(
@@ -248,6 +233,25 @@ impl TesseractEngine {
             score,
         })
     }
+}
+
+fn parse_languages(output: &[u8]) -> Result<Vec<String>, AppError> {
+    let text = String::from_utf8_lossy(output);
+    let languages: Vec<String> = text
+        .lines()
+        .map(str::trim)
+        .filter(|line| {
+            line.len() <= 32
+                && line.chars().all(|character| {
+                    character.is_ascii_alphanumeric() || matches!(character, '_' | '-')
+                })
+        })
+        .map(str::to_owned)
+        .collect();
+    if !languages.iter().any(|language| language == "eng") {
+        return Err(AppError::OcrLanguageMissing);
+    }
+    Ok(languages)
 }
 
 async fn terminate_child(child: &mut Child) -> Result<(), AppError> {
@@ -406,20 +410,12 @@ mod tests {
         fs::set_permissions(path, fs::Permissions::from_mode(0o700)).expect("make executable");
     }
 
-    #[cfg(unix)]
-    #[tokio::test]
-    async fn language_probe_filters_output_and_requires_english() {
-        let directory = tempdir().expect("tempdir");
-        let executable = directory.path().join("fake-tesseract");
-        write_executable(
-            &executable,
-            "#!/bin/sh\nif [ \"$1\" = \"--list-langs\" ]; then printf 'List of available languages\neng\nosd\nbad/name\n'; exit 0; fi\nexit 1\n",
-        );
-        let engine = TesseractEngine::new(OcrRuntime::new(executable, None));
-        let languages = engine
-            .probe_english(&CancellationToken::new())
-            .await
-            .expect("probe language list");
+    #[test]
+    fn language_probe_filters_output_and_requires_english() {
+        // Parsing is deterministic; the separate subprocess tests exercise
+        // bounded execution, missing languages, and timeouts.
+        let languages = parse_languages(b"List of available languages\neng\nosd\nbad/name\n")
+            .expect("parse synthetic language list");
         assert!(languages.iter().any(|language| language == "eng"));
         assert!(languages.iter().any(|language| language == "osd"));
         assert!(!languages.iter().any(|language| language == "bad/name"));
@@ -464,7 +460,7 @@ mod tests {
         let executable = directory.path().join("fake-tesseract");
         write_executable(
             &executable,
-            "#!/bin/sh\nif [ \"$1\" = \"--list-langs\" ]; then sleep 30; fi\nexit 1\n",
+            "#!/bin/sh\nif [ \"$1\" = \"--list-langs\" ]; then exec sleep 30; fi\nexit 1\n",
         );
         let engine = TesseractEngine::new(OcrRuntime::new(executable, None));
         let result = timeout(
