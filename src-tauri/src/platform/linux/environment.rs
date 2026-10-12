@@ -115,7 +115,9 @@ fn os_release_field<'a>(text: &'a str, key: &str) -> Option<&'a str> {
 fn safe_numeric_version(version: &str) -> bool {
     !version.is_empty()
         && version.len() <= 16
-        && version.bytes().all(|byte| byte.is_ascii_digit() || byte == b'.')
+        && version
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || byte == b'.')
 }
 
 pub fn find_system_executable(name: &str) -> Option<PathBuf> {
