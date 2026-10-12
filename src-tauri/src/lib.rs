@@ -21,8 +21,25 @@ use commands::{
     cancel_capture, copy_text, get_diagnostics, get_settings, reset_settings, start_capture,
     take_pending_app_action, update_settings,
 };
+use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::Manager;
 use tauri_plugin_global_shortcut::ShortcutState;
+
+/// A global hotkey may deliver repeated Pressed events while a key is held.
+/// Dispatch only on the first edge; a fresh press after Released still toggles.
+#[derive(Default)]
+struct ShortcutPressEdge(AtomicBool);
+
+impl ShortcutPressEdge {
+    fn observe(&self, state: ShortcutState) -> bool {
+        if state == ShortcutState::Pressed {
+            !self.0.swap(true, Ordering::AcqRel)
+        } else {
+            self.0.store(false, Ordering::Release);
+            false
+        }
+    }
+}
 
 pub fn run() {
     tracing_subscriber::fmt()
@@ -33,6 +50,7 @@ pub fn run() {
         .init();
 
     let initial_action = AppAction::from_argument(std::env::args().nth(1).as_deref());
+    let shortcut_edge = ShortcutPressEdge::default();
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             let action = AppAction::from_secondary_args(&args);
@@ -40,8 +58,8 @@ pub fn run() {
         }))
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
-                .with_handler(|app, _shortcut, event| {
-                    if event.state() == ShortcutState::Pressed {
+                .with_handler(move |app, _shortcut, event| {
+                    if shortcut_edge.observe(event.state()) {
                         spawn_dispatch(
                             app.clone(),
                             AppAction::ToggleCapture,
@@ -76,4 +94,20 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Screenshot OCR");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn repeated_hotkey_press_is_one_action_until_release() {
+        let edge = ShortcutPressEdge::default();
+        assert!(edge.observe(ShortcutState::Pressed));
+        assert!(!edge.observe(ShortcutState::Pressed));
+        assert!(!edge.observe(ShortcutState::Pressed));
+        assert!(!edge.observe(ShortcutState::Released));
+        assert!(!edge.observe(ShortcutState::Released));
+        assert!(edge.observe(ShortcutState::Pressed));
+    }
 }
