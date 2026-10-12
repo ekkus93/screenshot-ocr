@@ -242,13 +242,72 @@ def audit(root: Path) -> dict[str, object]:
     }
 
 
+
+def verify_review_register(report: dict[str, object], content: str) -> None:
+    """Detect drift from preliminary, non-approved native PE review evidence."""
+    rows = {}
+    section = ""
+    all_external = set()
+    reachable_external = set()
+    seen_sections = set()
+    for line in content.splitlines():
+        if line.startswith("## "):
+            section = line
+        elif line == "All external basenames:":
+            section = "all_external"
+            seen_sections.add(section)
+        elif line == "External basenames from statically reachable binaries:":
+            section = "reachable_external"
+            seen_sections.add(section)
+        if section == "## Packaged binary review register" and line.startswith("| " + chr(96)):
+            cells = [cell.strip().strip(chr(96)) for cell in line.strip("|").split("|")]
+            if len(cells) != 5:
+                raise InvalidPE("malformed native review row")
+            name, reachable, size, digest, license_state = cells
+            if (not re.fullmatch(r"(?:tesseract\.exe|[a-z0-9_.+@-]+\.dll)", name)
+                    or name in rows or reachable not in ("YES", "NO")
+                    or not size.isdecimal() or int(size) <= 0
+                    or not re.fullmatch(r"[0-9a-f]{64}", digest)
+                    or not license_state):
+                raise InvalidPE("invalid native review identity")
+            rows[name] = (int(size), digest, reachable == "YES")
+        elif section in ("all_external", "reachable_external") and line.startswith("- "):
+            match = re.fullmatch(r"- " + chr(96) + r"([a-z0-9_.+@-]+\.dll)" + chr(96), line)
+            if match is None:
+                raise InvalidPE("invalid external native review row")
+            target = all_external if section == "all_external" else reachable_external
+            if match.group(1) in target:
+                raise InvalidPE("duplicate external native review row")
+            target.add(match.group(1))
+    if not rows or seen_sections != {"all_external", "reachable_external"}:
+        raise InvalidPE("native review register incomplete")
+    binaries = report["binaries"]
+    observed = {record["binary"]: record for record in binaries}
+    if len(observed) != len(binaries) or set(rows) != set(observed):
+        raise InvalidPE("staged native binary set differs from review")
+    reachable = set(report["statically_reachable_binaries"])
+    for name, (size, digest, is_reachable) in rows.items():
+        record = observed[name]
+        if (record["size_bytes"], record["sha256"]) != (size, digest):
+            raise InvalidPE("staged native bytes differ from review")
+        if (name in reachable) != is_reachable:
+            raise InvalidPE("staged native reachability differs from review")
+    if (set(report["external_unreviewed"]) != all_external
+            or set(report["external_unreviewed_from_statically_reachable"])
+            != reachable_external or not reachable_external.issubset(all_external)):
+        raise InvalidPE("staged native external imports differ from review")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("runtime", type=Path, help="staged OCR resource directory")
     parser.add_argument("--output", type=Path, help="write content-free JSON audit artifact")
+    parser.add_argument("--review-register", type=Path, help="fail if staged PE identities drift")
     args = parser.parse_args()
     try:
         report = audit(args.runtime)
+        if args.review_register is not None:
+            verify_review_register(report, args.review_register.read_text(encoding="utf-8"))
         rendered = json.dumps(report, indent=2, sort_keys=True)
         if args.output is not None:
             args.output.write_text(rendered + "\n", encoding="utf-8")

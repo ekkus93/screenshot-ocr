@@ -251,6 +251,40 @@ class PeImportTests(unittest.TestCase):
                 ["tesseract.exe", "vendor-extra.dll"],
             )
 
+    def test_preliminary_native_review_register_rejects_identity_drift(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "tesseract.exe").write_bytes(fixture(delay=True))
+            (root / "vendor-extra.dll").write_bytes(fixture())
+            report = audit.audit(root)
+            q = chr(96)
+            lines = ["## Packaged binary review register"]
+            reachable = set(report["statically_reachable_binaries"])
+            for row in report["binaries"]:
+                yes = "YES" if row["binary"] in reachable else "NO"
+                lines.append(
+                    f'| {q}{row["binary"]}{q} | {yes} | {row["size_bytes"]} '
+                    f'| {q}{row["sha256"]}{q} | UNREVIEWED |'
+                )
+            lines += ["## External imports still unreviewed", "All external basenames:"]
+            lines += [f"- {q}{name}{q}" for name in report["external_unreviewed"]]
+            lines += ["External basenames from statically reachable binaries:"]
+            lines += [
+                f"- {q}{name}{q}"
+                for name in report["external_unreviewed_from_statically_reachable"]
+            ]
+            content = "\n".join(lines)
+            audit.verify_review_register(report, content)
+            modified = content.replace(report["binaries"][0]["sha256"], "0" * 64)
+            with self.assertRaisesRegex(audit.InvalidPE, "bytes differ"):
+                audit.verify_review_register(report, modified)
+            modified = content.replace(" | YES | ", " | NO | ", 1)
+            with self.assertRaisesRegex(audit.InvalidPE, "reachability differs"):
+                audit.verify_review_register(report, modified)
+            modified = content.replace("All external basenames:", "External imports:")
+            with self.assertRaisesRegex(audit.InvalidPE, "incomplete"):
+                audit.verify_review_register(report, modified)
+
     def test_audit_rejects_x86_executable_or_dependency(self):
         for x86_executable in (True, False):
             with self.subTest(x86_executable=x86_executable):
