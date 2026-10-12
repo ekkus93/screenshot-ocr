@@ -202,6 +202,32 @@ class PlatformBoundaryGuardTests(unittest.TestCase):
         })
         self.assertEqual(status, 0, report)
 
+    def test_fake_test_module_in_multiline_literals_or_comments_does_not_hide_cfg(self) -> None:
+        examples = (
+            'const EXAMPLE: &str = r#"\\n#[cfg(test)]\\nmod tests {\\n"#;\\n',
+            'const EXAMPLE: &str = r###"\\n#[cfg(test)]\\nmod tests {\\n"###;\\n',
+            'const EXAMPLE: &str = "start\\n#[cfg(test)]\\nmod tests {\\n";\\n',
+            '/*\\n#[cfg(test)]\\nmod tests {\\n*/\\n',
+            '/* outer /* nested\\n#[cfg(test)]\\nmod tests {\\n*/ */\\n',
+        )
+        for prefix in examples:
+            with self.subTest(prefix=prefix):
+                status, report = self.run_check({
+                    "app.rs": prefix + '#[cfg(target_os = "windows")]\\nfn native() {}\\n',
+                })
+                self.assertEqual(status, 1, report)
+                self.assertIn("platform-specific cfg outside adapter", report)
+
+    def test_real_test_module_after_fake_marker_is_still_exempt(self) -> None:
+        status, report = self.run_check({
+            "app.rs": (
+                'const EXAMPLE: &str = r#"\\n#[cfg(test)]\\nmod tests {\\n"#;\\n'
+                "fn portable() {}\\n#[cfg(test)]\\nmod tests {\\n"
+                "    #[cfg(windows)] fn native_test() {}\\n}\\n"
+            ),
+        })
+        self.assertEqual(status, 0, report)
+
     def test_platform_adapter_can_use_native_imports(self) -> None:
         status, report = self.run_check(
             {

@@ -102,9 +102,68 @@ TEST_MODULE_START = re.compile(
 )
 
 
+RAW_STRING_START = re.compile(r'(?:br|r)(#{0,255})"')
+
+
+def is_rust_code_at(source: str, offset: int) -> bool:
+    """Reject a test-module marker inside Rust comments or string literals.
+
+    This conservative lexical preflight does not parse Rust syntax. It only
+    decides whether the candidate marker starts outside a comment/string.
+    """
+    index = 0
+    while index < offset:
+        if source.startswith("//", index):
+            end = source.find("\\n", index)
+            index = offset if end < 0 else end + 1
+        elif source.startswith("/*", index):
+            depth = 1
+            index += 2
+            while depth and index < offset:
+                if source.startswith("/*", index):
+                    depth += 1
+                    index += 2
+                elif source.startswith("*/", index):
+                    depth -= 1
+                    index += 2
+                else:
+                    index += 1
+            if depth:
+                return False
+        else:
+            raw = (
+                RAW_STRING_START.match(source, index)
+                if index == 0 or not (source[index - 1].isalnum() or source[index - 1] == "_")
+                else None
+            )
+            if raw:
+                end_marker = '"' + raw.group(1)
+                end = source.find(end_marker, raw.end())
+                if end < 0 or end >= offset:
+                    return False
+                index = end + len(end_marker)
+            elif source[index] == '"':
+                index += 1
+                while index < offset:
+                    if source[index] == "\\\\":
+                        index += 2
+                    elif source[index] == '"':
+                        index += 1
+                        break
+                    else:
+                        index += 1
+                else:
+                    return False
+            else:
+                index += 1
+    return True
+
+
 def production_source(source: str) -> str:
-    match = TEST_MODULE_START.search(source)
-    return source[: match.start()] if match else source
+    for match in TEST_MODULE_START.finditer(source):
+        if is_rust_code_at(source, match.start()):
+            return source[: match.start()]
+    return source
 
 
 def production_platform_cfg_lines(source: str) -> list[int]:
