@@ -31,7 +31,7 @@ FORBIDDEN_PORTABLE_PATTERNS = {
 # These catch valid Rust import/probe spellings that do not contain the
 # literal substrings above (grouped imports, crate aliases, whitespace).
 FORBIDDEN_PORTABLE_REGEX = (
-    (r"\b(?:crate::)?platform::\{\s*(?:linux|windows)\b",
+    (r"\b(?:crate::)?platform::\{[^}]*\b(?:linux|windows)\b",
      "portable code imports a concrete adapter through a grouped path"),
     (r"\bwindows_sys\b(?!::Win32)",
      "portable code imports or aliases the native Windows API crate"),
@@ -59,7 +59,7 @@ FORBIDDEN_PORTABLE_MULTILINE_REGEX = (
         "portable code imports a concrete platform adapter",
     ),
     (
-        r"\b(?:crate\s*::\s*)?platform\s*::\s*\{\s*(?:linux|windows)\b",
+        r"\b(?:crate\s*::\s*)?platform\s*::\s*\{[^}]*\b(?:linux|windows)\b",
         "portable code imports a grouped platform adapter",
     ),
     (

@@ -74,6 +74,7 @@ class PlatformBoundaryGuardTests(unittest.TestCase):
         for source in (
             "use crate::platform::{windows::WindowsPlatform};\n",
             "use crate::platform::{linux::LinuxPlatform};\n",
+            "use crate::platform::{self, windows::WindowsPlatform};\n",
             "use windows_sys as winapi;\n",
             "use windows_sys::{Win32::Foundation};\n",
             "use windows::Win32::Foundation;\n",
@@ -98,6 +99,7 @@ class PlatformBoundaryGuardTests(unittest.TestCase):
         for source in (
             "use crate::platform\n  ::windows::capture;\n",
             "use crate::platform::{\n windows::WindowsPlatform\n};\n",
+            "use crate::platform::{\n self,\n linux::LinuxPlatform\n};\n",
             "use windows_sys\n  ::Win32::Foundation;\n",
             'let _ = std::env::var(\n "DISPLAY"\n);\n',
             'let _ = std::env::var_os(\n "XDG_CURRENT_DESKTOP"\n);\n',
