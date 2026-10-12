@@ -14,6 +14,16 @@ use crate::ocr::OcrRuntime;
 use crate::platform::PlatformServices;
 use async_trait::async_trait;
 use std::path::Path;
+use std::os::windows::fs::MetadataExt;
+
+const REPARSE_POINT: u32 = 0x400;
+
+fn settings_path_is_owned(path: &Path, directory: bool) -> bool {
+    path.symlink_metadata().is_ok_and(|metadata| {
+        let expected_type = if directory { metadata.is_dir() } else { metadata.is_file() };
+        expected_type && metadata.file_attributes() & REPARSE_POINT == 0
+    })
+}
 
 #[derive(Debug, Default)]
 pub struct WindowsPlatform;
@@ -47,14 +57,22 @@ impl PlatformServices for WindowsPlatform {
         ocr_runtime::resolve_packaged_runtime()
     }
 
-    // Preserve the existing Windows app-config ACL inheritance policy; do not
-    // apply Unix permission bits or claim a reviewed Windows ACL policy.
-    fn protect_settings_directory(&self, _path: &Path) -> Result<(), AppError> {
-        Ok(())
+    // Preserve inherited Windows app-config ACLs, but never accept a
+    // reparse-pointed settings directory or temporary file for writes.
+    fn protect_settings_directory(&self, path: &Path) -> Result<(), AppError> {
+        if settings_path_is_owned(path, true) {
+            Ok(())
+        } else {
+            Err(AppError::SettingsWriteFailed)
+        }
     }
 
-    fn protect_settings_file(&self, _path: &Path) -> Result<(), AppError> {
-        Ok(())
+    fn protect_settings_file(&self, path: &Path) -> Result<(), AppError> {
+        if settings_path_is_owned(path, false) {
+            Ok(())
+        } else {
+            Err(AppError::SettingsWriteFailed)
+        }
     }
 
     async fn diagnostics(&self) -> Result<PlatformDiagnostics, AppError> {
@@ -76,6 +94,30 @@ impl PlatformServices for WindowsPlatform {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn windows_settings_protection_rejects_substituted_file_types() {
+        use std::fs;
+        let temp = tempfile::tempdir().expect("tempdir");
+        let config = temp.path().join("config");
+        fs::write(&config, b"fixture").expect("write file");
+        assert!(matches!(
+            WindowsPlatform.protect_settings_directory(&config),
+            Err(AppError::SettingsWriteFailed)
+        ));
+        fs::remove_file(&config).expect("remove file");
+        fs::create_dir(&config).expect("create directory");
+        assert!(WindowsPlatform.protect_settings_directory(&config).is_ok());
+        let settings = config.join("settings.tmp");
+        fs::create_dir(&settings).expect("create substituted directory");
+        assert!(matches!(
+            WindowsPlatform.protect_settings_file(&settings),
+            Err(AppError::SettingsWriteFailed)
+        ));
+        fs::remove_dir(&settings).expect("remove directory");
+        fs::write(&settings, b"fixture").expect("write regular file");
+        assert!(WindowsPlatform.protect_settings_file(&settings).is_ok());
+    }
 
     #[tokio::test]
     async fn migrated_linux_preferences_use_the_single_windows_backend() {
