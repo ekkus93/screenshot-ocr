@@ -999,6 +999,7 @@ physical offline installation; those gates remain unchecked pending evidence.
 - [ ] Missing executable maps safely.
 - [ ] Missing eng data maps safely.
 
+
 - [ ] Raw process output is not logged.
 
 ### W18.4 Offline proof
@@ -1066,7 +1067,7 @@ physical offline installation; those gates remain unchecked pending evidence.
 - [x] Verify product/version metadata.
 
 **W20.1 packaged-directory integrity hardening (2026-10-12):** The
-Windows NSIS payload verifier now rejects unreviewed *directories* in the
+Windows NSIS payload verifier now rejects unreviewed _directories_ in the
 extracted OCR resource tree (including otherwise invisible empty folders),
 alongside the already pinned file manifest; it also rejects redirected
 resource entries. The separate staged PE audit now rejects unreviewed root
