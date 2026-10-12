@@ -53,8 +53,7 @@ fn settings_directory_can_be_created(path: &Path) -> bool {
                 }
                 found_existing = true;
             }
-            Err(error)
-                if error.kind() == std::io::ErrorKind::NotFound && !found_existing => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound && !found_existing => {}
             Err(_) => return false,
         }
     }
@@ -212,7 +211,9 @@ mod tests {
         let real = temp.path().join("external");
         fs::create_dir(&real).expect("create external fixture");
         assert!(settings_directory_can_be_created(&temp.path().join("new")));
-        assert!(!settings_directory_can_be_created(Path::new("relative/config")));
+        assert!(!settings_directory_can_be_created(Path::new(
+            "relative/config"
+        )));
 
         let alias = temp.path().join("redirect");
         // Symlink creation is privilege-gated on some Windows CI runners.
