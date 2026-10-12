@@ -78,18 +78,43 @@ fn safe_session_type(raw: Option<&str>) -> &'static str {
 
 fn read_os_release() -> String {
     fs::read_to_string("/etc/os-release")
-        .ok()
-        .and_then(|text| {
-            text.lines()
-                .find(|line| line.starts_with("PRETTY_NAME="))
-                .map(str::to_owned)
-        })
-        .map(|line| {
-            line.trim_start_matches("PRETTY_NAME=")
-                .trim_matches('"')
-                .to_owned()
-        })
-        .unwrap_or_else(|| "Linux (release unknown)".into())
+        .map(|text| safe_os_release(&text))
+        .unwrap_or_else(|_| "Linux (release unknown)".into())
+}
+
+// /etc/os-release can contain administrator-provided free-form text. Public
+// diagnostics must never echo PRETTY_NAME or arbitrary vendor/version strings.
+fn safe_os_release(text: &str) -> String {
+    let value = |key: &str| {
+        text.lines()
+            .find_map(|line| line.strip_prefix(key))
+            .map(|value| value.trim_matches('"'))
+    };
+    let label = match value("ID=") {
+        Some("ubuntu") => "Ubuntu",
+        Some("debian") => "Debian",
+        Some("fedora") => "Fedora",
+        Some("arch") => "Arch Linux",
+        Some("linuxmint") => "Linux Mint",
+        Some("rhel") => "Red Hat Enterprise Linux",
+        Some("centos") => "CentOS",
+        Some("opensuse") | Some("opensuse-leap") => "openSUSE",
+        Some("opensuse-tumbleweed") => "openSUSE Tumbleweed",
+        Some("alpine") => "Alpine Linux",
+        Some("nixos") => "NixOS",
+        Some("kali") => "Kali Linux",
+        _ => return "Linux (release unknown)".into(),
+    };
+    match value("VERSION_ID=") {
+        Some(version)
+            if !version.is_empty()
+                && version.len() <= 16
+                && version.bytes().all(|byte| byte.is_ascii_digit() || byte == b'.') =>
+        {
+            format!("{label} {version}")
+        }
+        _ => label.into(),
+    }
 }
 
 pub fn find_system_executable(name: &str) -> Option<PathBuf> {
@@ -172,6 +197,23 @@ mod tests {
         assert_eq!(safe_session_type(Some("X11")), "x11");
         assert_eq!(safe_session_type(Some("private-session")), "other");
         assert_eq!(safe_session_type(None), "unknown");
+    }
+
+    #[test]
+    fn os_release_diagnostics_use_only_known_labels_and_numeric_versions() {
+        assert_eq!(
+            safe_os_release("ID=ubuntu\nVERSION_ID=\"24.04\"\nPRETTY_NAME=\"custom machine\"\n"),
+            "Ubuntu 24.04"
+        );
+        assert_eq!(safe_os_release("ID=arch\n"), "Arch Linux");
+        assert_eq!(
+            safe_os_release("ID=ubuntu\nVERSION_ID=\"24.04/private\"\n"),
+            "Ubuntu"
+        );
+        assert_eq!(
+            safe_os_release("ID=custom\nPRETTY_NAME=\"personal build\"\n"),
+            "Linux (release unknown)"
+        );
     }
 
     #[test]
