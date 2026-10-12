@@ -162,6 +162,30 @@ class PeImportTests(unittest.TestCase):
             with self.assertRaisesRegex(audit.InvalidPE, "directly owned directory"):
                 audit.audit(linked / "runtime")
 
+    def test_relative_staging_root_rejects_linked_ancestor(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            real = base / "owned" / "runtime"
+            real.mkdir(parents=True)
+            (real / "tesseract.exe").write_bytes(fixture())
+            (real / "vendor-extra.dll").write_bytes(fixture())
+            linked = base / "linked"
+            try:
+                linked.symlink_to(base / "owned", target_is_directory=True)
+            except (OSError, NotImplementedError):
+                self.skipTest("host does not permit directory symlinks")
+            # Relative path must be checked through lexical absolute ancestry,
+            # not only its immediate root spelling.
+            relative = Path("linked") / "runtime"
+            old_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(base)
+                with self.assertRaisesRegex(audit.InvalidPE, "directly owned directory"):
+                    audit.audit(relative)
+            finally:
+                os.chdir(old_cwd)
+
     def test_audit_rejects_log_delimiters_in_staged_dll_filename(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

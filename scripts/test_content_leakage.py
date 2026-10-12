@@ -104,6 +104,28 @@ class ContentLeakageGuardTests(unittest.TestCase):
             report = guard.scan_tree(alias / "src")
             self.assertEqual(report, ["source scan root traverses a symbolic link"])
 
+    def test_relative_scan_root_detects_linked_parent(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            actual = base / "actual" / "src"
+            actual.mkdir(parents=True)
+            (actual / "safe.rs").write_text("fn safe() {}", encoding="utf-8")
+            linked = base / "linked"
+            try:
+                linked.symlink_to(base / "actual", target_is_directory=True)
+            except (OSError, NotImplementedError):
+                self.skipTest("host does not permit directory symlinks")
+            old_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(base)
+                self.assertEqual(
+                    guard.scan_tree(Path("linked") / "src"),
+                    ["source scan root traverses a symbolic link"],
+                )
+            finally:
+                os.chdir(old_cwd)
+
     def test_generated_symlink_is_not_treated_as_first_party_source(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "checkout"

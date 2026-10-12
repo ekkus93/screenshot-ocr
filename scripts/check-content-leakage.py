@@ -50,7 +50,8 @@ def should_scan(path: Path) -> bool:
 def scan_tree(root: Path) -> list[str]:
     # Never traverse a redirected checkout root or any linked parent. This
     # is a privacy boundary, not merely a way to suppress false positives.
-    if any(path.is_symlink() for path in (root, *root.parents)):
+    absolute_root = root.absolute()
+    if any(path.is_symlink() for path in (absolute_root, *absolute_root.parents)):
         return ["source scan root traverses a symbolic link"]
     problems: list[str] = []
     for path in sorted(root.rglob("*")):

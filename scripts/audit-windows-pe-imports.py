@@ -146,7 +146,10 @@ def audit(root: Path) -> dict[str, object]:
     # Refuse linked staging roots and linked ancestor paths: otherwise an
     # apparently first-party input may resolve outside the owned checkout.
     # This is a path-layout check, not a TOCTOU or native loader guarantee.
-    if not root.is_dir() or any(path.is_symlink() for path in (root, *root.parents)):
+    absolute_root = root.absolute()
+    if not absolute_root.is_dir() or any(
+        path.is_symlink() for path in (absolute_root, *absolute_root.parents)
+    ):
         raise InvalidPE("staged OCR payload path is not a directly owned directory")
     binary = root / "tesseract.exe"
     # Windows resolves DLL names without regard to extension case. Include
