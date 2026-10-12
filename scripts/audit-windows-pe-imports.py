@@ -64,14 +64,21 @@ def imports(data: bytes) -> set[str]:
         if optional_size < 112:
             raise InvalidPE("truncated PE32+ optional header")
         directory = opt + 112
+        directory_count = uint32(data, opt + 108)
         image_base = struct.unpack_from("<Q", data, opt + 24)[0]
     elif magic == 0x10B:  # PE32
         if optional_size < 96:
             raise InvalidPE("truncated PE32 optional header")
         directory = opt + 96
+        directory_count = uint32(data, opt + 92)
         image_base = uint32(data, opt + 28)
     else:
         raise InvalidPE("unsupported optional header")
+    # The optional header declares how many data directories exist. Never
+    # inspect bytes beyond that count as import metadata: padding or section
+    # data could otherwise masquerade as undeclared DLL dependencies.
+    if directory_count > (end - directory) // 8:
+        raise InvalidPE("data-directory count exceeds optional header")
     sections = []
     for i in range(count):
         offset = end + 40 * i
@@ -113,6 +120,8 @@ def imports(data: bytes) -> set[str]:
 
     found: set[str] = set()
     for index, record_size, name_pos in ((1, 20, 12), (13, 32, 4)):
+        if index >= directory_count:
+            continue  # The optional header does not declare this directory.
         entry = directory + 8 * index
         if entry + 8 > end:
             continue  # Older optional headers may omit delay import directory.

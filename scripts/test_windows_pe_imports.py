@@ -28,6 +28,7 @@ def fixture(*, pe64: bool = True, delay: bool = False) -> bytes:
     opt = 0x98
     struct.pack_into("<H", data, opt, 0x20B if pe64 else 0x10B)
     directory = opt + (112 if pe64 else 96)
+    struct.pack_into("<I", data, opt + (108 if pe64 else 92), 16)
     if pe64:
         struct.pack_into("<Q", data, opt + 24, 0x140000000)
     else:
@@ -55,6 +56,30 @@ class PeImportTests(unittest.TestCase):
             audit.imports(fixture(delay=True)),
             {"kernel32.dll", "vendor-extra.dll"},
         )
+
+    def test_directory_count_controls_import_and_delay_tables(self):
+        for pe64 in (True, False):
+            for count, expected in (
+                (1, set()),
+                (2, {"kernel32.dll"}),
+                (14, {"kernel32.dll", "vendor-extra.dll"}),
+            ):
+                with self.subTest(pe64=pe64, count=count):
+                    data = bytearray(fixture(pe64=pe64, delay=True))
+                    struct.pack_into(
+                        "<I", data, 0x98 + (108 if pe64 else 92), count
+                    )
+                    self.assertEqual(audit.imports(bytes(data)), expected)
+
+    def test_directory_count_must_fit_optional_header(self):
+        for pe64 in (True, False):
+            with self.subTest(pe64=pe64):
+                data = bytearray(fixture(pe64=pe64))
+                struct.pack_into("<I", data, 0x98 + (108 if pe64 else 92), 17)
+                with self.assertRaisesRegex(
+                    audit.InvalidPE, "data-directory count exceeds"
+                ):
+                    audit.imports(bytes(data))
 
     def test_optional_header_cannot_overlap_section_table(self):
         for pe64, minimum in ((True, 112), (False, 96)):
