@@ -72,7 +72,7 @@ def candidates(root: Path) -> list[Path]:
     # Scan the entire Tauri tree, not just Rust modules: installer hooks,
     # capability manifests, and target-specific bundle settings also encode
     # OS assumptions. Generated build output remains excluded below.
-    for prefix in ("src-tauri", "src", "scripts", ".github/workflows"):
+    for prefix in ("src-tauri", "src", "scripts", ".github/workflows", ".github/actions"):
         base = root / prefix
         if base.is_dir() and not base.is_symlink():
             all_paths.extend(
@@ -80,7 +80,17 @@ def candidates(root: Path) -> list[Path]:
                 if p.is_file() and is_unlinked_source(root, p) and p.suffix in SUFFIXES
                 and not any(part in IGNORED for part in p.relative_to(root).parts)
             )
-    all_paths.extend(p for p in (root / "package.json",) if p.is_file() and is_unlinked_source(root, p))
+    # Root-level tooling (Vite, Playwright, TypeScript, packaging) may encode
+    # platform assumptions outside src/. Do not inventory dependency lockfiles:
+    # generated third-party text is not first-party implementation evidence.
+    ignored_root_files = {"package-lock.json", "pnpm-lock.yaml", "bun.lockb"}
+    all_paths.extend(
+        p for p in root.iterdir()
+        if p.is_file() and p.suffix in SUFFIXES
+        and p.name not in ignored_root_files
+        and not p.name.endswith(".lock")
+        and is_unlinked_source(root, p)
+    )
     return sorted(set(all_paths))
 
 

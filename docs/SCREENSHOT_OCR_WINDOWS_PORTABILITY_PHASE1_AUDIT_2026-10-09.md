@@ -184,3 +184,10 @@ The platform-assumption inventory now attributes `src-tauri/src/platform.rs`
 shared-core bucket. A synthetic classification fixture prevents regressions.
 This fixes owner attribution only; it does not close W1.2 semantic-review
 checkboxes or physical acceptance gates until exact-head CI qualifies it.
+
+The keyword-inventory scan now also covers root-level first-party tooling
+configuration (including Vite/Playwright/TypeScript and package metadata) and
+reusable `.github/actions` definitions. Generated dependency lockfiles remain
+excluded, and synthetic fixtures require deterministic, content-free output.
+This broadens W1.2 evidence coverage but is not a semantic review or proof of
+runtime, physical Windows, or redistribution acceptance.

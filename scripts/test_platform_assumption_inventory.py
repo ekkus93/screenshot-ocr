@@ -68,6 +68,35 @@ class AssumptionInventoryTests(unittest.TestCase):
             self.assertNotIn("src-tauri/target/generated.rs", entries)
             self.assertNotIn("SECRET_FIXTURE", str(report))
 
+    def test_root_build_configs_and_reusable_actions_are_in_scope(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            fixtures = {
+                "vite.config.ts": 'const binary = "C:\\Program Files\\OCR\\tesseract.exe";\n',
+                "playwright.config.ts": 'const shortcut = "Control+Shift+O";\n',
+                ".github/actions/cross-platform/action.yml": 'run: gnome-screenshot\n',
+                "package.json": '{"scripts":{"windows":"check"}}\n',
+                "package-lock.json": "GNOME PRIVATE_FIXTURE\n",
+                "pnpm-lock.yaml": "GNOME PRIVATE_FIXTURE\n",
+                "src/ordinary.ts": "export const portable = true;\n",
+            }
+            for name, content in fixtures.items():
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(content, encoding="utf-8")
+            report = inventory.inventory(root)
+            entries = {entry["path"]: entry for entry in report["entries"]}
+            self.assertEqual(entries["vite.config.ts"]["lines"]["executable_path"], [1])
+            self.assertEqual(entries["playwright.config.ts"]["lines"]["shortcut"], [1])
+            self.assertEqual(
+                entries[".github/actions/cross-platform/action.yml"]["lines"]["linux_gnome"], [1]
+            )
+            self.assertIn("package.json", entries)
+            self.assertNotIn("package-lock.json", entries)
+            self.assertNotIn("pnpm-lock.yaml", entries)
+            self.assertNotIn("PRIVATE_FIXTURE", str(report))
+            self.assertEqual(report, inventory.inventory(root))
+
     def test_symlinked_source_files_are_not_scanned(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "repo"
