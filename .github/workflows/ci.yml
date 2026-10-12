@@ -12,9 +12,12 @@ on:
 permissions:
   contents: read
 
+# Keep an active Windows-portability qualification running when another Ralph
+# worker commits. GitHub may replace the single queued run with a newer head;
+# master and other refs retain superseded-run cancellation.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/ralph/windows-support' }}
 
 jobs:
   repository-policy:

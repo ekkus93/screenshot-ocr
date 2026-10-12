@@ -7,8 +7,13 @@
 
 Record the complete commit SHA and passing GitHub Actions run IDs for that
 same SHA. Passing earlier commits do not qualify later changes. The `CI`
-workflow runs on `master` and `ralph/windows-support`. Branch concurrency
-may cancel superseded runs; inspect the newest exact head instead.
+workflow runs on `master` and `ralph/windows-support`. For the long-lived
+Windows branch, CI preserves a currently running validation when new commits
+arrive instead of canceling costly Windows packaging work. GitHub may replace
+one queued pending run with a newer branch head, and a previously qualified
+commit never qualifies a different SHA. The `master` cancellation policy
+is unchanged. Wait for the final branch head to receive its own full passing
+workflow before completing W21/W25.
 
 ## Linux CI (Ubuntu 22.04)
 
