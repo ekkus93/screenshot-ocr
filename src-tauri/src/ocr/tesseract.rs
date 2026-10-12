@@ -363,7 +363,8 @@ mod tests {
         wait_for_windows_fake_start(&marker_dir.join("probe.started")).await;
         // Hold the exact child handle before cancellation so a reused PID
         // cannot make the process-exit assertion falsely pass.
-        let probe_handle = crate::platform::native_child_test::fake_process_handle(&marker_dir, "probe");
+        let probe_handle =
+            crate::platform::native_child_test::fake_process_handle(&marker_dir, "probe");
         cancellation.cancel();
         let probe_result = timeout(Duration::from_secs(4), probe)
             .await
@@ -384,7 +385,8 @@ mod tests {
                 .await
         });
         wait_for_windows_fake_start(&marker_dir.join("recognize.started")).await;
-        let recognition_handle = crate::platform::native_child_test::fake_process_handle(&marker_dir, "recognize");
+        let recognition_handle =
+            crate::platform::native_child_test::fake_process_handle(&marker_dir, "recognize");
         cancellation.cancel();
         let recognition_result = timeout(Duration::from_secs(4), recognition)
             .await
