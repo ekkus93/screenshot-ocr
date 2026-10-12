@@ -295,7 +295,12 @@ pub fn select_region(cancellation: &CancellationToken) -> Result<Rect, AppError>
                 break result;
             }
             let mut message: MSG = zeroed();
-            while PeekMessageW(&mut message, null_mut(), 0, 0, PM_REMOVE) != 0 {
+            // Bound each pump batch so sustained pointer/paint traffic cannot
+            // starve the cancellation check at the top of the loop.
+            for _ in 0..64 {
+                if PeekMessageW(&mut message, null_mut(), 0, 0, PM_REMOVE) == 0 {
+                    break;
+                }
                 if message.message == WM_QUIT {
                     selection.result = Some(Err(AppError::CaptureCancelled));
                     break;
