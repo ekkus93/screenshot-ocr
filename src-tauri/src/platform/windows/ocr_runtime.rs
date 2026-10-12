@@ -386,6 +386,7 @@ mod tests {
             resolve_at(&executable),
             Err(AppError::OcrEngineUnavailable)
         ));
+        assert_eq!(runtime_status_at(&executable), "unavailable");
         fs::remove_file(&unexpected).unwrap();
 
         fs::create_dir(&unexpected).unwrap();
@@ -438,7 +439,7 @@ mod tests {
         // The limit includes the executable and tessdata directory; 257
         // entries must fail closed regardless of filesystem enumeration order.
         for index in 0..255 {
-            fs::write(ocr.join(format!("extra-{index:03}.txt")), b"fixture").unwrap();
+            fs::write(ocr.join(format!("extra-{index:03}.dll")), b"fixture").unwrap();
         }
         assert!(matches!(
             resolve_at(&executable),
