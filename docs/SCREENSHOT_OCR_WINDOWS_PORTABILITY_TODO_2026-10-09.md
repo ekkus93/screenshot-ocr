@@ -809,6 +809,14 @@ For each record:
 - [x] Unit-test overflow/resource bounds.
 - [x] Unit-test native error mapping where possible.
 
+**W15 selector-state installation guard (2026-10-12):** The overlay now
+verifies the ambiguous zero return from `SetWindowLongPtrW` using a
+cleared `GetLastError`, and rejects an unexpected previous user-data
+pointer. If state installation fails, the owned native window is destroyed
+without being displayed, avoiding an unresponsive orphan selector.
+Synthetic Windows-only tests cover the return/error interpretation.
+Physical desktop validation remains open.
+
 **W15 Escape focus fallback (2026-10-12):** The Win32 selector preserves
 message-driven Escape handling and additionally samples a key-down transition
 during the bounded overlay pump. This allows cancellation if foreground-focus

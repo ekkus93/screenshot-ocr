@@ -6,7 +6,7 @@ use std::mem::zeroed;
 use std::ptr::{null, null_mut};
 use std::thread;
 use std::time::Duration;
-use windows_sys::Win32::Foundation::{GetLastError, HWND, RECT};
+use windows_sys::Win32::Foundation::{GetLastError, SetLastError, HWND, RECT};
 use windows_sys::Win32::Graphics::Gdi::{
     BeginPaint, EndPaint, FillRect, FrameRect, GetStockObject, InvalidateRect, BLACK_BRUSH, HBRUSH,
     PAINTSTRUCT, WHITE_BRUSH,
@@ -122,6 +122,13 @@ impl Selection {
             self.cancel();
         }
     }
+}
+
+// A newly created selector window has no previous user data. Win32 returns
+// zero for both success-with-empty-old-value and failure, so the caller must
+// clear and inspect GetLastError around SetWindowLongPtrW.
+fn selector_state_attached(previous: isize, last_error: u32) -> bool {
+    previous == 0 && last_error == 0
 }
 
 unsafe fn state(hwnd: HWND) -> Option<&'static mut Selection> {
@@ -304,11 +311,17 @@ pub fn select_region(cancellation: &CancellationToken) -> Result<Rect, AppError>
             return Err(AppError::CaptureFailed);
         }
         let overlay = Overlay(hwnd);
-        SetWindowLongPtrW(
+        SetLastError(0);
+        let previous = SetWindowLongPtrW(
             hwnd,
             GWLP_USERDATA,
             &mut selection as *mut Selection as isize,
         );
+        if !selector_state_attached(previous, GetLastError()) {
+            // Do not display an overlay with no reliable mouse/keyboard
+            // state. Overlay's Drop closes the newly created native window.
+            return Err(AppError::CaptureFailed);
+        }
         if SetLayeredWindowAttributes(hwnd, 0, 95, LWA_ALPHA) == 0 {
             return Err(AppError::CaptureFailed);
         }
@@ -413,6 +426,14 @@ mod tests {
             state.result,
             Some(Err(AppError::CaptureCancelled))
         ));
+    }
+
+    #[test]
+    fn selector_user_data_installation_rejects_failed_or_unexpected_state() {
+        assert!(selector_state_attached(0, 0));
+        assert!(!selector_state_attached(0, 5));
+        assert!(!selector_state_attached(1, 0));
+        assert!(!selector_state_attached(-1, 0));
     }
 
     #[test]
