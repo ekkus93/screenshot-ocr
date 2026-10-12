@@ -242,8 +242,18 @@ error enum compilation. All seven CI jobs passed at exact commit
 `a3370f3834c7a28d7d8652c8db87f9e830664ce8` (run `38158378805`);
 other core-purity and physical acceptance items stay unchecked.
 
-### W2 acceptance gate
+**W2.3 settings storage boundary (2026-10-11):** The portable settings
+store delegates private directory/file protection to the platform-services
+contract. Linux retains mode `0700` for its configuration directory and
+`0600` for the settings file; the Windows adapter preserves the previous
+app-config ACL-inheritance policy, without claiming a reviewed Windows ACL.
+The unsupported adapter fails closed. A static source guard and synthetic
+fixtures reject OS-specific settings-permission code in production shared
+settings. This code and the Linux permission regression test require fresh
+exact-head Linux/Windows CI. Broader core-purity and physical gates remain
+unchecked.
 
+### W2 acceptance gate
 - [ ] The portable core can be described without mentioning Linux or Windows implementation mechanisms.
 
 ## 7. W3 — Platform service contracts

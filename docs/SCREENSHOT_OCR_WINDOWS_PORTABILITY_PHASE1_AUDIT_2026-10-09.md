@@ -61,6 +61,16 @@ registry root constants, and Windows user-profile/environment-path probes in
 shared Rust modules, including multiline environment reads. These checks are
 synthetic regression protection, not a substitute for native loader review.
 
+The portable settings store now delegates directory/file privacy protection
+through two explicit `PlatformServices` methods. The Linux adapter retains
+`0700` directory and `0600` file permissions; the Windows adapter preserves
+the previous app-config ACL-inheritance behavior without claiming that native
+ACL policy has been physically reviewed. The unsupported adapter fails closed.
+The static boundary guard rejects production Unix/Windows filesystem permission
+mechanisms in `settings.rs`, with synthetic regression tests. This narrows the
+platform contract to actual settings-storage needs and does not complete the
+Windows ACL, physical desktop, or native redistribution acceptance gates.
+
 The shared `src-tauri/src/error.rs` error codes/variants and public error
 mapping are now platform-neutral: Linux capture failure codes remain part of
 the stable serialized domain contract even when compiled on Windows.

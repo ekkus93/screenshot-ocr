@@ -159,6 +159,27 @@ class PlatformBoundaryGuardTests(unittest.TestCase):
         self.assertEqual(status, 1, report)
         self.assertIn("app.rs:1:", report)
 
+    def test_settings_file_permissions_must_use_platform_contract(self) -> None:
+        for source in (
+            "use std::os::unix::fs::PermissionsExt;\n",
+            "fs::set_permissions(path, permissions)?;\n",
+            "#[cfg(unix)]\nfn secure_settings() {}\n",
+            "#[cfg(not(unix))]\nfn secure_settings() {}\n",
+            '#[cfg(target_os = "windows")]\nfn secure_settings() {}\n',
+        ):
+            with self.subTest(source=source):
+                status, report = self.run_check({"settings.rs": source})
+                self.assertEqual(status, 1, report)
+                self.assertIn("OS-specific settings file policy", report)
+        status, report = self.run_check({
+            "settings.rs": (
+                "fn portable_settings() {}\n"
+                "#[cfg(test)]\nmod tests {\n"
+                "    use std::os::unix::fs::PermissionsExt;\n}\n"
+            )
+        })
+        self.assertEqual(status, 0, report)
+
     def test_error_contract_rejects_target_gating_but_allows_test_cfg(self) -> None:
         for source in (
             '#[cfg(target_os = "linux")]\nenum ErrorCode {}\n',

@@ -113,6 +113,19 @@ def main() -> int:
                         f"{path}:{line_number}: {explanation}: matched {expression!r}"
                     )
 
+        # The settings schema and persistence policy are portable. Unix chmod
+        # and target-specific filesystem mechanics belong to platform adapters;
+        # unit-test fixtures after the test module boundary are exempt.
+        if path == RUST_ROOT / "settings.rs":
+            production = text.split("#[cfg(test)]\nmod tests", 1)[0]
+            if re.search(
+                r"\bstd\s*::\s*os\s*::\s*(?:unix|windows|linux)\b"
+                r"|\bfs\s*::\s*set_permissions\s*\("
+                r"|#\s*\[\s*cfg\s*\(\s*(?:not\s*\(\s*)?(?:unix|windows|linux|target_os)\b",
+                production,
+            ):
+                problems.append(f"{path}: OS-specific settings file policy outside platform adapter")
+
         # Error variants/codes must be available identically on every target.
         if path == RUST_ROOT / "error.rs" and re.search(
             r"#\s*\[\s*cfg(?:_attr)?\s*\([^\]]*target_os", text
