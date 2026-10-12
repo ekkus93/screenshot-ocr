@@ -1039,8 +1039,7 @@ returns allowlisted tray and shortcut statuses. Portable `PublicError::from`
 maps cancellation, capture, OCR runtime/language, clipboard, and internal
 failures to fixed public codes and guidance without exposing native error
 text. Source-level tests passed at commit
-`f8b857da770317811bfda54fd46663f8d862ac5a` in PR CI run
-38297371808. W19.1/W19.2 are source and hosted-test checks only: physical
+`f8b857da770317811bfda54fd46663f8d862ac5a` in PR CI run 38297371808. W19.1/W19.2 are source and hosted-test checks only: physical
 desktop reporting, complete native loader/licensing review, exhaustive
 content-leakage verification, and the W19 acceptance gate remain open.
 This documentation change requires exact-head CI qualification.
