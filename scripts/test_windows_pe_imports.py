@@ -319,6 +319,22 @@ class PeImportTests(unittest.TestCase):
             with self.assertRaisesRegex(audit.InvalidPE, "invalid native review identity"):
                 audit.verify_review_register(report, duplicate)
 
+    def test_review_gate_errors_are_diagnostic_but_content_free(self):
+        for reason in audit.SAFE_REVIEW_FAILURES:
+            self.assertIn(reason, audit.public_audit_failure(audit.InvalidPE(reason)))
+        for error in (
+            audit.InvalidPE("C:\\Users\\Private\\secret.dll"),
+            OSError("C:\\Users\\Private\\secret.dll"),
+            audit.InvalidPE("unexpected user text"),
+        ):
+            public = audit.public_audit_failure(error)
+            self.assertEqual(
+                public,
+                "Windows PE dependency audit failed: malformed or inaccessible staged payload.",
+            )
+            self.assertNotIn("secret", public)
+            self.assertNotIn("Private", public)
+
     def test_audit_rejects_x86_executable_or_dependency(self):
         for x86_executable in (True, False):
             with self.subTest(x86_executable=x86_executable):

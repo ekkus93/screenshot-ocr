@@ -21,6 +21,28 @@ class InvalidPE(ValueError):
     """Malformed or unsupported PE import metadata."""
 
 
+# Only literal, fixed review reasons are safe to show in CI logs. Raw OS
+# errors, paths and unexpected parser exceptions remain fully suppressed.
+SAFE_REVIEW_FAILURES = frozenset({
+    "malformed native review row",
+    "invalid native review identity",
+    "invalid external native review row",
+    "duplicate external native review row",
+    "native review register incomplete",
+    "staged native binary set differs from review",
+    "staged native bytes differ from review",
+    "staged native reachability differs from review",
+    "staged native external imports differ from review",
+})
+
+
+def public_audit_failure(error: Exception) -> str:
+    reason = str(error)
+    if not isinstance(error, InvalidPE) or reason not in SAFE_REVIEW_FAILURES:
+        reason = "malformed or inaccessible staged payload"
+    return f"Windows PE dependency audit failed: {reason}."
+
+
 def uint16(data: bytes, offset: int) -> int:
     if offset < 0 or offset + 2 > len(data):
         raise InvalidPE("truncated PE header")
@@ -315,9 +337,10 @@ def main() -> int:
         rendered = json.dumps(report, indent=2, sort_keys=True)
         if args.output is not None:
             args.output.write_text(rendered + "\n", encoding="utf-8")
-    except (OSError, InvalidPE, UnicodeError, struct.error):
-        # Fail without emitting install paths or raw system error strings.
-        print("Windows PE dependency audit failed: malformed or inaccessible staged payload.")
+    except (OSError, InvalidPE, UnicodeError, struct.error) as error:
+        # Keep unexpected native/OS failures private, but make the fixed
+        # preliminary review identity gate actionable without revealing paths.
+        print(public_audit_failure(error))
         return 1
     print(rendered)
     return 0
