@@ -29,6 +29,63 @@ fn nonempty_file(path: &Path) -> bool {
     })
 }
 
+// Only the pinned Mannheim staging inventory is accepted. This allowlist
+// prevents unreviewed adjacent DLL names from entering the executable's
+// Windows DLL search directory; it is NOT a signature/hash or loader audit.
+const REVIEWED_DLL_NAMES: &[&str] = &[
+    "libarchive-13.dll",
+    "libb2-1.dll",
+    "libbrotlicommon.dll",
+    "libbrotlidec.dll",
+    "libbz2-1.dll",
+    "libcairo-2.dll",
+    "libcrypto-3-x64.dll",
+    "libdatrie-1.dll",
+    "libdeflate.dll",
+    "libexpat-1.dll",
+    "libffi-8.dll",
+    "libfontconfig-1.dll",
+    "libfreetype-6.dll",
+    "libfribidi-0.dll",
+    "libgcc_s_seh-1.dll",
+    "libgif-7.dll",
+    "libgio-2.0-0.dll",
+    "libglib-2.0-0.dll",
+    "libgmodule-2.0-0.dll",
+    "libgobject-2.0-0.dll",
+    "libgraphite2.dll",
+    "libharfbuzz-0.dll",
+    "libiconv-2.dll",
+    "libicudt75.dll",
+    "libicuin75.dll",
+    "libicuuc75.dll",
+    "libintl-8.dll",
+    "libjbig-0.dll",
+    "libjpeg-8.dll",
+    "libleptonica-6.dll",
+    "liblerc.dll",
+    "liblz4.dll",
+    "liblzma-5.dll",
+    "libopenjp2-7.dll",
+    "libpango-1.0-0.dll",
+    "libpangocairo-1.0-0.dll",
+    "libpangoft2-1.0-0.dll",
+    "libpangowin32-1.0-0.dll",
+    "libpcre2-8-0.dll",
+    "libpixman-1-0.dll",
+    "libpng16-16.dll",
+    "libsharpyuv-0.dll",
+    "libstdc++-6.dll",
+    "libtesseract-5.dll",
+    "libthai-0.dll",
+    "libtiff-6.dll",
+    "libwebp-7.dll",
+    "libwebpmux-3.dll",
+    "libwinpthread-1.dll",
+    "libzstd.dll",
+    "zlib1.dll",
+];
+
 // Fail closed on unexpected or redirected app-owned runtime entries, not
 // just malformed adjacent DLLs. The pinned NSIS staging layout consists of
 // tesseract.exe, tessdata/eng.traineddata and adjacent DLLs only. In particular,
@@ -65,7 +122,7 @@ fn packaged_runtime_tree_is_regular(root: &Path) -> bool {
                 saw_tessdata = true;
             }
             name if name.ends_with(".dll") => {
-                if !nonempty_file(&path) {
+                if !REVIEWED_DLL_NAMES.contains(&name) || !nonempty_file(&path) {
                     return false;
                 }
             }
@@ -265,7 +322,7 @@ mod tests {
         fs::write(ocr.join("tessdata").join("eng.traineddata"), b"fixture").unwrap();
         assert!(resolve_at(&executable).is_ok());
 
-        let library = ocr.join("synthetic.DLL");
+        let library = ocr.join("libarchive-13.DLL");
         fs::write(&library, b"").unwrap();
         assert!(matches!(
             resolve_at(&executable),
@@ -377,7 +434,7 @@ mod tests {
         fs::create_dir_all(&tessdata).unwrap();
         fs::write(ocr.join("tesseract.exe"), b"fixture").unwrap();
         fs::write(tessdata.join("eng.traineddata"), b"fixture").unwrap();
-        fs::write(ocr.join("synthetic.dll"), b"fixture").unwrap();
+        fs::write(ocr.join("libarchive-13.dll"), b"fixture").unwrap();
         assert!(resolve_at(&executable).is_ok());
 
         let unexpected = ocr.join("unreviewed.txt");
@@ -388,6 +445,16 @@ mod tests {
         ));
         assert_eq!(runtime_status_at(&executable), "unavailable");
         fs::remove_file(&unexpected).unwrap();
+
+        // A nonempty DLL with an unreviewed basename must also be rejected.
+        let unknown_dll = ocr.join("unreviewed.dll");
+        fs::write(&unknown_dll, b"fixture").unwrap();
+        assert!(matches!(
+            resolve_at(&executable),
+            Err(AppError::OcrEngineUnavailable)
+        ));
+        fs::remove_file(&unknown_dll).unwrap();
+        assert!(resolve_at(&executable).is_ok());
 
         fs::create_dir(&unexpected).unwrap();
         assert!(matches!(

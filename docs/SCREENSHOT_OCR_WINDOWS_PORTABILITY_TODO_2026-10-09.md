@@ -979,6 +979,16 @@ English data retains the distinct `OcrLanguageMissing` error. This does
 not prove immutable binaries, DLL load-order safety, license clearance, or
 physical offline installation; those gates remain unchecked pending evidence.
 
+**W18.2 adjacent-DLL basename restriction (2026-10-12):** The Windows
+runtime resolver now accepts only the 51 adjacent DLL basenames recorded in
+the pinned native binary review register (case-insensitively), rejecting
+additional DLLs even when they are regular, nonempty files. Synthetic
+Windows tests retain an allowed-name positive case and reject an unreviewed
+DLL name. This is a filesystem-layout defense, **not** binary hash/signature
+verification, loader-order proof, redistribution approval, or physical
+Windows acceptance. Exact-head CI must qualify the change; W18 release
+gates remain unchecked.
+
 ### W18.2 Bundle runtime
 
 - [ ] Bundle tesseract executable.
