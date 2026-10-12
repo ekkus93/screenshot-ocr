@@ -69,6 +69,19 @@ if ($dlls.Count -ne $manifest.adjacent_dll_count -or
 foreach ($dll in $dlls) {
     if (-not $seen.ContainsKey($dll.Name.ToLowerInvariant())) { throw "Unreviewed native DLL." }
 }
+# Do not accept extra empty directories: a recursive file-only inventory
+# misses them, but the application's runtime resolver refuses such layouts.
+# An NSIS payload must have exactly one OCR subdirectory, tessdata.
+$payloadDirectories = @(Get-ChildItem -LiteralPath $root -Recurse -Directory -Force)
+if ($payloadDirectories.Count -ne 1 -or
+    [IO.Path]::GetRelativePath($root, $payloadDirectories[0].FullName) -ine "tessdata") {
+    throw "Unexpected directories in packaged OCR runtime."
+}
+foreach ($directory in $payloadDirectories) {
+    if (($directory.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "Redirected directory in packaged OCR runtime."
+    }
+}
 # Fail closed if the OCR resource tree contains files absent from the pinned
 # manifest, including nested DLLs and executable/data payloads.
 $payloadFiles = @(Get-ChildItem -LiteralPath $root -Recurse -File -Force)
@@ -76,6 +89,9 @@ if ($payloadFiles.Count -ne @($manifest.files).Count) {
     throw "Unexpected files in packaged OCR runtime."
 }
 foreach ($file in $payloadFiles) {
+    if (($file.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "Redirected file in packaged OCR runtime."
+    }
     $relative = [IO.Path]::GetRelativePath($root, $file.FullName).Replace('\', '/')
     if (-not $seen.ContainsKey($relative.ToLowerInvariant())) {
         throw "Unreviewed file in packaged OCR runtime."
