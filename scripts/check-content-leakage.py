@@ -20,7 +20,7 @@ IGNORED_PARTS = {
     "playwright-report",
 }
 
-RUST_OUTPUT = re.compile(r"\b(?:dbg|println|eprintln)\s*!\s*\(")
+RUST_OUTPUT = re.compile(r"\b(?:dbg|print|println|eprint|eprintln)\s*!\s*\(")
 RUST_LOG_OUTPUT = re.compile(
     r"\b(?:tracing|log)\s*::\s*(?:trace|debug|info|warn|error|event|log|span)\s*!\s*\("
 )

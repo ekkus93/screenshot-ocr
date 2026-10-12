@@ -35,7 +35,7 @@ class ContentLeakageGuardTests(unittest.TestCase):
         )
 
     def test_rust_output_macro_rejects_whitespace_variants(self) -> None:
-        for name in ("dbg", "println", "eprintln"):
+        for name in ("dbg", "print", "println", "eprint", "eprintln"):
             with self.subTest(name=name):
                 report = self.scan({
                     "src-tauri/src/app.rs": (
