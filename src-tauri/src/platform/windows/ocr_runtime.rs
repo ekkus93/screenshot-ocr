@@ -114,19 +114,24 @@ fn packaged_runtime_tree_is_regular(root: &Path) -> bool {
         let Ok(entry) = entry else {
             return false;
         };
-        let Some(name) = entry.file_name().to_str().map(str::to_ascii_lowercase) else {
+        let file_name = entry.file_name();
+        let Some(original_name) = file_name.to_str() else {
             return false;
         };
+        let name = original_name.to_ascii_lowercase();
         let path = entry.path();
         match name.as_str() {
             "tesseract.exe" => {
-                if saw_binary || !nonempty_file(&path) {
+                // The runtime constructs this exact app-relative path.
+                // Case-sensitive NTFS directories must not silently accept
+                // a different spelling that fails at process launch.
+                if original_name != "tesseract.exe" || saw_binary || !nonempty_file(&path) {
                     return false;
                 }
                 saw_binary = true;
             }
             "tessdata" => {
-                if saw_tessdata {
+                if original_name != "tessdata" || saw_tessdata {
                     return false;
                 }
                 saw_tessdata = true;
@@ -443,6 +448,34 @@ mod tests {
                 Err(AppError::OcrEngineUnavailable)
             ));
         }
+    }
+
+    #[test]
+    fn resolver_requires_exact_app_resource_names_even_on_case_insensitive_ntfs() {
+        let root = tempdir().unwrap();
+        let executable = root.path().join("screenshot-ocr.exe");
+        let ocr = root.path().join("resources").join("ocr");
+        fs::create_dir_all(ocr.join("tessdata")).unwrap();
+        fs::write(ocr.join("tesseract.exe"), b"fixture").unwrap();
+        fs::write(ocr.join("tessdata").join("eng.traineddata"), b"fixture").unwrap();
+        assert!(resolve_at(&executable).is_ok());
+
+        fs::remove_file(ocr.join("tesseract.exe")).unwrap();
+        fs::write(ocr.join("TESSERACT.EXE"), b"fixture").unwrap();
+        assert!(matches!(
+            resolve_at(&executable),
+            Err(AppError::OcrEngineUnavailable)
+        ));
+        fs::remove_file(ocr.join("TESSERACT.EXE")).unwrap();
+        fs::write(ocr.join("tesseract.exe"), b"fixture").unwrap();
+
+        fs::remove_dir_all(ocr.join("tessdata")).unwrap();
+        fs::create_dir(ocr.join("TESSDATA")).unwrap();
+        fs::write(ocr.join("TESSDATA").join("eng.traineddata"), b"fixture").unwrap();
+        assert!(matches!(
+            resolve_at(&executable),
+            Err(AppError::OcrEngineUnavailable)
+        ));
     }
 
     #[test]
