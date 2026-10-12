@@ -9,11 +9,11 @@ use crate::models::CaptureBackendPreference;
 use crate::ocr::OcrRuntime;
 use crate::platform::PlatformServices;
 use async_trait::async_trait;
+use capture::{prepare_capture_backend, PortalScreenshotBackend};
+use environment::{LinuxEnvironmentInfo, LinuxEnvironmentProbe};
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
-use capture::{prepare_capture_backend, PortalScreenshotBackend};
-use environment::{LinuxEnvironmentInfo, LinuxEnvironmentProbe};
 
 #[derive(Debug, Default)]
 pub struct LinuxPlatform;

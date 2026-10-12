@@ -88,7 +88,10 @@ pub struct SettingsStore {
 
 impl SettingsStore {
     pub fn new(directory: PathBuf, platform: Arc<dyn PlatformServices>) -> Self {
-        Self { directory, platform }
+        Self {
+            directory,
+            platform,
+        }
     }
 
     pub fn load(&self) -> Result<AppSettings, AppError> {
