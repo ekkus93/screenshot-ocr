@@ -95,6 +95,7 @@ class AssumptionInventoryTests(unittest.TestCase):
             self.assertEqual(
                 entries[".github/actions/cross-platform/action.yml"]["lines"]["linux_gnome"], [1]
             )
+            self.assertEqual(entries[".github/actions/cross-platform/action.yml"]["owner"], "ci")
             self.assertIn("package.json", entries)
             self.assertNotIn("package-lock.json", entries)
             self.assertNotIn("pnpm-lock.yaml", entries)

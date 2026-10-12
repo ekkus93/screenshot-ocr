@@ -46,7 +46,7 @@ def owner(path: str) -> str:
         return "shared_frontend"
     if path.startswith("scripts/"):
         return "build_or_validation"
-    if path.startswith(".github/workflows/"):
+    if path.startswith((".github/workflows/", ".github/actions/")):
         return "ci"
     if path.endswith("Cargo.toml"):
         return "cargo_manifest"
