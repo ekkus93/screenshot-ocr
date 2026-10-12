@@ -88,7 +88,7 @@ if ($matches.Count -ne 1) {
 $selected = $matches[0]
 $binaryDirectory = $selected.Binary.DirectoryName
 Assert-ArchiveRegularFile $selected.Binary.FullName
-Assert-ArchiveRegularFile $selected.English.FullName
+Assert-ArchiveRegularFile $selected.English
 $dlls = @(Get-ChildItem -LiteralPath $binaryDirectory -File -Force -Filter "*.dll" | Sort-Object Name)
 foreach ($dll in $dlls) { Assert-ArchiveRegularFile $dll.FullName }
 if ($dlls.Count -eq 0) { throw "No adjacent runtime DLLs found; packaging inventory incomplete." }
