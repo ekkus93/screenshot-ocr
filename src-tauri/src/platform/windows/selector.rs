@@ -15,7 +15,9 @@ use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::HiDpi::{
     SetThreadDpiAwarenessContext, DPI_AWARENESS_CONTEXT, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2,
 };
-use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetCapture, ReleaseCapture, SetCapture};
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
+    GetAsyncKeyState, GetCapture, ReleaseCapture, SetCapture, VK_ESCAPE,
+};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetClientRect, GetCursorPos,
     GetSystemMetrics, GetWindowLongPtrW, LoadCursorW, PeekMessageW, RegisterClassW,
@@ -48,6 +50,31 @@ impl Drop for SelectorDpiContext {
         // SAFETY: The guard is not moved between threads and owns this context.
         unsafe { SetThreadDpiAwarenessContext(self.0) };
     }
+}
+
+/// Track Escape's down-transition rather than cancelling for a key held
+/// before the overlay was shown. Message-driven WM_KEYDOWN remains primary;
+/// the polling fallback also works when foreground focus cannot be acquired.
+struct EscapeKeyEdge {
+    was_down: bool,
+}
+
+impl EscapeKeyEdge {
+    fn new(was_down: bool) -> Self {
+        Self { was_down }
+    }
+
+    fn observe(&mut self, down: bool) -> bool {
+        let newly_pressed = down && !self.was_down;
+        self.was_down = down;
+        newly_pressed
+    }
+}
+
+fn escape_key_down() -> bool {
+    // SAFETY: Read-only virtual key state; only the sign (currently down)
+    // bit is used. The unreliable "pressed since last call" bit is ignored.
+    unsafe { (GetAsyncKeyState(i32::from(VK_ESCAPE)) as u16 & 0x8000) != 0 }
 }
 
 struct Selection {
@@ -287,6 +314,7 @@ pub fn select_region(cancellation: &CancellationToken) -> Result<Rect, AppError>
         }
         ShowWindow(hwnd, SW_SHOW);
         SetForegroundWindow(hwnd);
+        let mut escape_edge = EscapeKeyEdge::new(escape_key_down());
         let result = loop {
             if cancellation.is_cancelled() {
                 break Err(AppError::CaptureCancelled);
@@ -307,6 +335,12 @@ pub fn select_region(cancellation: &CancellationToken) -> Result<Rect, AppError>
                 }
                 TranslateMessage(&message);
                 DispatchMessageW(&message);
+            }
+            // Some Windows foreground-focus policies prevent this overlay
+            // from receiving WM_KEYDOWN. Poll only during active selection;
+            // an Escape down-transition still cancels the app-owned overlay.
+            if escape_edge.observe(escape_key_down()) {
+                selection.cancel();
             }
             thread::sleep(Duration::from_millis(15));
         };
@@ -375,6 +409,31 @@ mod tests {
         state.cancel();
         state.cancel();
         assert!(!state.begin(point(2, 2)));
+        assert!(matches!(
+            state.result,
+            Some(Err(AppError::CaptureCancelled))
+        ));
+    }
+
+    #[test]
+    fn escape_fallback_requires_a_new_key_press() {
+        let mut edge = EscapeKeyEdge::new(true);
+        assert!(!edge.observe(true)); // Already held before showing overlay.
+        assert!(!edge.observe(false));
+        assert!(edge.observe(true));
+        assert!(!edge.observe(true)); // Key repeat must not fire again.
+        assert!(!edge.observe(false));
+        assert!(edge.observe(true));
+    }
+
+    #[test]
+    fn escape_fallback_cancels_selection_without_window_focus() {
+        let mut state = selection();
+        let mut edge = EscapeKeyEdge::new(false);
+        assert!(state.begin(point(5, 5)));
+        assert!(edge.observe(true));
+        state.cancel();
+        state.complete(Ok(point(100, 100)));
         assert!(matches!(
             state.result,
             Some(Err(AppError::CaptureCancelled))

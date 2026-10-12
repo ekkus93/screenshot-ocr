@@ -809,6 +809,15 @@ For each record:
 - [x] Unit-test overflow/resource bounds.
 - [x] Unit-test native error mapping where possible.
 
+**W15 Escape focus fallback (2026-10-12):** The Win32 selector preserves
+message-driven Escape handling and additionally samples a key-down transition
+during the bounded overlay pump. This allows cancellation if foreground-focus
+policy prevents `WM_KEYDOWN` delivery, while avoiding immediate cancellation
+when Escape was already held before overlay display. Deterministic state tests
+exercise pressed/held/released transitions; physical Windows 10/11 focus and
+capture acceptance remain unchecked until tested. Exact-head Windows CI
+qualification is still required.
+
 ### W15 acceptance gate
 
 - [ ] Windows produces a valid shared captured image without bypassing the core.
