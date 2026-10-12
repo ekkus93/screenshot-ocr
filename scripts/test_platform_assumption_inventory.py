@@ -256,6 +256,29 @@ class AssumptionInventoryTests(unittest.TestCase):
             self.assertEqual(report["entries"], [])
             self.assertNotIn("PRIVATE_FIXTURE", str(report))
 
+    def test_shortcut_aliases_and_platform_resource_locations_are_inventory_visible(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = (
+                'let linux = "Super+Shift+O";\\n'
+                'let windows = "Ctrl+Shift+O";\\n'
+                'let tauri = "CmdOrCtrl+Shift+O";\\n'
+                'let alias = "CommandOrControl+Shift+O";\\n'
+                'let win = "Win+Shift+O";\\n'
+                'let private = app_local_data_dir();\\n'
+                'let scratch = std::env::temp_dir();\\n'
+                'let known = SHGetKnownFolderPath(FOLDERID_LocalAppData);\\n'
+            )
+            path = root / "src-tauri/src/assumptions.rs"
+            path.parent.mkdir(parents=True)
+            path.write_text(source, encoding="utf-8")
+            report = inventory.inventory(root)
+            entry = next(item for item in report["entries"] if item["path"] == "src-tauri/src/assumptions.rs")
+            self.assertEqual(entry["lines"]["shortcut"], [1, 2, 3, 4, 5])
+            self.assertEqual(entry["lines"]["platform_resource"], [6, 7, 8])
+            self.assertNotIn("LocalAppData", str(report))
+            self.assertEqual(report, inventory.inventory(root))
+
     def test_portable_source_has_no_findings(self):
         with tempfile.TemporaryDirectory() as temp:
             source = Path(temp) / "src-tauri/src/app.rs"
