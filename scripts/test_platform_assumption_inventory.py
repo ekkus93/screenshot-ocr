@@ -22,6 +22,7 @@ class AssumptionInventoryTests(unittest.TestCase):
                 "src-tauri/src/app.rs": 'let secret = "WAYLAND_DISPLAY PRIVATE_FIXTURE";\n',
                 "src-tauri/src/platform/linux/capture/portal.rs": "use ashpd::desktop;\n",
                 "src-tauri/src/platform/windows/selector.rs": "use windows_sys::Win32::Foundation;\n",
+                "src-tauri/src/platform.rs": "use WindowsPlatform;\n",
                 "src-tauri/Cargo.toml": 'windows-sys = "0.61"\n',
                 "src/node_modules/vendor.ts": "GNOME PRIVATE_FIXTURE\n",
                 "docs/ignored.md": "PRIVATE_FIXTURE GNOME\n",
@@ -34,6 +35,7 @@ class AssumptionInventoryTests(unittest.TestCase):
             self.assertEqual(entries["src-tauri/src/app.rs"]["owner"], "shared_core_or_desktop")
             self.assertEqual(entries["src-tauri/src/platform/linux/capture/portal.rs"]["owner"], "linux_adapter")
             self.assertEqual(entries["src-tauri/src/platform/windows/selector.rs"]["owner"], "windows_adapter")
+            self.assertEqual(entries["src-tauri/src/platform.rs"]["owner"], "platform_composition")
             self.assertEqual(entries["src-tauri/Cargo.toml"]["owner"], "cargo_manifest")
             self.assertEqual(entries["src-tauri/src/app.rs"]["lines"]["desktop_environment"], [1])
             self.assertNotIn("src/node_modules/vendor.ts", entries)

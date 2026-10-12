@@ -178,3 +178,9 @@ Linux and then selects its own app-controlled working directory. This leaves
 the shared descriptor free of `target_os` and blanket dead-code suppression.
 CI on the exact head is still required; physical desktop and DLL/license review
 are separate, unresolved acceptance gates.
+
+The platform-assumption inventory now attributes `src-tauri/src/platform.rs`
+(the actual composition root) to `platform_composition` rather than the
+shared-core bucket. A synthetic classification fixture prevents regressions.
+This fixes owner attribution only; it does not close W1.2 semantic-review
+checkboxes or physical acceptance gates until exact-head CI qualifies it.
