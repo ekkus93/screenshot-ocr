@@ -13,14 +13,18 @@ use crate::models::CaptureBackendPreference;
 use crate::ocr::OcrRuntime;
 use crate::platform::PlatformServices;
 use async_trait::async_trait;
-use std::path::Path;
 use std::os::windows::fs::MetadataExt;
+use std::path::Path;
 
 const REPARSE_POINT: u32 = 0x400;
 
 fn settings_path_is_owned(path: &Path, directory: bool) -> bool {
     path.symlink_metadata().is_ok_and(|metadata| {
-        let expected_type = if directory { metadata.is_dir() } else { metadata.is_file() };
+        let expected_type = if directory {
+            metadata.is_dir()
+        } else {
+            metadata.is_file()
+        };
         expected_type && metadata.file_attributes() & REPARSE_POINT == 0
     })
 }
