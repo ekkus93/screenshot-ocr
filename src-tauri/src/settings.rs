@@ -103,7 +103,8 @@ impl SettingsStore {
             }
             Err(_) => return Err(AppError::SettingsInvalid),
         };
-        self.platform.validate_settings_read_directory(&self.directory)?;
+        self.platform
+            .validate_settings_read_directory(&self.directory)?;
         // A link (including a dangling one) is not an app-owned settings
         // file. Quarantine the link itself rather than following its target.
         if metadata.file_type().is_symlink() || !metadata.is_file() {
@@ -146,7 +147,8 @@ impl SettingsStore {
 
     pub fn save(&self, settings: &AppSettings) -> Result<(), AppError> {
         settings.validate()?;
-        self.platform.validate_settings_create_directory(&self.directory)?;
+        self.platform
+            .validate_settings_create_directory(&self.directory)?;
         fs::create_dir_all(&self.directory).map_err(|_| AppError::SettingsWriteFailed)?;
         self.platform.protect_settings_directory(&self.directory)?;
         let destination = self.directory.join(SETTINGS_FILE);
