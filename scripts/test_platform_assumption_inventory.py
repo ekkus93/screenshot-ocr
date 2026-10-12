@@ -260,14 +260,14 @@ class AssumptionInventoryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             source = (
-                'let linux = "Super+Shift+O";\\n'
-                'let windows = "Ctrl+Shift+O";\\n'
-                'let tauri = "CmdOrCtrl+Shift+O";\\n'
-                'let alias = "CommandOrControl+Shift+O";\\n'
-                'let win = "Win+Shift+O";\\n'
-                'let private = app_local_data_dir();\\n'
-                'let scratch = std::env::temp_dir();\\n'
-                'let known = SHGetKnownFolderPath(FOLDERID_LocalAppData);\\n'
+                'let linux = "Super+Shift+O";\n'
+                'let windows = "Ctrl+Shift+O";\n'
+                'let tauri = "CmdOrCtrl+Shift+O";\n'
+                'let alias = "CommandOrControl+Shift+O";\n'
+                'let win = "Win+Shift+O";\n'
+                'let private = app_local_data_dir();\n'
+                'let scratch = std::env::temp_dir();\n'
+                'let known = SHGetKnownFolderPath(FOLDERID_LocalAppData);\n'
             )
             path = root / "src-tauri/src/assumptions.rs"
             path.parent.mkdir(parents=True)
