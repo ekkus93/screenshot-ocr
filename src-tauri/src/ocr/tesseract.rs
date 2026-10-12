@@ -525,7 +525,7 @@ mod tests {
             while !directory.path().join("ready.marker").exists() {
                 assert!(
                     !task.is_finished(),
-                    "synthetic OCR task exited before reporting startup"
+                    "synthetic OCR task exited before the synthetic startup marker was written"
                 );
                 sleep(Duration::from_millis(10)).await;
             }
