@@ -3,6 +3,8 @@
 Use only synthetic, non-sensitive on-screen text. This runbook does not
 substitute for physical Windows acceptance or authorize installer publication.
 
+For a case-by-case, content-free record, copy the [physical acceptance record template](WINDOWS_PHYSICAL_ACCEPTANCE_RECORD_TEMPLATE.md). It is deliberately marked NOT RUN until physical evidence is supplied.
+
 ## Evidence identity
 
 Record the exact 40-character branch commit SHA, CI run ID, candidate

@@ -1214,6 +1214,8 @@ exact-commit record of clean installation, offline OCR, DPI/multi-monitor,
 activation, cancellation, recovery, and uninstall checks. The runbook is a
 test procedure, not evidence that any physical acceptance step passed.
 
+**W23 evidence capture template (2026-10-12):** The physical acceptance runbook now links a content-free record template covering exact installer identity, offline installation, Windows 11/10, activation, DPI/monitors, synthetic OCR fixtures, failure recovery, privacy, and uninstall/settings retention. Every result starts as NOT RUN; this is a test instrument, not acceptance evidence. Physical W23 and owner integration gates remain open.
+
 ### W23.1 Basic Windows 11 x86-64
 
 - [ ] Clean install.
