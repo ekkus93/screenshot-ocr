@@ -58,6 +58,13 @@ fn adjacent_dlls_are_regular_files(root: &Path) -> bool {
 }
 
 fn resolve_at(executable: &Path) -> Result<OcrRuntime, AppError> {
+    // The resource subtree can be regular files even when an earlier
+    // executable-directory ancestor is a junction to an unrelated tree.
+    // Reject that redirection before constructing any native runtime paths.
+    let directory = executable.parent().ok_or(AppError::OcrEngineUnavailable)?;
+    if !directory.is_absolute() || !directory.ancestors().all(directly_owned_directory) {
+        return Err(AppError::OcrEngineUnavailable);
+    }
     let root = resource_root(executable)?;
     // A junction/symlink in either directory can redirect even correctly
     // app-relative file paths outside the installed OCR resource tree.
@@ -293,6 +300,25 @@ mod tests {
             assert!(matches!(
                 resolve_at(&executable),
                 Err(AppError::OcrLanguageMissing)
+            ));
+        }
+    }
+
+    #[test]
+    fn resolver_rejects_redirected_executable_parent_when_links_are_supported() {
+        let root = tempdir().unwrap();
+        let actual = root.path().join("actual");
+        let ocr = actual.join("resources").join("ocr");
+        fs::create_dir_all(ocr.join("tessdata")).unwrap();
+        fs::write(ocr.join("tesseract.exe"), b"fixture").unwrap();
+        fs::write(ocr.join("tessdata").join("eng.traineddata"), b"fixture").unwrap();
+        assert!(resolve_at(&actual.join("screenshot-ocr.exe")).is_ok());
+
+        let alias = root.path().join("redirected");
+        if std::os::windows::fs::symlink_dir(&actual, &alias).is_ok() {
+            assert!(matches!(
+                resolve_at(&alias.join("screenshot-ocr.exe")),
+                Err(AppError::OcrEngineUnavailable)
             ));
         }
     }
