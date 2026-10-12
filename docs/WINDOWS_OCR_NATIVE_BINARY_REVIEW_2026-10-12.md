@@ -116,6 +116,16 @@ External basenames from statically reachable binaries:
 - `user32.dll`
 - `ws2_32.dll`
 
+## Automated preliminary register drift check
+
+The Windows NSIS smoke now fails if the staged PE audit disagrees with the
+preliminary register on a native binary name, SHA-256, byte size, static
+reachability, or external import. Synthetic regression tests cover byte,
+reachability, and section drift. This protects evidence identity only; it
+**does not** establish license compliance, dynamic-load completeness,
+redistribution permission, or physical Windows acceptance. Re-audit and
+reconcile the register if the pinned runtime bytes change.
+
 ## Required independent review before redistribution
 
 1. Reproduce pinned source and staged hashes at the final release-candidate SHA.
