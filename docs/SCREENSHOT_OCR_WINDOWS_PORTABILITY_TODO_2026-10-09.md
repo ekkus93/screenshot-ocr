@@ -1057,10 +1057,12 @@ This documentation change requires exact-head CI qualification.
 
 ### W19.4 Native DLL/runtime threat review
 
-- [ ] Document DLL search strategy.
-- [ ] Document packaged runtime trust/provenance.
+- [x] Document DLL search strategy.
+- [x] Document packaged runtime trust/provenance.
 - [ ] Confirm application does not load DLLs from arbitrary current directory.
-- [ ] Update threat model.
+- [x] Update threat model.
+
+**W19.4 documentation evidence (2026-10-12):** `docs/THREAT_MODEL.md`, `docs/WINDOWS_HOSTED_QUALIFICATION.md`, ADR 0005, and the native binary review register describe the proposed absolute packaged executable path, working directory, pinned source/hash, PE imports, residual loader and licensing risks, and release restrictions. These documentation checks do not establish arbitrary-CWD DLL exclusion, redistribution approval, or the W19 acceptance gate.
 
 ### W19 acceptance gate
 
@@ -1070,10 +1072,10 @@ This documentation change requires exact-head CI qualification.
 
 ### W20.1 Tauri bundle configuration
 
-- [ ] Keep Debian bundle path working on Linux.
-- [ ] Add Windows NSIS bundle path.
-- [ ] Ensure Linux package dependency metadata does not affect Windows.
-- [ ] Ensure Windows resources do not affect Linux package.
+- [x] Keep Debian bundle path working on Linux.
+- [x] Add Windows NSIS bundle path.
+- [x] Ensure Linux package dependency metadata does not affect Windows.
+- [x] Ensure Windows resources do not affect Linux package.
 - [ ] Verify icons.
 - [x] Verify product/version metadata.
 
@@ -1086,6 +1088,8 @@ entries and unreviewed tessdata content before inventorying native imports.
 This is additional static/hosted packaging evidence subject to fresh
 exact-head CI. It does not approve native redistribution, prove the installer
 runs, or satisfy physical Windows desktop acceptance.
+
+**W20.1 hosted packaging evidence (2026-10-12):** Linux-only dependencies are under `bundle.linux.deb` and platform-specific Cargo tables; the default Tauri target remains `deb`, while `tauri.windows.conf.json` selects `nsis` and the NSIS overlay stages Windows resources. The existing Windows NSIS smoke and Linux Debian package jobs have passed on prior exact heads, including CI run 38290267873. These checked build-configuration items do not prove physical installation, icon appearance, unsigned-installer trust, or clean-machine offline operation. The latest documentation change requires fresh exact-head qualification.
 
 ### W20.2 WebView2 policy
 
