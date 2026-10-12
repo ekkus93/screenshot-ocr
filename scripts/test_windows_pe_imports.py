@@ -416,6 +416,23 @@ class PeImportTests(unittest.TestCase):
             with self.assertRaisesRegex(audit.InvalidPE, "invalid English language data"):
                 audit.audit(root)
 
+    def test_runtime_paths_require_exact_application_resource_spelling(self):
+        # The Windows app constructs exact lowercase resource paths. On
+        # case-sensitive NTFS an uppercase spelling is a different file.
+        for candidate in ("TESSERACT.EXE", "TESSDATA", "ENG.TRAINEDDATA"):
+            with self.subTest(candidate=candidate):
+                with tempfile.TemporaryDirectory() as tmp:
+                    root = Path(tmp)
+                    binary = candidate if candidate == "TESSERACT.EXE" else "tesseract.exe"
+                    tessdata = candidate if candidate == "TESSDATA" else "tessdata"
+                    english = candidate if candidate == "ENG.TRAINEDDATA" else "eng.traineddata"
+                    (root / binary).write_bytes(fixture())
+                    (root / "vendor-extra.dll").write_bytes(fixture())
+                    (root / tessdata).mkdir()
+                    (root / tessdata / english).write_bytes(b"synthetic fixture")
+                    with self.assertRaises(audit.InvalidPE):
+                        audit.audit(root)
+
     def test_runtime_entry_names_reject_case_only_collisions(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

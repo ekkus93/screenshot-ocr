@@ -208,6 +208,11 @@ def audit(root: Path) -> dict[str, object]:
         seen_entries.add(name)
         if is_redirected(entry):
             raise InvalidPE("staged OCR payload contains a redirected file")
+        # The application's Windows resolver constructs these exact relative
+        # names. On case-sensitive NTFS directories alternate case is not
+        # equivalent, even though the DLL import lookup is case-insensitive.
+        if name in {"tessdata", "tesseract.exe"} and entry.name != name:
+            raise InvalidPE("staged OCR payload has inconsistent app resource names")
         if name == "tessdata":
             if not entry.is_dir():
                 raise InvalidPE("staged OCR payload has invalid language directory")
@@ -218,7 +223,7 @@ def audit(root: Path) -> dict[str, object]:
                 raise InvalidPE("staged OCR payload has unreviewed language files")
             language = language_entries[0]
             if (
-                language.name.lower() != "eng.traineddata"
+                language.name != "eng.traineddata"
                 or is_redirected(language)
                 or not language.is_file()
                 or language.stat().st_size == 0
