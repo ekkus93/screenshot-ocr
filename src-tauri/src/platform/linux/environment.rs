@@ -224,7 +224,7 @@ mod tests {
         for version in [".", ".24", "24.", "24..04", "..24", "24.04.", "24...04"] {
             assert!(!safe_numeric_version(version), "{version}");
             assert_eq!(
-                safe_os_release(&format!("ID=ubuntu\\nVERSION_ID={version}\\n")),
+                safe_os_release(&format!("ID=ubuntu\nVERSION_ID={version}\n")),
                 "Ubuntu",
                 "{version}"
             );
@@ -232,7 +232,7 @@ mod tests {
         for version in ["24", "24.04", "2026.10.12"] {
             assert!(safe_numeric_version(version), "{version}");
             assert_eq!(
-                safe_os_release(&format!("ID=ubuntu\\nVERSION_ID={version}\\n")),
+                safe_os_release(&format!("ID=ubuntu\nVERSION_ID={version}\n")),
                 format!("Ubuntu {version}")
             );
         }
