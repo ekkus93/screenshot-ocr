@@ -59,7 +59,7 @@ fn packaged_runtime_tree_is_regular(root: &Path) -> bool {
                 saw_binary = true;
             }
             "tessdata" => {
-                if saw_tessdata || !directly_owned_directory(&path) {
+                if saw_tessdata {
                     return false;
                 }
                 saw_tessdata = true;
@@ -74,6 +74,12 @@ fn packaged_runtime_tree_is_regular(root: &Path) -> bool {
     }
     if !saw_binary || !saw_tessdata {
         return false;
+    }
+    // Preserve the public missing-language error and never enumerate through
+    // a reparse-pointed tessdata directory. resolve_at checks this directory
+    // immediately afterward and returns OcrLanguageMissing.
+    if !directly_owned_directory(&root.join("tessdata")) {
+        return true;
     }
     let Ok(entries) = std::fs::read_dir(root.join("tessdata")) else {
         return false;
