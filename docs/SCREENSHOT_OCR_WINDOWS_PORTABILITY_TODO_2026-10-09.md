@@ -894,6 +894,14 @@ For each record:
 - [ ] Review license obligations.
 - [ ] Review Leptonica/native dependency licenses.
 
+**W18 build-input redirection guard (2026-10-12):** The checksum-pinned
+Mannheim archive extraction now rejects reparse-pointed or empty executable,
+English language-data, and adjacent DLL inputs before staging. The build
+script also refuses a redirected Tauri source or OCR staging directory before
+removing existing staged files. Hosted Windows CI must qualify this change;
+it does not settle archive provenance, native DLL licenses, dynamic loading,
+or physical offline installation. W18 release gates remain unchecked.
+
 **W18 filesystem redirection mitigation (2026-10-11):** The Windows
 runtime resolver rejects NTFS reparse-pointed resource directories and
 executable/language files in addition to ignoring PATH and CWD.

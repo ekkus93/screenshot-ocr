@@ -40,6 +40,33 @@ if (-not (Test-Path -LiteralPath $sevenZip -PathType Leaf)) {
     $sevenZip = $command.Source
 }
 
+# Reject redirected or empty build inputs before hashing or copying them.
+# Walk from the trusted extraction root outward so a linked parent is
+# rejected before its child is accessed. Never emit private source paths.
+function Assert-ArchiveRegularFile([string]$Path) {
+    $root = [IO.Path]::GetFullPath($extracted)
+    $full = [IO.Path]::GetFullPath($Path)
+    $prefix = $root + [IO.Path]::DirectorySeparatorChar
+    if (-not $full.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "OCR archive input escapes the extraction root."
+    }
+    $current = $root
+    $entry = $null
+    foreach ($part in $full.Substring($prefix.Length).Split([IO.Path]::DirectorySeparatorChar)) {
+        if ([string]::IsNullOrEmpty($part) -or $part -eq "." -or $part -eq "..") {
+            throw "OCR archive input has an invalid component."
+        }
+        $current = Join-Path $current $part
+        $entry = Get-Item -LiteralPath $current -Force -ErrorAction Stop
+        if (($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "OCR archive input contains a redirected path."
+        }
+    }
+    if (-not ($entry -is [IO.FileInfo]) -or $entry.Length -le 0) {
+        throw "OCR archive input must be a nonempty regular file."
+    }
+}
+
 # 7-Zip extracts the verified NSIS archive as data, without launching setup.
 & $sevenZip x "-o$extracted" -y $setup | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "Pinned installer could not be extracted by 7-Zip." }
@@ -60,7 +87,10 @@ if ($matches.Count -ne 1) {
 }
 $selected = $matches[0]
 $binaryDirectory = $selected.Binary.DirectoryName
+Assert-ArchiveRegularFile $selected.Binary.FullName
+Assert-ArchiveRegularFile $selected.English.FullName
 $dlls = @(Get-ChildItem -LiteralPath $binaryDirectory -File -Force -Filter "*.dll" | Sort-Object Name)
+foreach ($dll in $dlls) { Assert-ArchiveRegularFile $dll.FullName }
 if ($dlls.Count -eq 0) { throw "No adjacent runtime DLLs found; packaging inventory incomplete." }
 
 $entries = @(
@@ -96,7 +126,16 @@ if ($StageRuntime) {
     # Stage only for CI packaging qualification. Do not publish this bundle
     # until the transitive DLL/license review and physical acceptance pass.
     $stage = Join-Path $PSScriptRoot "..\src-tauri\windows-ocr-runtime"
+    $tauriRoot = Join-Path $PSScriptRoot "..\\src-tauri"
+    $tauriItem = Get-Item -LiteralPath $tauriRoot -Force -ErrorAction Stop
+    if (($tauriItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "Refusing to stage OCR files through a redirected source directory."
+    }
     if (Test-Path -LiteralPath $stage) {
+        $stageItem = Get-Item -LiteralPath $stage -Force -ErrorAction Stop
+        if (($stageItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "Refusing to replace a redirected OCR staging directory."
+        }
         Remove-Item -LiteralPath $stage -Recurse -Force
     }
     New-Item -ItemType Directory -Force -Path (Join-Path $stage "tessdata") | Out-Null
