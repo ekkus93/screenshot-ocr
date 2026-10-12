@@ -115,7 +115,11 @@ def is_rust_code_at(source: str, offset: int) -> bool:
     while index < offset:
         if source.startswith("//", index):
             end = source.find("\n", index)
-            index = offset if end < 0 else end + 1
+            # A candidate before the comment's newline remains comment text:
+            # skipping to offset made it incorrectly appear to be Rust code.
+            if end < 0 or end >= offset:
+                return False
+            index = end + 1
         elif source.startswith("/*", index):
             depth = 1
             index += 2
