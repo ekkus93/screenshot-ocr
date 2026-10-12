@@ -494,6 +494,31 @@ mod tests {
     }
 
     #[test]
+    fn reviewed_dll_allowlist_matches_pinned_native_review_register() {
+        // Keep the production runtime's fail-closed basename policy aligned
+        // with the exact staged binaries whose hashes are reviewed in CI.
+        let register = include_str!(
+            "../../../../docs/WINDOWS_OCR_NATIVE_BINARY_REVIEW_2026-10-12.md"
+        );
+        let documented: std::collections::BTreeSet<String> = register
+            .lines()
+            .filter_map(|line| {
+                let rest = line.strip_prefix("| `")?;
+                let (name, _) = rest.split_once('`')?;
+                name.to_ascii_lowercase()
+                    .ends_with(".dll")
+                    .then(|| name.to_ascii_lowercase())
+            })
+            .collect();
+        let allowed: std::collections::BTreeSet<String> = REVIEWED_DLL_NAMES
+            .iter()
+            .map(|name| (*name).to_string())
+            .collect();
+        assert_eq!(documented.len(), 51, "review register must list 51 DLLs");
+        assert_eq!(allowed, documented, "runtime DLL allowlist drifted");
+    }
+
+    #[test]
     fn resolver_rejects_unbounded_adjacent_runtime_entries() {
         let root = tempdir().unwrap();
         let executable = root.path().join("screenshot-ocr.exe");
