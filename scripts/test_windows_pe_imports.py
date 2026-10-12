@@ -76,6 +76,31 @@ class PeImportTests(unittest.TestCase):
                 with self.assertRaisesRegex(audit.InvalidPE, "size without RVA"):
                     audit.imports(bytes(data))
 
+    def test_import_descriptor_table_must_terminate_within_declared_size(self):
+        for delay in (False, True):
+            with self.subTest(delay=delay):
+                data = bytearray(fixture(delay=delay))
+                directory = 0x98 + 112
+                index = 13 if delay else 1
+                record_size = 32 if delay else 20
+                # The first descriptor is valid, but its null terminator
+                # lives just outside the advertised data-directory size.
+                struct.pack_into(
+                    "<I", data, directory + index * 8 + 4, record_size
+                )
+                with self.assertRaisesRegex(
+                    audit.InvalidPE, "unterminated import descriptor"
+                ):
+                    audit.imports(bytes(data))
+                # A directory shorter than one descriptor is invalid too.
+                struct.pack_into(
+                    "<I", data, directory + index * 8 + 4, record_size - 1
+                )
+                with self.assertRaisesRegex(
+                    audit.InvalidPE, "import directory too small"
+                ):
+                    audit.imports(bytes(data))
+
     def test_truncated_and_invalid_pe_fail_closed(self):
         for invalid in (b"", b"MZ", b"not a PE", fixture()[:0x150]):
             with self.subTest(length=len(invalid)):

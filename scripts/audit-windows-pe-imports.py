@@ -122,7 +122,12 @@ def imports(data: bytes) -> set[str]:
             if size:
                 raise InvalidPE("import directory size without RVA")
             continue
-        for number in range(1024):
+        # The data-directory size bounds the descriptor table. Scanning
+        # beyond it could turn unrelated section bytes into invented imports
+        # or accept a table whose required null terminator is out of bounds.
+        if size < record_size:
+            raise InvalidPE("import directory too small")
+        for number in range(min(1024, size // record_size)):
             offset = file_offset(rva + number * record_size, record_size)
             descriptor = data[offset : offset + record_size]
             if descriptor == bytes(record_size):
