@@ -893,7 +893,14 @@ qualification is still required.
 - [ ] Route it through shared action router.
 - [ ] Record registration success/failure safely.
 - [ ] Do not make registration failure fatal.
-- [ ] Prevent repeat key events from launching overlapping captures.
+- [x] Prevent repeat key events from launching overlapping captures.
+
+**W17.2 source-level repeat guard (2026-10-12):** The Tauri global-shortcut
+handler now gates repeated Pressed events on an atomic press/release edge
+before calling the shared ToggleCapture router. A deterministic Rust test
+covers repeated key events and fresh activation after Released. Physical
+Windows hotkey registration, focus, and repeated activation remain unverified;
+exact-head CI must qualify the source change.
 
 ### W17.3 Tray
 
@@ -901,8 +908,15 @@ qualification is still required.
 - [ ] Cancel capture action.
 - [ ] Show Screenshot OCR action.
 - [ ] Quit action.
-- [ ] All actions route through shared router.
+- [x] All actions route through shared router.
 - [ ] Quit cancels/cleans active work before process exit.
+
+**W17.3 source-level action routing (2026-10-12):** Tray event identifiers
+map through a single allowlisted helper to the shared action router. Rust
+tests cover Capture, Cancel, Show, Quit and reject unknown or injected IDs.
+The existing shared Quit path requests cancellation before bounded shutdown.
+Native tray behavior and process cleanup still require physical acceptance;
+exact-head CI must qualify these tests.
 
 ### W17.4 Single instance
 
@@ -911,7 +925,14 @@ qualification is still required.
 - [ ] Second instance show routes correctly.
 - [ ] Second instance quit obeys cleanup.
 - [ ] Unknown commands only show/focus.
-- [ ] No arbitrary argument injection.
+- [x] No arbitrary argument injection.
+
+**W17.4 startup argument hardening (2026-10-12):** The initial process
+invocation uses `args_os` and ignores malformed Unicode instead of panicking;
+only exact allowlisted action strings dispatch. Tests cover recognized and
+unknown commands plus invalid Unicode on Unix. The secondary-instance
+allowlist remains unchanged; physical Windows activation is still unverified.
+Exact-head CI must qualify this change.
 
 ### W17.5 Window focus/lifecycle
 
