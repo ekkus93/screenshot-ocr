@@ -138,22 +138,32 @@ impl SettingsStore {
         fs::create_dir_all(&self.directory).map_err(|_| AppError::SettingsWriteFailed)?;
         self.platform.protect_settings_directory(&self.directory)?;
         let destination = self.directory.join(SETTINGS_FILE);
-        let temporary = self.directory.join("settings.json.tmp");
+        // A unique, exclusively created file avoids following a pre-existing
+        // settings.json.tmp symlink and lets interrupted writes recover without
+        // requiring users to delete a stale temporary file.
+        let temporary = self
+            .directory
+            .join(format!("settings-{}.tmp", uuid::Uuid::new_v4()));
         let serialized =
             serde_json::to_vec_pretty(settings).map_err(|_| AppError::SettingsWriteFailed)?;
         let mut file = OpenOptions::new()
-            .create(true)
-            .truncate(true)
             .write(true)
+            .create_new(true)
             .open(&temporary)
             .map_err(|_| AppError::SettingsWriteFailed)?;
-        self.platform.protect_settings_file(&temporary)?;
-        file.write_all(&serialized)
-            .and_then(|_| file.write_all(b"\n"))
-            .and_then(|_| file.sync_all())
-            .map_err(|_| AppError::SettingsWriteFailed)?;
-        fs::rename(&temporary, &destination).map_err(|_| AppError::SettingsWriteFailed)?;
-        Ok(())
+        let result = (|| {
+            self.platform.protect_settings_file(&temporary)?;
+            file.write_all(&serialized)
+                .and_then(|_| file.write_all(b"\n"))
+                .and_then(|_| file.sync_all())
+                .map_err(|_| AppError::SettingsWriteFailed)?;
+            fs::rename(&temporary, &destination).map_err(|_| AppError::SettingsWriteFailed)
+        })();
+        if result.is_err() {
+            // Never leave a partially written settings file behind on failure.
+            let _ = fs::remove_file(&temporary);
+        }
+        result
     }
 
     pub fn reset(&self) -> Result<AppSettings, AppError> {
@@ -202,6 +212,36 @@ mod tests {
                 & 0o777,
             0o600
         );
+    }
+
+    #[test]
+    fn stale_legacy_temporary_file_does_not_block_settings_updates() {
+        let dir = tempdir().expect("tempdir");
+        let legacy = dir.path().join("settings.json.tmp");
+        fs::write(&legacy, b"stale temporary file").expect("write stale temp");
+        let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
+        store.save(&AppSettings::default()).expect("save despite stale temp");
+        assert_eq!(store.load().expect("load"), AppSettings::default());
+        assert_eq!(fs::read(&legacy).expect("read legacy temp"), b"stale temporary file");
+        assert!(!dir.path().read_dir().unwrap().any(|entry| {
+            entry.unwrap().file_name().to_string_lossy().starts_with("settings-")
+        }));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn stale_legacy_temporary_symlink_is_never_followed() {
+        use std::os::unix::fs::symlink;
+        let dir = tempdir().expect("tempdir");
+        let target = dir.path().join("unrelated-private-file");
+        fs::write(&target, b"must not be overwritten").expect("write target");
+        let legacy = dir.path().join("settings.json.tmp");
+        symlink(&target, &legacy).expect("create synthetic legacy symlink");
+        let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
+        store.save(&AppSettings::default()).expect("safe save");
+        assert_eq!(fs::read(&target).expect("read target"), b"must not be overwritten");
+        assert!(fs::symlink_metadata(&legacy).unwrap().file_type().is_symlink());
+        assert_eq!(store.load().expect("load"), AppSettings::default());
     }
 
     #[test]
