@@ -220,6 +220,32 @@ class PlatformBoundaryGuardTests(unittest.TestCase):
                 self.assertEqual(status, 1, report)
                 self.assertIn("platform-specific cfg outside adapter", report)
 
+    def test_documented_platform_cfg_literals_are_not_production_attributes(self) -> None:
+        examples = (
+            'const TEXT: &str = r#"#[cfg(target_os = "windows")]"#;\n',
+            'const TEXT: &str = r###"\n#[cfg(unix)]\n"###;\n',
+            'const TEXT: &str = "#[cfg(windows)]";\n',
+            '/* outer /* inner #[cfg(target_os = "linux")] */ outer */\n',
+            '// #[cfg(windows)]\n',
+        )
+        for example in examples:
+            with self.subTest(example=example):
+                status, report = self.run_check({"app.rs": example + "fn portable() {}\n"})
+                self.assertEqual(status, 0, report)
+                source = example + '#[cfg(target_os = "windows")]\nfn native() {}\n'
+                status, report = self.run_check({"app.rs": source})
+                self.assertEqual(status, 1, report)
+                self.assertIn("platform-specific cfg outside adapter", report)
+
+    def test_cfg_macro_inside_raw_string_does_not_trigger_platform_guard(self) -> None:
+        code = 'const DOC: &str = r#"cfg!(target_os = "windows")"#;\n'
+        status, report = self.run_check({"app.rs": code + "fn portable() {}\n"})
+        self.assertEqual(status, 0, report)
+        status, report = self.run_check({
+            "app.rs": code + 'let native = cfg!(target_os = "windows");\n'
+        })
+        self.assertEqual(status, 1, report)
+
     def test_fake_test_module_in_multiline_literals_or_comments_does_not_hide_cfg(self) -> None:
         examples = (
             'const EXAMPLE: &str = r#"\n#[cfg(test)]\nmod tests {\n"#;\n',

@@ -191,9 +191,10 @@ def production_source(source: str) -> str:
 def production_platform_cfg_lines(source: str) -> list[int]:
     locations = []
     for match in PLATFORM_CFG_START.finditer(source):
-        # Ignore source examples in full-line Rust comments.
-        line_start = source.rfind("\n", 0, match.start()) + 1
-        if source[line_start:match.start()].lstrip().startswith("//"):
+        # A match inside a doc comment, nested block comment, or ordinary
+        # / raw Rust string is an example, not an executable target gate.
+        # Keep scanning after the example for real production cfg uses.
+        if not is_rust_code_at(source, match.start()):
             continue
         depth = 1
         offset = match.end()
