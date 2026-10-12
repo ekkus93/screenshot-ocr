@@ -220,11 +220,20 @@ mod tests {
         let legacy = dir.path().join("settings.json.tmp");
         fs::write(&legacy, b"stale temporary file").expect("write stale temp");
         let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
-        store.save(&AppSettings::default()).expect("save despite stale temp");
+        store
+            .save(&AppSettings::default())
+            .expect("save despite stale temp");
         assert_eq!(store.load().expect("load"), AppSettings::default());
-        assert_eq!(fs::read(&legacy).expect("read legacy temp"), b"stale temporary file");
+        assert_eq!(
+            fs::read(&legacy).expect("read legacy temp"),
+            b"stale temporary file"
+        );
         assert!(!dir.path().read_dir().unwrap().any(|entry| {
-            entry.unwrap().file_name().to_string_lossy().starts_with("settings-")
+            entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with("settings-")
         }));
     }
 
@@ -239,8 +248,14 @@ mod tests {
         symlink(&target, &legacy).expect("create synthetic legacy symlink");
         let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
         store.save(&AppSettings::default()).expect("safe save");
-        assert_eq!(fs::read(&target).expect("read target"), b"must not be overwritten");
-        assert!(fs::symlink_metadata(&legacy).unwrap().file_type().is_symlink());
+        assert_eq!(
+            fs::read(&target).expect("read target"),
+            b"must not be overwritten"
+        );
+        assert!(fs::symlink_metadata(&legacy)
+            .unwrap()
+            .file_type()
+            .is_symlink());
         assert_eq!(store.load().expect("load"), AppSettings::default());
     }
 
