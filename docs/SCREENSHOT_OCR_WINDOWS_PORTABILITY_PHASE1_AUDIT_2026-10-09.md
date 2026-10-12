@@ -171,3 +171,10 @@ outside platform adapters and bootstrap code. Test-only fixtures remain
 permitted to use target conditionals. Synthetic regressions cover these
 cases; this is architecture source-gating evidence, not physical or native
 loader acceptance, and requires exact-head CI before qualification.
+
+The runtime-model source-guard finding was addressed without a portable-core
+lint exemption: Windows now uses the same `OcrRuntime::new` constructor as
+Linux and then selects its own app-controlled working directory. This leaves
+the shared descriptor free of `target_os` and blanket dead-code suppression.
+CI on the exact head is still required; physical desktop and DLL/license review
+are separate, unresolved acceptance gates.

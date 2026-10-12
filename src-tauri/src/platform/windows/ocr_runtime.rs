@@ -79,11 +79,11 @@ fn resolve_at(executable: &Path) -> Result<OcrRuntime, AppError> {
     if !directly_owned_directory(&tessdata) || !nonempty_file(&tessdata.join("eng.traineddata")) {
         return Err(AppError::OcrLanguageMissing);
     }
-    Ok(OcrRuntime {
-        executable: binary,
-        tessdata_dir: Some(tessdata),
-        working_directory: Some(root),
-    })
+    // The portable constructor is shared by both production adapters.
+    // Windows alone selects the app-controlled working directory.
+    let mut runtime = OcrRuntime::new(binary, Some(tessdata));
+    runtime.working_directory = Some(root);
+    Ok(runtime)
 }
 
 pub fn resolve_packaged_runtime() -> Result<OcrRuntime, AppError> {
