@@ -100,6 +100,8 @@ the installer. The physical Windows acceptance matrix must also prove
 offline OCR with the packaged components alone. No publication approval
 is implied by this preliminary upstream review.
 
+A [staged native-binary review register](../WINDOWS_OCR_NATIVE_BINARY_REVIEW_2026-10-12.md) captures the exact 52-file PE inventory, per-file SHA-256, static reachability, and unresolved external imports from passing hosted CI. It is a review worksheet, **not** permission to redistribute any of these binaries.
+
 ## Remaining qualification
 
 The checksum-pinned candidate is a build-input decision, **not an acceptance
