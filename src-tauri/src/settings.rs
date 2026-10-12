@@ -3,11 +3,14 @@ use crate::models::{CaptureBackendPreference, TextMode};
 use crate::platform::PlatformServices;
 use serde::{Deserialize, Serialize};
 use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 const SETTINGS_FILE: &str = "settings.json";
+// A settings profile is small. Never allocate unbounded memory for a
+// corrupted or attacker-controlled configuration file.
+const MAX_SETTINGS_BYTES: u64 = 64 * 1024;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -111,7 +114,15 @@ impl SettingsStore {
             self.quarantine(&path)?;
             return Err(AppError::SettingsInvalid);
         }
-        let bytes = fs::read(&path).map_err(|_| AppError::SettingsInvalid)?;
+        let file = fs::File::open(&path).map_err(|_| AppError::SettingsInvalid)?;
+        let mut bytes = Vec::new();
+        file.take(MAX_SETTINGS_BYTES + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|_| AppError::SettingsInvalid)?;
+        if bytes.len() as u64 > MAX_SETTINGS_BYTES {
+            self.quarantine(&path)?;
+            return Err(AppError::SettingsInvalid);
+        }
         match serde_json::from_slice::<AppSettings>(&bytes) {
             // A file that parses but fails validation has to be quarantined just like
             // an unparseable one. Otherwise `load_for_frontend` keeps masking it with
@@ -306,6 +317,21 @@ mod tests {
         assert_eq!(store.reset().expect("reset"), original);
         assert_eq!(store.load().expect("load reset"), original);
         assert!(!dir.path().join("settings.json.tmp").exists());
+    }
+
+    #[test]
+    fn oversized_settings_are_bounded_and_quarantined_without_content_leakage() {
+        let dir = tempdir().expect("tempdir");
+        let path = dir.path().join(SETTINGS_FILE);
+        fs::write(&path, vec![b'X'; MAX_SETTINGS_BYTES as usize + 1])
+            .expect("write oversized synthetic settings");
+        let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
+        let recovered = store.load_for_frontend().expect("recover safely");
+        assert_eq!(recovered.settings, AppSettings::default());
+        assert!(recovered.warning.is_some());
+        assert!(!path.exists());
+        assert!(dir.path().join("settings.corrupt.json").exists());
+        assert_eq!(store.load().expect("next load"), AppSettings::default());
     }
 
     #[test]
