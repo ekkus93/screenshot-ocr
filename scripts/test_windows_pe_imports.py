@@ -6,6 +6,8 @@ import importlib.util
 import struct
 import tempfile
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 from pathlib import Path
 
 spec = importlib.util.spec_from_file_location(
@@ -210,6 +212,23 @@ class PeImportTests(unittest.TestCase):
                     audit.audit(relative)
             finally:
                 os.chdir(old_cwd)
+
+    def test_windows_reparse_attribute_is_detected_without_following_link(self):
+        # Windows junctions can have FILE_ATTRIBUTE_REPARSE_POINT without
+        # Path.is_symlink() being true. Exercise that metadata on any host.
+        fake = SimpleNamespace(st_file_attributes=0x400, st_mode=0o100644)
+        with patch.object(Path, "lstat", return_value=fake):
+            self.assertTrue(audit.is_redirected(Path("synthetic.dll")))
+
+    def test_audit_rejects_reparse_pointed_dll(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "tesseract.exe").write_bytes(fixture())
+            (root / "vendor-extra.dll").write_bytes(fixture())
+            real_check = audit.is_redirected
+            with patch.object(audit, "is_redirected", side_effect=lambda p: p.name == "vendor-extra.dll" or real_check(p)):
+                with self.assertRaisesRegex(audit.InvalidPE, "redirected file"):
+                    audit.audit(root)
 
     def test_audit_rejects_log_delimiters_in_staged_dll_filename(self):
         with tempfile.TemporaryDirectory() as tmp:

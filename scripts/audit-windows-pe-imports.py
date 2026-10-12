@@ -12,6 +12,7 @@ import argparse
 import hashlib
 import json
 import re
+import stat
 import struct
 from pathlib import Path
 
@@ -151,13 +152,21 @@ def imports(data: bytes) -> set[str]:
     return found
 
 
+def is_redirected(path: Path) -> bool:
+    """Reject symlinks and Windows junction/reparse points without following them."""
+    attributes = getattr(path.lstat(), "st_file_attributes", 0)
+    return path.is_symlink() or bool(
+        attributes & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+    )
+
+
 def audit(root: Path) -> dict[str, object]:
     # Refuse linked staging roots and linked ancestor paths: otherwise an
     # apparently first-party input may resolve outside the owned checkout.
     # This is a path-layout check, not a TOCTOU or native loader guarantee.
     absolute_root = root.absolute()
     if not absolute_root.is_dir() or any(
-        path.is_symlink() for path in (absolute_root, *absolute_root.parents)
+        is_redirected(path) for path in (absolute_root, *absolute_root.parents)
     ):
         raise InvalidPE("staged OCR payload path is not a directly owned directory")
     binary = root / "tesseract.exe"
@@ -174,8 +183,8 @@ def audit(root: Path) -> dict[str, object]:
     # attacker-controlled path or log delimiters as audited DLL filenames.
     if any(not re.fullmatch(r"[A-Za-z0-9_.+@-]+", file.name) for file in files):
         raise InvalidPE("invalid staged OCR binary name")
-    if any(file.is_symlink() for file in files):
-        raise InvalidPE("staged OCR payload contains a symbolic link")
+    if any(is_redirected(file) for file in files):
+        raise InvalidPE("staged OCR payload contains a redirected file")
     names = {f.name.lower() for f in files}
     if len(names) != len(files):
         raise InvalidPE("case-insensitive filename collision")
