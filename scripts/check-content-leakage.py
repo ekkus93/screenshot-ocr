@@ -56,7 +56,11 @@ def scan_tree(root: Path) -> list[str]:
     for path in sorted(root.rglob("*")):
         # Path.is_file() follows symlinks. Fail closed before any read,
         # including for linked source directories outside the checkout.
-        if path.is_symlink() and (path.suffix in SOURCE_SUFFIXES or path.is_dir()):
+        if (
+            not any(part in IGNORED_PARTS for part in path.parts)
+            and path.is_symlink()
+            and (path.suffix in SOURCE_SUFFIXES or path.is_dir())
+        ):
             problems.append(f"{path}: symbolic link in source scan")
             continue
         if not should_scan(path):

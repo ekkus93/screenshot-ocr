@@ -104,6 +104,20 @@ class ContentLeakageGuardTests(unittest.TestCase):
             report = guard.scan_tree(alias / "src")
             self.assertEqual(report, ["source scan root traverses a symbolic link"])
 
+    def test_generated_symlink_is_not_treated_as_first_party_source(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "checkout"
+            root.mkdir()
+            outside = Path(tmp) / "fixture.js"
+            outside.write_text("console.log('PRIVATE_SYNTHETIC_SENTINEL')", encoding="utf-8")
+            generated = root / "node_modules"
+            generated.mkdir()
+            try:
+                (generated / "linked.js").symlink_to(outside)
+            except (OSError, NotImplementedError):
+                self.skipTest("host does not permit source symlinks")
+            self.assertEqual(guard.scan_tree(root), [])
+
     def test_multiple_findings_have_file_and_line_without_source_content(self) -> None:
         report = self.scan({
             "src/a.ts": "export const a = 1;\nconsole.error('PRIVATE_SYNTHETIC_SENTINEL');\n",
