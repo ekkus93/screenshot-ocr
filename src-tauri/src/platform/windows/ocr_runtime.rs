@@ -132,7 +132,7 @@ fn packaged_runtime_tree_is_regular(root: &Path) -> bool {
                 saw_tessdata = true;
             }
             name if name.ends_with(".dll") => {
-                if !reviewed_dll_basename_once(&name, &mut seen_dlls) || !nonempty_file(&path) {
+                if !reviewed_dll_basename_once(name, &mut seen_dlls) || !nonempty_file(&path) {
                     return false;
                 }
             }
