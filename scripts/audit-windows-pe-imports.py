@@ -198,21 +198,32 @@ def audit(root: Path) -> dict[str, object]:
     staged_entries = list(root.iterdir())
     if len(staged_entries) > 256:
         raise InvalidPE("staged OCR payload has too many entries")
+    # The staging layout must also be unambiguous on a case-insensitive
+    # Windows volume, even when this inventory runs on Linux.
+    seen_entries: set[str] = set()
     for entry in staged_entries:
         name = entry.name.lower()
+        if name in seen_entries:
+            raise InvalidPE("case-insensitive runtime entry collision")
+        seen_entries.add(name)
         if is_redirected(entry):
             raise InvalidPE("staged OCR payload contains a redirected file")
         if name == "tessdata":
             if not entry.is_dir():
                 raise InvalidPE("staged OCR payload has invalid language directory")
             language_entries = list(entry.iterdir())
-            if len(language_entries) > 16 or any(
+            # When tessdata is present it must contain exactly one nonempty
+            # English model; no other language data or empty placeholder.
+            if len(language_entries) != 1:
+                raise InvalidPE("staged OCR payload has unreviewed language files")
+            language = language_entries[0]
+            if (
                 language.name.lower() != "eng.traineddata"
                 or is_redirected(language)
                 or not language.is_file()
-                for language in language_entries
+                or language.stat().st_size == 0
             ):
-                raise InvalidPE("staged OCR payload has unreviewed language files")
+                raise InvalidPE("staged OCR payload has invalid English language data")
         elif name == "tesseract.exe" or name.endswith(".dll"):
             if not entry.is_file():
                 raise InvalidPE("staged OCR payload has invalid native file")

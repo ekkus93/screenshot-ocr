@@ -381,6 +381,57 @@ class PeImportTests(unittest.TestCase):
             with self.assertRaises(audit.InvalidPE):
                 audit.audit(root)
 
+    def test_staged_language_data_must_be_exactly_one_nonempty_regular_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "tesseract.exe").write_bytes(fixture())
+            (root / "vendor-extra.dll").write_bytes(fixture())
+            # Native-PE-only fixtures may omit tessdata entirely.
+            self.assertEqual(len(audit.audit(root)["binaries"]), 2)
+
+            tessdata = root / "tessdata"
+            tessdata.mkdir()
+            with self.assertRaisesRegex(audit.InvalidPE, "unreviewed language files"):
+                audit.audit(root)
+
+            english = tessdata / "eng.traineddata"
+            english.write_bytes(b"")
+            with self.assertRaisesRegex(audit.InvalidPE, "invalid English language data"):
+                audit.audit(root)
+            english.write_bytes(b"synthetic language model fixture")
+            self.assertEqual(len(audit.audit(root)["binaries"]), 2)
+
+            # A case-only duplicate language filename can exist on some
+            # case-sensitive Windows/NTFS configurations.
+            alias = tessdata / "ENG.TRAINEDDATA"
+            if not alias.exists():
+                alias.write_bytes(b"synthetic duplicate")
+                with self.assertRaisesRegex(audit.InvalidPE, "unreviewed language files"):
+                    audit.audit(root)
+                alias.unlink()
+
+            wrong = tessdata / "unreviewed.traineddata"
+            english.unlink()
+            wrong.write_bytes(b"synthetic fixture")
+            with self.assertRaisesRegex(audit.InvalidPE, "invalid English language data"):
+                audit.audit(root)
+
+    def test_runtime_entry_names_reject_case_only_collisions(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "tesseract.exe").write_bytes(fixture())
+            (root / "vendor-extra.dll").write_bytes(fixture())
+            # On case-insensitive filesystems the second spelling is the
+            # same entry and cannot create a collision; exercise both where
+            # the filesystem supports distinct spellings.
+            alias = root / "VENDOR-EXTRA.DLL"
+            alias.write_bytes(fixture())
+            if len(list(root.iterdir())) == 3:
+                with self.assertRaisesRegex(audit.InvalidPE, "case-insensitive runtime entry collision"):
+                    audit.audit(root)
+            else:
+                self.assertEqual(len(audit.audit(root)["binaries"]), 2)
+
     def test_audit_rejects_x86_executable_or_dependency(self):
         for x86_executable in (True, False):
             with self.subTest(x86_executable=x86_executable):
