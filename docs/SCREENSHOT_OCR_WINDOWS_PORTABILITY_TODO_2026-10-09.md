@@ -878,7 +878,7 @@ qualification is still required.
 
 ### W17.1 Platform probe
 
-- [ ] Implement Windows platform identity/capability probe.
+- [x] Implement Windows platform identity/capability probe.
 - [x] Avoid collecting unnecessary machine details.
 - [x] Detect capture capability.
 - [x] Detect packaged OCR runtime.
@@ -889,10 +889,10 @@ qualification is still required.
 
 ### W17.2 Shortcut
 
-- [ ] Register Control+Shift+O where supported.
-- [ ] Route it through shared action router.
-- [ ] Record registration success/failure safely.
-- [ ] Do not make registration failure fatal.
+- [x] Register Control+Shift+O where supported.
+- [x] Route it through shared action router.
+- [x] Record registration success/failure safely.
+- [x] Do not make registration failure fatal.
 - [x] Prevent repeat key events from launching overlapping captures.
 
 **W17.2 source-level repeat guard (2026-10-12):** The Tauri global-shortcut
@@ -904,10 +904,10 @@ exact-head CI must qualify the source change.
 
 ### W17.3 Tray
 
-- [ ] Capture text action.
-- [ ] Cancel capture action.
-- [ ] Show Screenshot OCR action.
-- [ ] Quit action.
+- [x] Capture text action.
+- [x] Cancel capture action.
+- [x] Show Screenshot OCR action.
+- [x] Quit action.
 - [x] All actions route through shared router.
 - [ ] Quit cancels/cleans active work before process exit.
 
@@ -924,7 +924,7 @@ exact-head CI must qualify these tests.
 - [ ] Second instance cancel routes correctly.
 - [ ] Second instance show routes correctly.
 - [ ] Second instance quit obeys cleanup.
-- [ ] Unknown commands only show/focus.
+- [x] Unknown commands only show/focus.
 - [x] No arbitrary argument injection.
 
 **W17.4 startup argument hardening (2026-10-12):** The initial process
