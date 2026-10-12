@@ -495,8 +495,18 @@ mod tests {
     async fn cancellation_terminates_ocr_process() {
         let directory = tempdir().expect("tempdir");
         let executable = directory.path().join("slow-tesseract");
-        write_executable(&executable, "#!/bin/sh\nsleep 30\n");
-        let engine = TesseractEngine::new(OcrRuntime::new(executable, None));
+        // Synchronize with the synthetic process instead of relying on a
+        // host-scheduler-dependent delay. Use exec so no shell descendant can
+        // keep redirected pipe handles open after the child is terminated.
+        write_executable(
+            &executable,
+            "#!/bin/sh\nprintf ready > ready.marker\nexec sleep 30\n",
+        );
+        let engine = TesseractEngine::new(OcrRuntime {
+            executable,
+            tessdata_dir: None,
+            working_directory: Some(directory.path().to_path_buf()),
+        });
         let variant = PreparedVariant {
             image: DynamicImage::new_luma8(1, 1),
             id: PreprocessingVariant::Original,
@@ -508,12 +518,21 @@ mod tests {
                 .recognize(&variant, TextMode::Terminal, &task_token)
                 .await
         });
-        sleep(Duration::from_millis(50)).await;
+        timeout(Duration::from_secs(5), async {
+            while !directory.path().join("ready.marker").exists() {
+                sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("synthetic OCR process did not report startup");
         cancellation.cancel();
         let result = timeout(Duration::from_secs(2), task)
             .await
             .expect("OCR cancellation timed out")
             .expect("OCR task failed");
-        assert!(matches!(result, Err(AppError::CaptureCancelled)));
+        assert!(
+            matches!(result, Err(AppError::CaptureCancelled)),
+            "unexpected cancellation result: {result:?}"
+        );
     }
 }
