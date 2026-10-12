@@ -1,6 +1,7 @@
 //! Trusted Windows OCR runtime lookup; never searches PATH or the CWD.
 use crate::error::AppError;
 use crate::ocr::OcrRuntime;
+use std::collections::HashSet;
 use std::os::windows::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 
@@ -86,6 +87,14 @@ const REVIEWED_DLL_NAMES: &[&str] = &[
     "zlib1.dll",
 ];
 
+// Windows normally prevents two files whose names differ only by case, but
+// case-sensitive NTFS directories can contain both. Reject ambiguous native
+// DLL basenames rather than relying on the filesystem's case policy.
+fn reviewed_dll_basename_once(name: &str, seen: &mut HashSet<String>) -> bool {
+    let canonical = name.to_ascii_lowercase();
+    REVIEWED_DLL_NAMES.contains(&canonical.as_str()) && seen.insert(canonical)
+}
+
 // Fail closed on unexpected or redirected app-owned runtime entries, not
 // just malformed adjacent DLLs. The pinned NSIS staging layout consists of
 // tesseract.exe, tessdata/eng.traineddata and adjacent DLLs only. In particular,
@@ -97,6 +106,7 @@ fn packaged_runtime_tree_is_regular(root: &Path) -> bool {
     };
     let mut saw_binary = false;
     let mut saw_tessdata = false;
+    let mut seen_dlls = HashSet::new();
     for (index, entry) in entries.enumerate() {
         if index >= 256 {
             return false;
@@ -122,7 +132,7 @@ fn packaged_runtime_tree_is_regular(root: &Path) -> bool {
                 saw_tessdata = true;
             }
             name if name.ends_with(".dll") => {
-                if !REVIEWED_DLL_NAMES.contains(&name) || !nonempty_file(&path) {
+                if !reviewed_dll_basename_once(&name, &mut seen_dlls) || !nonempty_file(&path) {
                     return false;
                 }
             }
@@ -222,6 +232,16 @@ mod tests {
     use super::*;
     use std::fs;
     use tempfile::tempdir;
+
+    #[test]
+    fn reviewed_dll_basenames_are_unique_without_case_assumptions() {
+        let mut seen = HashSet::new();
+        assert!(reviewed_dll_basename_once("libarchive-13.dll", &mut seen));
+        assert!(!reviewed_dll_basename_once("LIBARCHIVE-13.DLL", &mut seen));
+        assert!(!reviewed_dll_basename_once("libarchive-13.dll", &mut seen));
+        assert!(!reviewed_dll_basename_once("unreviewed.dll", &mut seen));
+        assert!(reviewed_dll_basename_once("libtesseract-5.dll", &mut seen));
+    }
 
     #[test]
     fn resolver_requires_app_owned_executable_and_language_data() {
