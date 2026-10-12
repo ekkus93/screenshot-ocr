@@ -156,7 +156,10 @@ mod tests {
                 Err(AppError::SettingsWriteFailed)
             ));
         }
-        assert!(!settings_path_is_owned(Path::new("relative/settings.tmp"), false));
+        assert!(!settings_path_is_owned(
+            Path::new("relative/settings.tmp"),
+            false
+        ));
     }
 
     #[tokio::test]
