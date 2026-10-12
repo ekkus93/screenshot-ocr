@@ -71,6 +71,20 @@ class ContentLeakageGuardTests(unittest.TestCase):
                 self.assertEqual(len(report), 1, report)
                 self.assertNotIn("PRIVATE_SYNTHETIC_SENTINEL", report[0])
 
+    def test_multiline_output_calls_cannot_bypass_guard(self) -> None:
+        fixtures = (
+            ("src-tauri/src/app.rs", 'println!\n ( "PRIVATE_SYNTHETIC_SENTINEL" );'),
+            ("src-tauri/src/app.rs", 'tracing\n :: info!\n ("PRIVATE_SYNTHETIC_SENTINEL");'),
+            ("src/panel.tsx", 'console\n . error\n ("PRIVATE_SYNTHETIC_SENTINEL");'),
+            ("src/panel.tsx", 'console\n ["warn"]\n ("PRIVATE_SYNTHETIC_SENTINEL");'),
+        )
+        for filename, source in fixtures:
+            with self.subTest(filename=filename, source=source):
+                report = self.scan({filename: source})
+                self.assertEqual(len(report), 1, report)
+                self.assertIn(f"{Path(filename).name}:1", report[0])
+                self.assertNotIn("PRIVATE_SYNTHETIC_SENTINEL", report[0])
+
     def test_ignored_generated_directories_do_not_trigger_guard(self) -> None:
         source = "console.log('PRIVATE_SYNTHETIC_SENTINEL');\n"
         self.assertEqual(

@@ -72,11 +72,15 @@ def scan_tree(root: Path) -> list[str]:
             continue
         if not should_scan(path):
             continue
-        for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-            for description, pattern in FORBIDDEN_RULES[path.suffix]:
-                if pattern.search(line):
-                    # Never print raw matching source: it might include OCR text.
-                    problems.append(f"{path}:{line_number}: forbidden {description}")
+        # Match against the whole file: source code can legally split macro
+        # names, member access and argument lists across multiple lines.
+        # Matching line-by-line silently misses those content-leakage paths.
+        source = path.read_text(encoding="utf-8")
+        for description, pattern in FORBIDDEN_RULES[path.suffix]:
+            for match in pattern.finditer(source):
+                line_number = source.count("\n", 0, match.start()) + 1
+                # Never print raw matching source: it might include OCR text.
+                problems.append(f"{path}:{line_number}: forbidden {description}")
     return problems
 
 
