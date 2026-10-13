@@ -98,11 +98,11 @@ PLATFORM_CFG_TOKEN = re.compile(
 # Direct Win32 loader and known-folder calls must stay inside platform adapters,
 # even when the bindings are imported under an alias or not spelled in a use line.
 NATIVE_WINDOWS_MECHANISM_CALL = re.compile(
-    r"\\b(?:LoadLibrary(?:Ex)?[AW]?|SetDefaultDllDirectories|"
+    r"\b(?:LoadLibrary(?:Ex)?[AW]?|SetDefaultDllDirectories|"
     r"AddDllDirectory|SetDllDirectory[AW]?|GetDllDirectory[AW]?|"
     r"SHGetKnownFolderPath|SHGetFolderPath[AW]?|"
     r"GetEnvironmentVariable[AW]?|GetTempPath[AW]?|"
-    r"GetModuleFileName[AW]?)\\s*\\("
+    r"GetModuleFileName[AW]?)\s*\("
 )
 
 
@@ -280,7 +280,7 @@ def main() -> int:
             production = production_source(text)
             for match in NATIVE_WINDOWS_MECHANISM_CALL.finditer(production):
                 if is_rust_code_at(production, match.start()):
-                    line_number = production.count("\\n", 0, match.start()) + 1
+                    line_number = production.count("\n", 0, match.start()) + 1
                     problems.append(
                         f"{path}:{line_number}: native Windows mechanism outside platform adapter"
                     )

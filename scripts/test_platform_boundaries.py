@@ -167,22 +167,22 @@ class PlatformBoundaryGuardTests(unittest.TestCase):
             "GetEnvironmentVariableW(name, buffer, size);",
             "GetTempPathW(size, buffer);",
             "GetModuleFileNameW(handle, buffer, size);",
-            "LoadLibraryExW\\n  (name, 0, flags);",
+            "LoadLibraryExW\n  (name, 0, flags);",
         ):
             with self.subTest(call=call):
-                status, report = self.run_check({"app.rs": call + "\\n"})
+                status, report = self.run_check({"app.rs": call + "\n"})
                 self.assertEqual(status, 1, report)
                 self.assertIn("native Windows mechanism outside platform adapter", report)
 
         status, report = self.run_check({
             "app.rs": (
-                'let child = std::process::Command::new("tesseract");\\n'
-                'const EXAMPLE: &str = r#"LoadLibraryExW(name, 0, 0);"#;\\n'
-                '// SHGetKnownFolderPath(id, 0, 0, out);\\n'
-                '#[cfg(test)]\\nmod tests {\\n'
-                '  fn fixture() { LoadLibraryExW(name, 0, 0); }\\n}\\n'
+                'let child = std::process::Command::new("tesseract");\n'
+                'const EXAMPLE: &str = r#"LoadLibraryExW(name, 0, 0);"#;\n'
+                '// SHGetKnownFolderPath(id, 0, 0, out);\n'
+                '#[cfg(test)]\nmod tests {\n'
+                '  fn fixture() { LoadLibraryExW(name, 0, 0); }\n}\n'
             ),
-            "platform/windows/mod.rs": "fn native() { LoadLibraryExW(name, 0, 0); }\\n",
+            "platform/windows/mod.rs": "fn native() { LoadLibraryExW(name, 0, 0); }\n",
         })
         self.assertEqual(status, 0, report)
 
