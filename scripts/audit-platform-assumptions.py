@@ -29,7 +29,7 @@ PATTERNS = {
     # even when the source does not spell a concrete OS or executable name.
     "process_discovery": r"(?i)\b(?:Command::new|std::process::Command|tokio::process::Command|which::which|find_executable|SearchPath[AW]?)\b",
     "dll_loader": r"(?i)\b(?:LoadLibrary(?:Ex)?[AW]?|SetDefaultDllDirectories|AddDllDirectory|SetDllDirectory[AW]?|GetDllDirectory[AW]?)\b",
-    "os_path_probe": r"(?i)\b(?:SHGetFolderPath[AW]?|GetEnvironmentVariable[AW]?|GetTempPath[AW]?|GetModuleFileName[AW]?|std::env::consts::OS|dirs::(?:config_dir|data_dir|cache_dir))\b",
+    "os_path_probe": r"(?i)\b(?:SHGetFolderPath[AW]?|GetEnvironmentVariable[AW]?|GetTempPath[AW]?|GetModuleFileName[AW]?|std::env::consts::OS|std\s*::\s*env\s*::\s*(?:current_exe|current_dir|temp_dir)|dirs::(?:config_dir|data_dir|cache_dir))\b",
     "linux_bundle": r"gnome-screenshot|tesseract-ocr-eng|libwebkit2gtk|libayatana|libgtk-3",
     "bundle_target": r"(?i)\b(?:deb|nsis|msi|appimage)\b|\.desktop\b|webviewInstallMode",
 }

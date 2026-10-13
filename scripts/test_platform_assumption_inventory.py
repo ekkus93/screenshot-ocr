@@ -290,6 +290,9 @@ class AssumptionInventoryTests(unittest.TestCase):
                 'let path = SHGetFolderPathW(hwnd, id, 0, 0, out);\n'
                 'let os = std::env::consts::OS;\n'
                 'let cfg = dirs::config_dir();\n'
+                'let exe = std::env::current_exe();\n'
+                'let cwd = std :: env :: current_dir();\n'
+                'let scratch = std::env::temp_dir();\n'
             )
             path = root / "src-tauri/src/discovery.rs"
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -298,7 +301,7 @@ class AssumptionInventoryTests(unittest.TestCase):
             entry = next(item for item in report["entries"] if item["path"] == "src-tauri/src/discovery.rs")
             self.assertEqual(entry["lines"]["process_discovery"], [1, 2])
             self.assertEqual(entry["lines"]["dll_loader"], [3, 4])
-            self.assertEqual(entry["lines"]["os_path_probe"], [5, 6, 7])
+            self.assertEqual(entry["lines"]["os_path_probe"], [5, 6, 7, 8, 9, 10])
             self.assertNotIn("unreviewed-helper", str(report))
             self.assertEqual(report, inventory.inventory(root))
 

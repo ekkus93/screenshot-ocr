@@ -199,6 +199,15 @@ evidence only, not a reviewed DLL load graph, comprehensive semantic W1.2
 classification, redistribution approval, or physical Windows acceptance.
 Both changes require qualifying CI on the exact current branch head.
 
+**W1.2 executable and working-directory discovery coverage (2026-10-13):**
+The content-free platform inventory now classifies Rust `current_exe`,
+`current_dir`, and `temp_dir` probes (including whitespace-separated paths)
+as OS-path assumptions. Synthetic fixtures check line-level attribution and
+verify that the emitted report contains no source literals. This improves
+coverage for packaged runtime lookup and current-directory DLL threat review,
+but does **not** establish a completed semantic W1.2 audit or Windows loader
+safety. Exact-head repository-policy CI is required.
+
 ### W1.3 Inventory frontend assumptions
 
 - [x] Identify visible Linux-only wording.
