@@ -1093,6 +1093,17 @@ This documentation change requires exact-head CI qualification.
 - [ ] Confirm application does not load DLLs from arbitrary current directory.
 - [x] Update threat model.
 
+**W19.4 packaged child-environment hardening (2026-10-13):**
+The shared OCR process builder now removes inherited PATH plus known
+native plugin/configuration/data search overrides when a platform adapter
+supplies an app-owned working directory. It restores only the internally
+resolved TESSDATA_PREFIX, and a deterministic test inspects the exact child
+environment overrides without modifying global test state. Linux system
+OCR remains unchanged. Exact-head Linux/Windows CI is required; this
+mitigates inherited environment injection but does **not** establish
+arbitrary-CWD DLL exclusion, native loader completeness, redistribution
+approval, or physical Windows acceptance. W19.4 remains unchecked.
+
 **W19.4 documentation evidence (2026-10-12):** `docs/THREAT_MODEL.md`, `docs/WINDOWS_HOSTED_QUALIFICATION.md`, ADR 0005, and the native binary review register describe the proposed absolute packaged executable path, working directory, pinned source/hash, PE imports, residual loader and licensing risks, and release restrictions. These documentation checks do not establish arbitrary-CWD DLL exclusion, redistribution approval, or the W19 acceptance gate.
 
 ### W19 acceptance gate

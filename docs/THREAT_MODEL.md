@@ -46,7 +46,14 @@ Third-party GitHub Actions are not yet pinned by immutable commit SHA. That rema
 The Windows OCR resolver constructs an absolute path under the application's
 own `resources/ocr/` directory and never accepts a frontend path or searches
 `PATH`. The shared OCR command sets its child working directory to that
-resource directory. The Windows resolver also rejects filesystem reparse
+resource directory. For packaged OCR it also removes inherited PATH and
+native configuration/plugin search overrides (GLib/GDK, Fontconfig, OpenSSL,
+ICU, Qt and TESSDATA_PREFIX), then sets TESSDATA_PREFIX to the internally
+resolved English-data directory. A deterministic child-command test checks
+this policy without reading or changing the user's environment. System OCR
+on Linux retains its existing environment behavior. This reduces exposure
+to caller-controlled native configuration paths but does not prove the
+Windows loader cannot search untrusted directories or load dynamic modules. The Windows resolver also rejects filesystem reparse
 points (including NTFS symlinks/junctions) in the `resources/ocr` and
 `tessdata` directories and the selected executable/language files, so those
 paths cannot silently redirect outside the installed OCR tree. This is a

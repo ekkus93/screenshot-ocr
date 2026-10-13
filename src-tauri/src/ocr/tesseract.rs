@@ -15,6 +15,24 @@ const LANGUAGE_PROBE_TIMEOUT: Duration = Duration::from_secs(5);
 const MAX_OCR_TEXT_BYTES: usize = 1_000_000;
 const MAX_LANGUAGE_LIST_BYTES: usize = 64 * 1024;
 
+// Packaged OCR must not inherit caller-controlled plugin, configuration, or
+// data search paths. This is defense in depth, not a substitute for auditing
+// Windows DLL search order, native dynamic loads, or file integrity.
+const PACKAGED_OCR_UNTRUSTED_ENV: &[&str] = &[
+    "PATH",
+    "GIO_EXTRA_MODULES",
+    "GDK_PIXBUF_MODULE_FILE",
+    "GDK_PIXBUF_MODULEDIR",
+    "FONTCONFIG_FILE",
+    "FONTCONFIG_PATH",
+    "OPENSSL_CONF",
+    "OPENSSL_MODULES",
+    "ICU_DATA",
+    "QT_PLUGIN_PATH",
+    "QT_QPA_PLATFORM_PLUGIN_PATH",
+    "TESSDATA_PREFIX",
+];
+
 #[derive(Clone, Debug)]
 pub struct TesseractEngine {
     runtime: OcrRuntime,
@@ -34,7 +52,9 @@ impl TesseractEngine {
             // native libraries beside the absolute Tesseract executable and
             // system libraries from trusted OS directories. This also keeps
             // fake Windows children independent of the developer's PATH.
-            command.env_remove("PATH");
+            for name in PACKAGED_OCR_UNTRUSTED_ENV {
+                command.env_remove(name);
+            }
         }
         if let Some(tessdata_dir) = &self.runtime.tessdata_dir {
             command.env("TESSDATA_PREFIX", tessdata_dir);
@@ -285,6 +305,45 @@ mod tests {
     use tempfile::tempdir;
     #[cfg(unix)]
     use tokio::time::{sleep, timeout};
+
+    #[test]
+    fn packaged_ocr_child_rejects_inherited_native_configuration_paths() {
+        // Inspect the child command rather than changing process-global test
+        // environment variables, which could race with concurrent tests.
+        let engine = TesseractEngine::new(OcrRuntime {
+            executable: "fixture-tesseract".into(),
+            tessdata_dir: Some("fixture-tessdata".into()),
+            working_directory: Some("fixture-owned-ocr".into()),
+        });
+        let mut command = engine.command();
+        let overrides: std::collections::HashMap<String, Option<String>> = command
+            .as_std()
+            .get_envs()
+            .map(|(key, value)| {
+                (
+                    key.to_string_lossy().to_string(),
+                    value.map(|value| value.to_string_lossy().to_string()),
+                )
+            })
+            .collect();
+        for key in PACKAGED_OCR_UNTRUSTED_ENV {
+            if *key == "TESSDATA_PREFIX" {
+                assert_eq!(
+                    overrides.get(*key).and_then(|value| value.as_deref()),
+                    Some("fixture-tessdata")
+                );
+            } else {
+                assert_eq!(overrides.get(*key), Some(&None), "{key}");
+            }
+        }
+
+        // Linux system OCR retains its existing inherited environment; the
+        // packaged policy is selected by the platform runtime descriptor.
+        let system_engine =
+            TesseractEngine::new(OcrRuntime::new("fixture-system-tesseract".into(), None));
+        let mut system_command = system_engine.command();
+        assert_eq!(system_command.as_std().get_envs().count(), 0);
+    }
 
     // Hosted Windows-only integration: unlike the direct executable smoke,
     // this exercises the shared bounded OCR probe and recognition pipeline.
