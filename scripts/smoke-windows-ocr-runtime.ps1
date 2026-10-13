@@ -107,6 +107,16 @@ try {
     $env:SCREENSHOT_OCR_WINDOWS_FAKE_MARKER_DIR = $workspace
     $env:SCREENSHOT_OCR_WINDOWS_FAKE_EXPECTED_CWD = $workspace
     $env:SCREENSHOT_OCR_WINDOWS_FAKE_EXPECT_NO_PATH = "1"
+    $env:SCREENSHOT_OCR_WINDOWS_FAKE_EXPECT_NO_NATIVE_CONFIG = "1"
+    # Inject only synthetic, non-sensitive values and restore the original
+    # process environment after the test. The child must never inherit these
+    # native plugin/configuration search overrides.
+    $nativeEnvironmentKeys = @("GIO_EXTRA_MODULES", "FONTCONFIG_FILE", "OPENSSL_CONF", "QT_PLUGIN_PATH")
+    $previousNativeEnvironment = @{}
+    foreach ($key in $nativeEnvironmentKeys) {
+        $previousNativeEnvironment[$key] = [Environment]::GetEnvironmentVariable($key, "Process")
+        [Environment]::SetEnvironmentVariable($key, "synthetic-untrusted-configuration", "Process")
+    }
     $env:SCREENSHOT_OCR_WINDOWS_OCR_SMOKE_IMAGE = $imagePath
     try {
         $manifest = Join-Path $PSScriptRoot "../src-tauri/Cargo.toml"
@@ -132,6 +142,10 @@ try {
         Remove-Item Env:SCREENSHOT_OCR_WINDOWS_FAKE_MARKER_DIR -ErrorAction SilentlyContinue
         Remove-Item Env:SCREENSHOT_OCR_WINDOWS_FAKE_EXPECTED_CWD -ErrorAction SilentlyContinue
         Remove-Item Env:SCREENSHOT_OCR_WINDOWS_FAKE_EXPECT_NO_PATH -ErrorAction SilentlyContinue
+        Remove-Item Env:SCREENSHOT_OCR_WINDOWS_FAKE_EXPECT_NO_NATIVE_CONFIG -ErrorAction SilentlyContinue
+        foreach ($key in $nativeEnvironmentKeys) {
+            [Environment]::SetEnvironmentVariable($key, $previousNativeEnvironment[$key], "Process")
+        }
     }
     }
     Write-Output "Synthetic English OCR succeeded using checksum-verified runtime files."

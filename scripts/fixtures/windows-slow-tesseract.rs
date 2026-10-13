@@ -25,6 +25,21 @@ fn main() {
     {
         std::process::exit(3);
     }
+    // The CI harness injects synthetic hostile native search overrides into
+    // the parent process. The packaged OCR command must strip them before
+    // spawning this child, without depending on actual developer settings.
+    if env::var_os("SCREENSHOT_OCR_WINDOWS_FAKE_EXPECT_NO_NATIVE_CONFIG").is_some() {
+        for key in [
+            "GIO_EXTRA_MODULES",
+            "FONTCONFIG_FILE",
+            "OPENSSL_CONF",
+            "QT_PLUGIN_PATH",
+        ] {
+            if env::var_os(key).is_some() {
+                std::process::exit(4);
+            }
+        }
+    }
     fs::write(directory.join(format!("{mode}.pid")), std::process::id().to_string())
         .expect("write synthetic process id");
     fs::write(directory.join(format!("{mode}.started")), b"ready")

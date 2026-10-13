@@ -44,8 +44,13 @@ explicitly instead of inheriting the caller's directory, and removes the
 caller's `PATH` from the app-owned OCR child environment. The shared engine
 uses the absolute packaged executable path; removing inherited `PATH`
 reduces accidental fallback to unrelated developer/user DLL directories.
-This tests process launch policy only; it does not establish Windows DLL
-loader search order, transitive dependency safety, or redistribution approval.
+The synthetic Windows child also rejects inherited GLib, Fontconfig, OpenSSL,
+and Qt plugin/configuration overrides deliberately injected by the CI harness;
+the harness restores the runner's original process environment afterward.
+A separate deterministic Rust test checks the complete packaged-child
+environment policy. This tests process launch policy only; it does not
+establish Windows DLL loader search order, transitive dependency safety,
+or redistribution approval.
 
 The extracted-payload smoke executes only the verified packaged
 `tesseract.exe` against a generated public fixture, using a bounded child
