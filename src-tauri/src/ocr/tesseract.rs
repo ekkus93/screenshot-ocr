@@ -315,7 +315,7 @@ mod tests {
             tessdata_dir: Some("fixture-tessdata".into()),
             working_directory: Some("fixture-owned-ocr".into()),
         });
-        let mut command = engine.command();
+        let command = engine.command();
         let overrides: std::collections::HashMap<String, Option<String>> = command
             .as_std()
             .get_envs()
@@ -341,7 +341,7 @@ mod tests {
         // packaged policy is selected by the platform runtime descriptor.
         let system_engine =
             TesseractEngine::new(OcrRuntime::new("fixture-system-tesseract".into(), None));
-        let mut system_command = system_engine.command();
+        let system_command = system_engine.command();
         assert_eq!(system_command.as_std().get_envs().count(), 0);
     }
 
