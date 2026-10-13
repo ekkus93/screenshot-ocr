@@ -283,13 +283,13 @@ class AssumptionInventoryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             source = (
-                'let child = Command::new("unreviewed-helper");\\n'
-                'let helper = which::which("helper");\\n'
-                'let library = LoadLibraryExW(name, 0, flags);\\n'
-                'SetDefaultDllDirectories(flags);\\n'
-                'let path = SHGetFolderPathW(hwnd, id, 0, 0, out);\\n'
-                'let os = std::env::consts::OS;\\n'
-                'let cfg = dirs::config_dir();\\n'
+                'let child = Command::new("unreviewed-helper");\n'
+                'let helper = which::which("helper");\n'
+                'let library = LoadLibraryExW(name, 0, flags);\n'
+                'SetDefaultDllDirectories(flags);\n'
+                'let path = SHGetFolderPathW(hwnd, id, 0, 0, out);\n'
+                'let os = std::env::consts::OS;\n'
+                'let cfg = dirs::config_dir();\n'
             )
             path = root / "src-tauri/src/discovery.rs"
             path.parent.mkdir(parents=True, exist_ok=True)

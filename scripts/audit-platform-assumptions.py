@@ -27,9 +27,9 @@ PATTERNS = {
     "native_binding": r"(?i)windows_sys|windows-sys|windows\s*::\s*Win32|Win32_|Win32::|ashpd::|winapi\s*::|winreg\s*::|windows_registry",
     # Discovery, dynamic library loading and path probes need explicit review
     # even when the source does not spell a concrete OS or executable name.
-    "process_discovery": r"(?i)\\b(?:Command::new|std::process::Command|tokio::process::Command|which::which|find_executable|SearchPath[AW]?)\\b",
-    "dll_loader": r"(?i)\\b(?:LoadLibrary(?:Ex)?[AW]?|SetDefaultDllDirectories|AddDllDirectory|SetDllDirectory[AW]?|GetDllDirectory[AW]?)\\b",
-    "os_path_probe": r"(?i)\\b(?:SHGetFolderPath[AW]?|GetEnvironmentVariable[AW]?|GetTempPath[AW]?|GetModuleFileName[AW]?|std::env::consts::OS|dirs::(?:config_dir|data_dir|cache_dir))\\b",
+    "process_discovery": r"(?i)\b(?:Command::new|std::process::Command|tokio::process::Command|which::which|find_executable|SearchPath[AW]?)\b",
+    "dll_loader": r"(?i)\b(?:LoadLibrary(?:Ex)?[AW]?|SetDefaultDllDirectories|AddDllDirectory|SetDllDirectory[AW]?|GetDllDirectory[AW]?)\b",
+    "os_path_probe": r"(?i)\b(?:SHGetFolderPath[AW]?|GetEnvironmentVariable[AW]?|GetTempPath[AW]?|GetModuleFileName[AW]?|std::env::consts::OS|dirs::(?:config_dir|data_dir|cache_dir))\b",
     "linux_bundle": r"gnome-screenshot|tesseract-ocr-eng|libwebkit2gtk|libayatana|libgtk-3",
     "bundle_target": r"(?i)\b(?:deb|nsis|msi|appimage)\b|\.desktop\b|webviewInstallMode",
 }
