@@ -1115,6 +1115,16 @@ mitigates inherited environment injection but does **not** establish
 arbitrary-CWD DLL exclusion, native loader completeness, redistribution
 approval, or physical Windows acceptance. W19.4 remains unchecked.
 
+**W19.4 native module-search environment hardening (2026-10-13):**
+The packaged OCR child now additionally clears inherited GLib/GIO module,
+GObject introspection, settings schema, GTK input-module, Pango, and OpenSSL
+engine search overrides before launching the internally selected Tesseract.
+The existing deterministic child-command test checks every denied variable
+without mutating process-global environment. This reduces configuration and
+native module injection exposure; it does **not** prove Windows DLL search
+safety, physical offline behavior, native license clearance, or release
+readiness. Fresh exact-head Linux/Windows CI is required.
+
 **W19.4 documentation evidence (2026-10-12):** `docs/THREAT_MODEL.md`, `docs/WINDOWS_HOSTED_QUALIFICATION.md`, ADR 0005, and the native binary review register describe the proposed absolute packaged executable path, working directory, pinned source/hash, PE imports, residual loader and licensing risks, and release restrictions. These documentation checks do not establish arbitrary-CWD DLL exclusion, redistribution approval, or the W19 acceptance gate.
 
 ### W19 acceptance gate
