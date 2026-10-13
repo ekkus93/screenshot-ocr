@@ -157,6 +157,35 @@ class PlatformBoundaryGuardTests(unittest.TestCase):
                 self.assertEqual(status, 1, report)
                 self.assertIn("app.rs:1:", report)
 
+    def test_native_windows_loader_and_path_calls_are_confined_to_adapters(self) -> None:
+        for call in (
+            "LoadLibraryExW(name, 0, flags);",
+            "SetDefaultDllDirectories(flags);",
+            "AddDllDirectory(path);",
+            "SHGetKnownFolderPath(id, 0, 0, out);",
+            "SHGetFolderPathW(hwnd, id, 0, 0, out);",
+            "GetEnvironmentVariableW(name, buffer, size);",
+            "GetTempPathW(size, buffer);",
+            "GetModuleFileNameW(handle, buffer, size);",
+            "LoadLibraryExW\\n  (name, 0, flags);",
+        ):
+            with self.subTest(call=call):
+                status, report = self.run_check({"app.rs": call + "\\n"})
+                self.assertEqual(status, 1, report)
+                self.assertIn("native Windows mechanism outside platform adapter", report)
+
+        status, report = self.run_check({
+            "app.rs": (
+                'let child = std::process::Command::new("tesseract");\\n'
+                'const EXAMPLE: &str = r#"LoadLibraryExW(name, 0, 0);"#;\\n'
+                '// SHGetKnownFolderPath(id, 0, 0, out);\\n'
+                '#[cfg(test)]\\nmod tests {\\n'
+                '  fn fixture() { LoadLibraryExW(name, 0, 0); }\\n}\\n'
+            ),
+            "platform/windows/mod.rs": "fn native() { LoadLibraryExW(name, 0, 0); }\\n",
+        })
+        self.assertEqual(status, 0, report)
+
     def test_platform_cfg_stays_outside_portable_production(self) -> None:
         for source in (
             '#[cfg(target_os = "windows")]\nfn native() {}\n',

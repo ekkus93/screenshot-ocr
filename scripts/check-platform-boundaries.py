@@ -95,6 +95,17 @@ PLATFORM_CFG_TOKEN = re.compile(
 )
 
 
+# Direct Win32 loader and known-folder calls must stay inside platform adapters,
+# even when the bindings are imported under an alias or not spelled in a use line.
+NATIVE_WINDOWS_MECHANISM_CALL = re.compile(
+    r"\\b(?:LoadLibrary(?:Ex)?[AW]?|SetDefaultDllDirectories|"
+    r"AddDllDirectory|SetDllDirectory[AW]?|GetDllDirectory[AW]?|"
+    r"SHGetKnownFolderPath|SHGetFolderPath[AW]?|"
+    r"GetEnvironmentVariable[AW]?|GetTempPath[AW]?|"
+    r"GetModuleFileName[AW]?)\\s*\\("
+)
+
+
 # Only an actual inline unit-test module ends portable production source.
 # A marker embedded in a comment or raw string must not hide later code.
 TEST_MODULE_START = re.compile(
@@ -261,6 +272,18 @@ def main() -> int:
                 problems.append(
                     f"{path}:{line_number}: platform-specific cfg outside adapter"
                 )
+
+        # These concrete Windows primitives have no place in portable
+        # production modules. Ignore comments, string fixtures and unit tests;
+        # preserve the diagnostic's repository-relative line number.
+        if path.name not in {"lib.rs", "main.rs"} and not path.name.endswith("_tests.rs"):
+            production = production_source(text)
+            for match in NATIVE_WINDOWS_MECHANISM_CALL.finditer(production):
+                if is_rust_code_at(production, match.start()):
+                    line_number = production.count("\\n", 0, match.start()) + 1
+                    problems.append(
+                        f"{path}:{line_number}: native Windows mechanism outside platform adapter"
+                    )
 
         # Unix-only std::os extensions are implementation details of the
         # Linux adapter, not portable production code. Test fixtures may use
