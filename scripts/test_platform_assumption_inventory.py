@@ -279,6 +279,29 @@ class AssumptionInventoryTests(unittest.TestCase):
             self.assertNotIn("LocalAppData", str(report))
             self.assertEqual(report, inventory.inventory(root))
 
+    def test_process_discovery_dll_loading_and_os_path_probes_are_visible(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = (
+                'let child = Command::new("unreviewed-helper");\\n'
+                'let helper = which::which("helper");\\n'
+                'let library = LoadLibraryExW(name, 0, flags);\\n'
+                'SetDefaultDllDirectories(flags);\\n'
+                'let path = SHGetFolderPathW(hwnd, id, 0, 0, out);\\n'
+                'let os = std::env::consts::OS;\\n'
+                'let cfg = dirs::config_dir();\\n'
+            )
+            path = root / "src-tauri/src/discovery.rs"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(source, encoding="utf-8")
+            report = inventory.inventory(root)
+            entry = next(item for item in report["entries"] if item["path"] == "src-tauri/src/discovery.rs")
+            self.assertEqual(entry["lines"]["process_discovery"], [1, 2])
+            self.assertEqual(entry["lines"]["dll_loader"], [3, 4])
+            self.assertEqual(entry["lines"]["os_path_probe"], [5, 6, 7])
+            self.assertNotIn("unreviewed-helper", str(report))
+            self.assertEqual(report, inventory.inventory(root))
+
     def test_portable_source_has_no_findings(self):
         with tempfile.TemporaryDirectory() as temp:
             source = Path(temp) / "src-tauri/src/app.rs"
