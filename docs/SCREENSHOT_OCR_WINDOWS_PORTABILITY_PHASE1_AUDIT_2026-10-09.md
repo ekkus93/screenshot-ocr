@@ -127,6 +127,16 @@ assumption has been semantically audited or that native loader/desktop behavior
 passes. Review the artifact, the current code, and the remaining physical
 acceptance matrix before checking the W1.2 and W1 acceptance boxes.
 
+The source inventory additionally detects process discovery, native DLL
+loading, and Win32 known-folder/path probes, with synthetic fixtures using
+actual source line boundaries. The portable source guard now rejects direct
+Win32 loader, DLL-directory, and known-folder calls outside platform adapters,
+while allowing legitimate shared Tesseract subprocess orchestration and
+non-executable examples. This is a static architectural check only. It is not
+proof that arbitrary indirect native loads are safe, or that all packaged DLLs
+have passed provenance, license, and redistribution review. Requalify on the
+exact branch head before treating it as CI evidence.
+
 ## Frontend inventory
 
 OCR review, copy recovery, job state, cancellation, and the general settings flow remain shared. Linux-only backend choices and shortcut copy are Phase 2 truthfulness work for the Windows UI; they do not justify a second frontend.
