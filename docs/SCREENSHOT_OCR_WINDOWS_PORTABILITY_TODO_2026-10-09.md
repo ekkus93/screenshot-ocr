@@ -1009,3 +1009,522 @@ adjacent DLLs. Windows synthetic tests exercise extra files, directories,
 language files, and linked entries where privileges permit. Missing or empty
 English data retains the distinct `OcrLanguageMissing` error. This does
 not prove immutable binaries, DLL load-order safety, license clearance, or
+physical offline installation; those gates remain unchecked pending evidence.
+
+**W18.2 adjacent-DLL basename restriction (2026-10-12):** The Windows
+runtime resolver now accepts only the 51 adjacent DLL basenames recorded in
+the pinned native binary review register (case-insensitively), rejecting
+additional DLLs even when they are regular, nonempty files. Synthetic
+Windows tests retain an allowed-name positive case and reject an unreviewed
+DLL name. This is a filesystem-layout defense, **not** binary hash/signature
+verification, loader-order proof, redistribution approval, or physical
+Windows acceptance. Exact-head CI must qualify the change; W18 release
+gates remain unchecked.
+
+### W18.2 Bundle runtime
+
+- [ ] Bundle tesseract executable.
+- [ ] Bundle required DLLs.
+- [ ] Bundle eng.traineddata.
+- [ ] Place resources in application-controlled location.
+- [ ] Avoid current-working-directory DLL search hazards.
+- [ ] Resolve runtime path internally.
+- [ ] Do not require PATH modification.
+- [ ] Do not require separate Tesseract installation.
+
+### W18.3 Shared engine integration
+
+- [ ] Windows resolver returns shared runtime descriptor.
+- [ ] Shared bounded probe works on Windows.
+- [ ] Shared OCR recognition works on Windows.
+- [ ] Cancellation kills/reaps Tesseract on Windows.
+- [ ] Missing executable maps safely.
+- [ ] Missing eng data maps safely.
+
+- [ ] Raw process output is not logged.
+
+### W18.4 Offline proof
+
+- [ ] Demonstrate OCR works without network access.
+- [ ] Ensure runtime does not download language data at first use.
+- [ ] Document offline behavior.
+
+### W18 acceptance gate
+
+- [ ] A clean Windows install can OCR English text locally without manual OCR-engine installation.
+
+## 23. W19 — Windows diagnostics, errors, and privacy
+
+### W19.1 Diagnostics
+
+- [x] Add Windows capture backend status.
+- [x] Add packaged OCR runtime status.
+- [x] Add English language status.
+- [x] Add shortcut status.
+- [x] Add tray status if useful.
+- [x] Keep statuses content-free.
+
+### W19.2 Public errors
+
+- [x] Map selector cancelled.
+- [x] Map capture unavailable.
+- [x] Map native capture failure.
+- [x] Map OCR runtime unavailable.
+- [x] Map OCR language missing.
+- [x] Map clipboard unavailable/write failure.
+- [x] Map internal platform failures without raw OS text.
+
+**W19.1/W19.2 hosted evidence (2026-10-12):** The Windows platform
+adapter reports bounded native-capture capability and packaged-runtime
+status. Shared `get_diagnostics` uses a bounded English-language probe and
+returns allowlisted tray and shortcut statuses. Portable `PublicError::from`
+maps cancellation, capture, OCR runtime/language, clipboard, and internal
+failures to fixed public codes and guidance without exposing native error
+text. Source-level tests passed at commit
+`f8b857da770317811bfda54fd46663f8d862ac5a` in PR CI run 38297371808. W19.1/W19.2 are source and hosted-test checks only: physical
+desktop reporting, complete native loader/licensing review, exhaustive
+content-leakage verification, and the W19 acceptance gate remain open.
+This documentation change requires exact-head CI qualification.
+
+### W19.3 Privacy review
+
+- [ ] No screenshot pixels in logs.
+- [ ] No OCR text in logs.
+- [ ] No clipboard text in logs.
+- [ ] No user profile paths in diagnostics.
+- [ ] No install paths in public errors.
+- [ ] No raw Windows error strings in public errors.
+- [ ] No private capture artifacts in CI.
+- [ ] Synthetic fixtures only.
+
+### W19.4 Native DLL/runtime threat review
+
+- [x] Document DLL search strategy.
+- [x] Document packaged runtime trust/provenance.
+- [ ] Confirm application does not load DLLs from arbitrary current directory.
+- [x] Update threat model.
+
+**W19.4 packaged child-environment hardening (2026-10-13):**
+The shared OCR process builder now removes inherited PATH plus known
+native plugin/configuration/data search overrides when a platform adapter
+supplies an app-owned working directory. It restores only the internally
+resolved TESSDATA_PREFIX, and a deterministic test inspects the exact child
+environment overrides without modifying global test state. Linux system
+OCR remains unchanged. Exact-head Linux/Windows CI is required; this
+mitigates inherited environment injection but does **not** establish
+arbitrary-CWD DLL exclusion, native loader completeness, redistribution
+approval, or physical Windows acceptance. W19.4 remains unchecked.
+
+**W19.4 documentation evidence (2026-10-12):** `docs/THREAT_MODEL.md`, `docs/WINDOWS_HOSTED_QUALIFICATION.md`, ADR 0005, and the native binary review register describe the proposed absolute packaged executable path, working directory, pinned source/hash, PE imports, residual loader and licensing risks, and release restrictions. These documentation checks do not establish arbitrary-CWD DLL exclusion, redistribution approval, or the W19 acceptance gate.
+
+### W19 acceptance gate
+
+- [ ] Windows adds no new known content-leakage or shell-execution path.
+
+## 24. W20 — Windows packaging and installer
+
+### W20.1 Tauri bundle configuration
+
+- [x] Keep Debian bundle path working on Linux.
+- [x] Add Windows NSIS bundle path.
+- [x] Ensure Linux package dependency metadata does not affect Windows.
+- [x] Ensure Windows resources do not affect Linux package.
+- [ ] Verify icons.
+- [x] Verify product/version metadata.
+
+**W20.1 packaged-directory integrity hardening (2026-10-12):** The
+Windows NSIS payload verifier now rejects unreviewed _directories_ in the
+extracted OCR resource tree (including otherwise invisible empty folders),
+alongside the already pinned file manifest; it also rejects redirected
+resource entries. The separate staged PE audit now rejects unreviewed root
+entries and unreviewed tessdata content before inventorying native imports.
+This is additional static/hosted packaging evidence subject to fresh
+exact-head CI. It does not approve native redistribution, prove the installer
+runs, or satisfy physical Windows desktop acceptance.
+
+**W20.1 hosted packaging evidence (2026-10-12):** Linux-only dependencies are under `bundle.linux.deb` and platform-specific Cargo tables; the default Tauri target remains `deb`, while `tauri.windows.conf.json` selects `nsis` and the NSIS overlay stages Windows resources. The existing Windows NSIS smoke and Linux Debian package jobs have passed on prior exact heads, including CI run 38290267873. These checked build-configuration items do not prove physical installation, icon appearance, unsigned-installer trust, or clean-machine offline operation. The latest documentation change requires fresh exact-head qualification.
+
+### W20.2 WebView2 policy
+
+- [ ] Verify supported Windows WebView2 assumption.
+- [x] Decide bootstrap/download/offline installer policy.
+- [x] Document user impact truthfully.
+- [ ] Ensure OCR itself has no network dependency.
+
+**W20.2 policy evidence (2026-10-11):** The Windows-only NSIS candidate uses
+Tauri's `offlineInstaller` WebView2 mode rather than the default online
+bootstrapper. The README and `docs/WINDOWS_HOSTED_QUALIFICATION.md` document
+the approximately 127 MB installer increase and the distinction between
+build-time fetching, application-time OCR, and clean offline installation.
+Repository-policy CI now rejects removal of the offline-install setting.
+The NSIS archive verifier also checks for one embedded standalone WebView2
+installer and prints its SHA-256 for later provenance review. The
+packaging verifier now also requires a valid Microsoft Corporation Authenticode
+signature on the extracted WebView2 installer; its exact-head Windows CI still
+needs to pass. This hosted trust check is not proof of offline installation,
+redistribution rights, or physical desktop behavior.
+Physical WebView2 provisioning and offline installation remain unchecked.
+
+### W20.3 Installer behavior
+
+On clean Windows test system:
+
+- [ ] Installer starts.
+- [ ] Installation succeeds.
+- [ ] App launches.
+- [ ] Packaged Tesseract is present.
+- [ ] English tessdata is present.
+- [ ] Capture works.
+- [ ] OCR works.
+- [ ] Uninstall succeeds.
+- [ ] App-owned binaries/resources are removed.
+- [x] User-settings retention/removal policy is documented.
+
+**W20.3 policy evidence (2026-10-11):** `README.md`,
+`docs/WINDOWS_HOSTED_QUALIFICATION.md`, and `docs/THREAT_MODEL.md`
+document the intended Windows NSIS uninstall policy: remove app-owned
+binaries/resources while retaining per-user Tauri `app_config_dir()` settings
+by default. This documents the policy only; generated NSIS uninstall,
+reinstall, settings persistence and profile-data isolation remain untested
+on physical Windows and all corresponding acceptance checkboxes stay open.
+
+### W20.4 Upgrade/reinstall
+
+- [ ] Reinstall same version behavior is understood.
+- [ ] Upgrade from prior Windows build is tested once a prior build exists.
+- [ ] Settings remain valid or recover safely.
+- [ ] Bundled OCR runtime upgrades cleanly.
+
+### W20.5 Artifact integrity
+
+- [x] Generate installer SHA-256.
+- [x] Use stable artifact naming.
+
+- [ ] Upload only reviewed installer/checksum artifacts.
+- [x] Do not claim code signing unless actually signed.
+
+**W20.5 deterministic naming implementation (2026-10-11):** The hosted NSIS
+smoke normalizes the unapproved setup filename to
+`screenshot-ocr-v<version>-windows-x64-setup.exe`, writes a matching local
+checksum file, and repository-policy CI checks Cargo/package/Tauri metadata
+coherence. CI run `38158378805` passed at exact commit
+`a3370f3834c7a28d7d8652c8db87f9e830664ce8`. The candidate filename is
+`screenshot-ocr-v0.1.0-windows-x64-setup.exe` and its SHA-256 is
+`ad8ce81fa7268a4f1df3006d5288dfc05778add1d6e2ecc7938aa045ec58b240`.
+Installer upload and redistribution remain blocked by native-license and
+physical acceptance requirements.
+
+### W20 acceptance gate
+
+- [ ] Windows can be installed and used without developer tools or manual Tesseract setup.
+
+## 25. W21 — Cross-platform CI
+
+### W21.1 Branch triggers
+
+- [x] Ensure meaningful CI runs on ralph/windows-support pushes.
+- [x] Preserve master CI behavior.
+- [x] Avoid cancelling unrelated platform jobs incorrectly.
+
+### W21.2 Linux jobs
+
+- [x] Repository policy.
+- [x] Content-leakage guard.
+- [x] Frontend quality.
+- [x] Layout regression where applicable.
+- [x] Rust formatting.
+- [x] Rust Clippy.
+- [x] Rust tests.
+- [x] Rust build.
+- [x] Debian packaging path remains valid.
+
+### W21.3 Windows jobs
+
+- [x] Set up Node.
+- [x] Set up pinned Rust.
+- [x] npm ci.
+- [x] Frontend build or required shared frontend checks.
+- [x] cargo fmt check or shared formatting gate.
+- [x] cargo clippy for Windows-relevant targets.
+- [x] cargo test.
+- [x] cargo build.
+- [x] Tauri Windows build.
+- [x] NSIS installer build.
+
+- [x] Verify bundled OCR files.
+- [x] Generate SHA-256.
+- [ ] Upload installer/checksum artifact.
+
+### W21.4 Exact-head qualification
+
+- [ ] Record Linux run IDs for final commit.
+- [ ] Record Windows run IDs for final commit.
+- [ ] Confirm every required run head SHA equals the final branch SHA.
+- [ ] Diagnose ordinary CI failures rather than treating them as user blockers.
+
+### W21 acceptance gate
+
+- [ ] Both platform CI paths are green on the same exact commit.
+
+## 26. W22 — Windows automated qualification
+
+### W22.1 Rust tests
+
+- [x] Portable orchestration tests pass on Windows.
+- [x] Windows coordinate tests pass.
+- [x] Windows runtime resolver tests pass.
+- [x] Windows error-mapping tests pass.
+- [x] Cancellation/state-machine tests pass.
+- [x] Settings tests pass.
+
+### W22.2 Frontend tests
+
+- [x] Platform-specific shortcut label tests.
+- [x] Platform-specific capture backend choice tests.
+- [x] Shared review/copy tests.
+- [x] Shared cancellation UI tests.
+- [x] Shared settings error tests.
+- [x] No Linux-only copy shown as actionable Windows behavior.
+
+### W22.3 Build tests
+
+- [x] Debug Windows build.
+- [x] Release Windows build.
+- [x] Installer build.
+- [x] Packaged resource audit.
+- [x] No unresolved Linux library dependency.
+
+### W22 acceptance gate
+
+- [x] Hosted automated evidence supports a physical Windows acceptance candidate.
+
+## 27. W23 — Physical Windows desktop acceptance
+
+Hosted CI cannot check these boxes.
+Use `docs/WINDOWS_PHYSICAL_ACCEPTANCE_RUNBOOK.md` for a content-free,
+exact-commit record of clean installation, offline OCR, DPI/multi-monitor,
+activation, cancellation, recovery, and uninstall checks. The runbook is a
+test procedure, not evidence that any physical acceptance step passed.
+
+**W23 evidence capture template (2026-10-12):** The physical acceptance runbook now links a content-free record template covering exact installer identity, offline installation, Windows 11/10, activation, DPI/monitors, synthetic OCR fixtures, failure recovery, privacy, and uninstall/settings retention. Every result starts as NOT RUN; this is a test instrument, not acceptance evidence. Physical W23 and owner integration gates remain open.
+
+### W23.1 Basic Windows 11 x86-64
+
+- [ ] Clean install.
+- [ ] Launch.
+- [ ] Capture via UI.
+- [ ] OCR success.
+- [ ] Clipboard success.
+- [ ] Preview-before-copy behavior.
+- [ ] Cancel selection with Escape.
+- [ ] Cancel via app action where applicable.
+- [ ] Capture again.
+- [ ] Quit.
+- [ ] Uninstall.
+
+### W23.2 Shortcut/tray/single-instance
+
+- [ ] Control+Shift+O starts capture.
+- [ ] Repeated shortcut cannot create overlapping selectors.
+- [ ] Tray Capture text works.
+- [ ] Tray Cancel capture works.
+- [ ] Tray Show works.
+- [ ] Tray Quit cleans active capture.
+- [ ] Second-instance capture works.
+- [ ] Unknown second-instance command is safe.
+
+### W23.3 Scaling
+
+- [ ] 100%.
+- [ ] 125%.
+- [ ] 150%.
+- [ ] 200%.
+- [ ] Selection rectangle corresponds to captured pixels.
+- [ ] Edge selections are accurate.
+
+### W23.4 Multi-monitor
+
+- [ ] Two monitors.
+- [ ] Secondary monitor right of primary.
+- [ ] Secondary monitor left of primary or another negative-coordinate arrangement.
+- [ ] Mixed resolution.
+- [ ] Mixed DPI.
+- [ ] Cross-monitor selection if supported.
+- [ ] Explicitly documented behavior if cross-monitor selection is intentionally unsupported.
+
+### W23.5 Content cases
+
+**Fixture prepared (2026-10-12):** The offline, self-contained
+`docs/fixtures/windows-ocr-acceptance.html` provides public light/dark,
+monospace, small/large, punctuation, whitespace, edge and grid examples.
+See the physical acceptance runbook for fixture IDs and instructions.
+No physical Windows OCR, selection, DPI or clipboard result is implied.
+A repository-policy guard now checks that this public fixture remains
+self-contained (no active HTML, external resource attributes, or CSS imports),
+retains all seven unique fixture IDs, and preserves terminal whitespace.
+Synthetic negative tests exercise remote resources, active markup, duplicate
+IDs and formatting drift. This is source-integrity evidence only; exact-head
+CI must pass and W23 physical tests remain open.
+
+Use non-sensitive test content.
+
+- [ ] Light background/dark text.
+- [ ] Dark background/light text.
+- [ ] Browser text.
+- [ ] Terminal/monospace text.
+- [ ] Small text.
+- [ ] Large text.
+- [ ] Punctuation.
+- [ ] Whitespace/terminal mode as applicable.
+
+### W23.6 Failure recovery
+
+- [ ] OCR engine missing/corrupt simulation if safely testable.
+- [ ] Language data missing/corrupt simulation if safely testable.
+- [ ] Clipboard failure recovery if safely injectable.
+- [ ] Selector cancellation restores UI.
+- [ ] Cancel during active Tesseract OCR; child exits/reaps and UI recovers.
+- [ ] Native capture failure restores UI.
+- [ ] No orphan overlay/window.
+- [ ] No user content appears in diagnostics/logs.
+
+### W23.7 Windows 10 22H2
+
+If Windows 10 remains in the declared support matrix:
+
+- [ ] Install.
+- [ ] Launch.
+- [ ] Capture.
+- [ ] OCR.
+- [ ] Shortcut.
+- [ ] Tray.
+- [ ] Uninstall.
+
+If Windows 10 support is dropped because the chosen API/toolchain cannot support it reliably:
+
+- [ ] Document the evidence.
+- [ ] Update spec/support matrix before release.
+- [ ] Do not silently claim Windows 10 support.
+
+### W23 acceptance gate
+
+- [ ] Required physical Windows evidence is recorded against the exact tested commit.
+
+## 28. W24 — Documentation and evidence reconciliation
+
+### W24.1 Architecture docs
+
+- [x] Update docs/ARCHITECTURE.md with portable core/platform adapters.
+- [x] Add/update platform architecture ADR.
+- [x] Add Windows capture API ADR.
+- [x] Document coordinate/DPI model.
+- [x] Document OCR runtime resolution.
+
+### W24.2 User docs
+
+- [ ] Update README with Windows installation.
+- [x] Update README with Control+Shift+O.
+- [x] Update README with tray behavior.
+- [x] Update README with offline OCR statement.
+- [x] Separate Linux and Windows dependency/install instructions.
+- [x] Document Windows minimum version truthfully.
+- [x] Document unsigned installer status if applicable.
+
+### W24.3 Privacy/security docs
+
+- [x] Update docs/PRIVACY.md.
+- [x] Update docs/THREAT_MODEL.md.
+- [x] Document bundled native runtime.
+- [x] Document DLL search/provenance decision.
+- [x] Document Windows temporary capture behavior if any.
+
+### W24.4 CI/release docs
+
+- [x] Document Linux versus Windows hosted gates.
+- [x] Document physical acceptance boundary.
+- [ ] Record final Linux CI run IDs.
+- [ ] Record final Windows CI run IDs.
+- [ ] Record installer artifact name.
+- [ ] Record installer SHA-256.
+- [ ] Record final branch commit SHA.
+- [ ] Record remaining non-goal/deferred items.
+
+**W24 documentation evidence (2026-10-11):** `README.md` now separates Linux release/install/build commands from unreleased Windows developer prerequisites and links the Windows-only PowerShell/NSIS workflow in `docs/WINDOWS_HOSTED_QUALIFICATION.md`. That document describes Linux and Windows hosted gates, their exact-head limitations, and the unpublished-installer policy. This does **not** check Windows installation, publication, license clearance, or physical acceptance.
+
+### W24.5 TODO reconciliation
+
+**W24 structural protection (2026-10-11):** A repository-policy check
+validates that all W0–W25 milestones, final acceptance, physical Windows,
+and explicit owner-approved integration requirements remain present and
+ordered. Synthetic tests reject truncation, duplicate sections, and missing
+safety gates. This protects the checklist document but does not qualify
+any unrun desktop, installer, or redistribution acceptance tasks.
+
+- [ ] Check only tasks supported by evidence.
+- [x] Leave unrun physical tests unchecked.
+- [x] Do not delete incomplete tasks to make the project look complete.
+- [x] Add evidence notes where useful.
+- [x] Re-read companion spec for untracked normative requirements.
+
+**W24.5 normative-spec reconciliation (2026-10-12):** Reviewed the companion specification's architecture, Windows requirements, testing, release, and change-control sections against the TODO. The physical Windows acceptance matrix explicitly requires cancellation during **OCR**, not just region selection; W23.6 and the physical acceptance record now track a bounded OCR-cancel/reap/recovery case. This is a checklist-coverage correction, not evidence that the physical test ran. All physical and final merge gates remain unchecked.
+
+### W24 acceptance gate
+
+- [ ] Documentation and TODO state match the actual implementation and evidence.
+
+## 29. W25 — Final merge-readiness gate
+
+### W25.1 Phase completion
+
+- [ ] Phase 1 gate passed.
+- [ ] Phase 2 implementation gate passed.
+- [ ] Linux exact-head CI green.
+- [ ] Windows exact-head CI green.
+- [ ] Required Windows physical acceptance passed.
+- [ ] Linux behavior has no known project-introduced regression.
+- [ ] Windows installer qualified.
+- [ ] Privacy/security review complete.
+- [ ] Documentation reconciled.
+
+### W25.2 Architecture final audit
+
+- [ ] Portable core contains no concrete Linux implementation imports.
+- [ ] Portable core contains no concrete Windows implementation imports.
+- [ ] Platform selection is localized.
+- [ ] One shared OCR pipeline remains.
+- [ ] One shared capture job state machine remains.
+- [ ] One shared cancellation model remains.
+- [ ] One shared action router remains.
+- [ ] Linux and Windows adapters implement mechanisms rather than duplicate policy.
+- [ ] Target-specific dependencies are correctly scoped.
+
+### W25.3 Branch/master policy
+
+- [ ] Confirm all project commits are on ralph/windows-support.
+- [ ] Confirm this project has not modified master.
+- [ ] Record divergence from current master if master changed independently.
+- [ ] Resolve/requalify divergence only if needed for final integration.
+- [ ] Do not merge to master automatically.
+- [ ] Present final merge-ready evidence to the repository owner.
+
+### W25 final acceptance gate
+
+- [ ] Every required checklist item is complete or explicitly deferred by scope with rationale.
+- [ ] The exact final branch head is fully qualified.
+- [ ] The branch is ready for owner-approved integration into master.
+
+**Targeted hosted evidence (2026-10-11):** CI run `38123649350` at `5e8fa5e95b2b68a2581be6817b01dd46765950a4` passed its Linux Debian package job `114423945914`; the package metadata explicitly requires `gnome-screenshot`, `tesseract-ocr`, `tesseract-ocr-eng`, `libayatana-appindicator3-1`, `libwebkit2gtk-4.1-0`, and `libgtk-3-0`. The same run passed Windows Rust quality gates for the content-free monitor-enumeration capture-capability summary. Pure mixed-DPI geometry and compositing tests already cover 125%/200% cross-monitor offsets. The PE inventory now distinguishes statically reachable binaries from other staged DLLs to prioritize review; this is **not** proof that other DLLs are unnecessary or redistributable. The new graph tests and final branch head require fresh exact-head CI. Physical Windows behavior remains unproven.
+
+## 30. Explicitly deferred after this project
+
+These remain unchecked/non-goal unless separately authorized:
+
+- [ ] macOS implementation.
+- [ ] Windows ARM64.
+- [ ] Microsoft Store packaging.
+- [ ] MSI if NSIS is sufficient.
+- [ ] Automatic updater.
+- [ ] Cloud OCR.
+- [ ] Additional OCR languages beyond approved scope.
+- [ ] Installer code signing if credentials are unavailable.
+- [ ] Platform-specific visual redesign.
