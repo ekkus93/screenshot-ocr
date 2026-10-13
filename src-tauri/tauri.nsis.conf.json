@@ -1,0 +1,12 @@
+{
+  "bundle": {
+    "resources": {
+      "windows-ocr-runtime/": "resources/ocr/"
+    },
+    "windows": {
+      "webviewInstallMode": {
+        "type": "offlineInstaller"
+      }
+    }
+  }
+}

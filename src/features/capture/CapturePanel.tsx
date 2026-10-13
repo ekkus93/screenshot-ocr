@@ -70,6 +70,7 @@ function ConfidenceMeter({ value }: { value: number | null }) {
 export function CapturePanel({ controller }: Props) {
   const busy = ["preparing", "selecting", "processing", "cancelling"].includes(controller.status);
   const cancelling = controller.status === "cancelling";
+  const isWindows = controller.diagnostics?.platform === "windows";
 
   return (
     <div className="flex h-full flex-col gap-1.5">
@@ -104,7 +105,7 @@ export function CapturePanel({ controller }: Props) {
         <span className="font-mono text-xs text-steel-500 dark:text-steel-400">
           Shortcut{" "}
           <kbd className="rounded border border-steel-200 px-1.5 py-0.5 dark:border-ink-700">
-            Super + Shift + O
+            {isWindows ? "Ctrl + Shift + O" : "Super + Shift + O"}
           </kbd>
         </span>
 

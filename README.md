@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/ekkus93/screenshot-ocr/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/ekkus93/screenshot-ocr/actions/workflows/ci.yml)
 
-Screenshot OCR is a privacy-first Linux desktop utility for selecting visible screen text, recognizing it locally with Tesseract, and copying it to the clipboard. It is optimized for terminal output, source code, and developer punctuation.
+Screenshot OCR is a privacy-first desktop utility for selecting visible screen text, recognizing it locally with Tesseract, and copying it to the clipboard. Linux is the existing release target; an experimental Windows x86-64 port is under qualification. It is optimized for terminal output, source code, and developer punctuation.
 
 ![Screenshot OCR main window, Capture tab, idle state, dark theme](docs/screenshot-dark.png)
 
@@ -18,7 +18,7 @@ Screenshot OCR is a privacy-first Linux desktop utility for selecting visible sc
 
 Other distributions and desktop environments are unverified.
 
-## Installing the latest tagged release
+## Installing the latest tagged Linux release
 
 Each tag pushed to `master` (`vX.Y.Z`) is built by CI and published as a [GitHub release](https://github.com/ekkus93/screenshot-ocr/releases/latest) with the `.deb` package and its `sha256sum` attached.
 
@@ -33,9 +33,43 @@ sudo apt-get install -f
 
 (GitHub renames release assets by replacing spaces with dots, so the filename in `package.sha256` won't match the downloaded `.deb` exactly — compare the hash values, not `sha256sum --check`.)
 
-Without `gh`, open the [latest release page](https://github.com/ekkus93/screenshot-ocr/releases/latest), download the `.deb` asset, then run the same `dpkg -i` / `apt-get install -f` pair (see [Installing a locally built package](#installing-a-locally-built-package) below for what each step does and how to uninstall).
+Without `gh`, open the [latest release page](https://github.com/ekkus93/screenshot-ocr/releases/latest), download the `.deb` asset, then run the same `dpkg -i` / `apt-get install -f` pair (see [Installing a locally built Linux package](#installing-a-locally-built-linux-package) below for what each step does and how to uninstall).
 
 Releases only exist starting with the first tag pushed after this packaging step was added; earlier tags have no release assets.
+
+## Windows x86-64 development candidate (not released)
+
+The `ralph/windows-support` branch builds a native Windows 10/11 candidate with an application-owned Win32 region selector, a shared Rust OCR pipeline, and an NSIS packaging smoke test. **A passing hosted Windows build does not establish that selection, mixed-DPI monitors, shortcuts, clipboard, installation, or offline OCR work on a real desktop.** Windows 10 22H2 and Windows 11 x86-64 are intended test targets, not yet verified release platforms.
+
+The Windows shortcut is `Ctrl+Shift+O` when global registration succeeds. The tray exposes Capture text, Cancel capture, Show Screenshot OCR, and Quit. Settings migrated from Linux may contain GNOME or portal capture preferences; Windows uses its native backend instead. The application reports shortcut registration failures without preventing manual capture.
+
+The Windows NSIS smoke installer stages checksum-verified Tesseract 5.4.0.20240606 and English trained data in an app-owned `resources/ocr/` directory. It does not search PATH or require a separate Tesseract installation at application runtime. OCR itself is local and requires no network, but **offline installation on a clean Windows machine has not been demonstrated**; WebView2 provisioning and native dependency licenses remain acceptance gates.
+
+The development NSIS configuration embeds the WebView2 **offline installer**, not
+Tauri's default download-at-install bootstrapper. This adds roughly 127 MB to
+the setup payload but is intended to permit a disconnected installation even
+on machines without the WebView2 runtime. Building the installer can still
+require network access. **A clean disconnected install has not been tested**;
+the runtime prerequisite, installer behavior, and native licenses must be
+qualified on physical Windows hardware before release.
+
+### Windows uninstall and settings retention policy
+
+The intended NSIS uninstall policy is to remove installed application binaries,
+bundled OCR resources, and installer-owned shortcuts, while **retaining
+per-user settings by default**. Settings are stored through Tauri's
+`app_config_dir()` outside the installed application directory; they are not
+OCR history and must not be copied into installer logs. Reinstalling or
+upgrading should reuse valid settings and recover safely from invalid settings.
+To erase settings, the user must separately remove the application's own
+configuration directory after exiting the application; do not delete the
+entire Windows roaming-profile directory. **This is a policy, not verified
+NSIS behavior**: uninstall/reinstall/upgrade and user-data retention require
+physical Windows 10/11 acceptance before release.
+
+The candidate installer is intentionally **not published**. Transitive DLL/license review, installer integrity checks, physical Windows 10/11 acceptance, and an explicit final integration decision are required first. No code signing is claimed. Do not treat the Linux release downloads as Windows installers.
+
+For the implementation plan and remaining checks, see the [Windows portability TODO](docs/SCREENSHOT_OCR_WINDOWS_PORTABILITY_TODO_2026-10-09.md), [Windows specification](docs/SCREENSHOT_OCR_WINDOWS_PORTABILITY_SPEC_2026-10-09.md), and [runtime provenance ADR](docs/adr/0005-windows-tesseract-provenance.md).
 
 ## Architecture
 
@@ -54,7 +88,7 @@ See:
 - [CI status bridge](docs/CI_STATUS_BRIDGE.md)
 - [synthetic OCR fixtures](docs/OCR_SYNTHETIC_FIXTURES.md)
 
-## Development prerequisites
+## Linux development prerequisites
 
 Ubuntu 22.04 build packages:
 
@@ -73,7 +107,20 @@ sudo apt-get install --yes gnome-screenshot tesseract-ocr tesseract-ocr-eng
 
 The project pins Node and Rust versions (`.node-version`, `src-tauri/rust-toolchain.toml`). Run `scripts/check-dev-tools.sh` to inspect prerequisites without modifying the host.
 
-## Running it in development
+## Windows development prerequisites (unreleased candidate)
+
+Windows x86-64 developers need the pinned Node and Rust toolchains, MSVC C++
+build tools, the Windows SDK, WebView2/Tauri build prerequisites, Python 3,
+and PowerShell. The Linux `apt` instructions above do **not** apply to
+Windows. See [Windows hosted qualification](docs/WINDOWS_HOSTED_QUALIFICATION.md#developer-only-windows-build)
+for the exact PowerShell commands to stage checksum-pinned OCR resources,
+audit native dependencies, and build the experimental NSIS candidate.
+
+The Windows installer is not published or approved for redistribution.
+Development build success does not replace physical Windows 10/11 acceptance
+or native dependency licensing review.
+
+## Running on Linux in development
 
 ```bash
 npm ci
@@ -97,7 +144,7 @@ Hosted CI on Ubuntu 22.04 is authoritative for compilation and linting. Physical
 
 `npm run tauri build` produces `src-tauri/target/release/bundle/deb/Screenshot OCR_<version>_amd64.deb`. A separate Playwright suite (`npm run test:layout`) checks that the Capture/Settings/Diagnostics tabs never require scrolling at the app's window size; it runs in CI but is not part of `npm run validate` since it needs a browser install step.
 
-## Installing a locally built package
+## Installing a locally built Linux package
 
 ```bash
 sudo dpkg -i "./src-tauri/target/release/bundle/deb/Screenshot OCR_0.1.0_amd64.deb"

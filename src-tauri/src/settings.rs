@@ -1,11 +1,16 @@
 use crate::error::AppError;
 use crate::models::{CaptureBackendPreference, TextMode};
+use crate::platform::PlatformServices;
 use serde::{Deserialize, Serialize};
 use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 const SETTINGS_FILE: &str = "settings.json";
+// A settings profile is small. Never allocate unbounded memory for a
+// corrupted or attacker-controlled configuration file.
+const MAX_SETTINGS_BYTES: u64 = 64 * 1024;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -79,22 +84,51 @@ pub struct SettingsLoadResult {
     pub warning: Option<SettingsRecoveryWarning>,
 }
 
-#[derive(Debug)]
 pub struct SettingsStore {
     directory: PathBuf,
+    platform: Arc<dyn PlatformServices>,
 }
 
 impl SettingsStore {
-    pub fn new(directory: PathBuf) -> Self {
-        Self { directory }
+    pub fn new(directory: PathBuf, platform: Arc<dyn PlatformServices>) -> Self {
+        Self {
+            directory,
+            platform,
+        }
     }
 
     pub fn load(&self) -> Result<AppSettings, AppError> {
         let path = self.directory.join(SETTINGS_FILE);
-        if !path.exists() {
-            return Ok(AppSettings::default());
+        let metadata = match fs::symlink_metadata(&path) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                return Ok(AppSettings::default());
+            }
+            Err(_) => return Err(AppError::SettingsInvalid),
+        };
+        self.platform
+            .validate_settings_read_directory(&self.directory)?;
+        // A link (including a dangling one) is not an app-owned settings
+        // file. Quarantine the link itself rather than following its target.
+        if metadata.file_type().is_symlink() || !metadata.is_file() {
+            self.quarantine(&path)?;
+            return Err(AppError::SettingsInvalid);
         }
-        let bytes = fs::read(&path).map_err(|_| AppError::SettingsInvalid)?;
+        // NTFS reparse-pointed regular files are not always Rust symlinks.
+        // Reject native redirection before opening the settings leaf.
+        if self.platform.validate_settings_read_file(&path).is_err() {
+            self.quarantine(&path)?;
+            return Err(AppError::SettingsInvalid);
+        }
+        let file = fs::File::open(&path).map_err(|_| AppError::SettingsInvalid)?;
+        let mut bytes = Vec::new();
+        file.take(MAX_SETTINGS_BYTES + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|_| AppError::SettingsInvalid)?;
+        if bytes.len() as u64 > MAX_SETTINGS_BYTES {
+            self.quarantine(&path)?;
+            return Err(AppError::SettingsInvalid);
+        }
         match serde_json::from_slice::<AppSettings>(&bytes) {
             // A file that parses but fails validation has to be quarantined just like
             // an unparseable one. Otherwise `load_for_frontend` keeps masking it with
@@ -130,25 +164,49 @@ impl SettingsStore {
 
     pub fn save(&self, settings: &AppSettings) -> Result<(), AppError> {
         settings.validate()?;
+        self.platform
+            .validate_settings_create_directory(&self.directory)?;
         fs::create_dir_all(&self.directory).map_err(|_| AppError::SettingsWriteFailed)?;
-        set_directory_permissions(&self.directory)?;
+        self.platform.protect_settings_directory(&self.directory)?;
         let destination = self.directory.join(SETTINGS_FILE);
-        let temporary = self.directory.join("settings.json.tmp");
+        // Reject a redirected or non-file destination before replacing it.
+        // The platform adapter can also reject Windows native reparse points.
+        match fs::symlink_metadata(&destination) {
+            Ok(metadata) if metadata.is_file() && !metadata.file_type().is_symlink() => {
+                self.platform
+                    .validate_settings_read_file(&destination)
+                    .map_err(|_| AppError::SettingsWriteFailed)?;
+            }
+            Ok(_) => return Err(AppError::SettingsWriteFailed),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(_) => return Err(AppError::SettingsWriteFailed),
+        }
+        // A unique, exclusively created file avoids following a pre-existing
+        // settings.json.tmp symlink and lets interrupted writes recover without
+        // requiring users to delete a stale temporary file.
+        let temporary = self
+            .directory
+            .join(format!("settings-{}.tmp", uuid::Uuid::new_v4()));
         let serialized =
             serde_json::to_vec_pretty(settings).map_err(|_| AppError::SettingsWriteFailed)?;
         let mut file = OpenOptions::new()
-            .create(true)
-            .truncate(true)
             .write(true)
+            .create_new(true)
             .open(&temporary)
             .map_err(|_| AppError::SettingsWriteFailed)?;
-        set_file_permissions(&temporary)?;
-        file.write_all(&serialized)
-            .and_then(|_| file.write_all(b"\n"))
-            .and_then(|_| file.sync_all())
-            .map_err(|_| AppError::SettingsWriteFailed)?;
-        fs::rename(&temporary, &destination).map_err(|_| AppError::SettingsWriteFailed)?;
-        Ok(())
+        let result = (|| {
+            self.platform.protect_settings_file(&temporary)?;
+            file.write_all(&serialized)
+                .and_then(|_| file.write_all(b"\n"))
+                .and_then(|_| file.sync_all())
+                .map_err(|_| AppError::SettingsWriteFailed)?;
+            fs::rename(&temporary, &destination).map_err(|_| AppError::SettingsWriteFailed)
+        })();
+        if result.is_err() {
+            // Never leave a partially written settings file behind on failure.
+            let _ = fs::remove_file(&temporary);
+        }
+        result
     }
 
     pub fn reset(&self) -> Result<AppSettings, AppError> {
@@ -163,30 +221,6 @@ impl SettingsStore {
     }
 }
 
-#[cfg(unix)]
-fn set_directory_permissions(path: &Path) -> Result<(), AppError> {
-    use std::os::unix::fs::PermissionsExt;
-    fs::set_permissions(path, fs::Permissions::from_mode(0o700))
-        .map_err(|_| AppError::SettingsWriteFailed)
-}
-
-#[cfg(not(unix))]
-fn set_directory_permissions(_path: &Path) -> Result<(), AppError> {
-    Ok(())
-}
-
-#[cfg(unix)]
-fn set_file_permissions(path: &Path) -> Result<(), AppError> {
-    use std::os::unix::fs::PermissionsExt;
-    fs::set_permissions(path, fs::Permissions::from_mode(0o600))
-        .map_err(|_| AppError::SettingsWriteFailed)
-}
-
-#[cfg(not(unix))]
-fn set_file_permissions(_path: &Path) -> Result<(), AppError> {
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -195,20 +229,199 @@ mod tests {
     #[test]
     fn settings_round_trip_atomically() {
         let dir = tempdir().expect("tempdir");
-        let store = SettingsStore::new(dir.path().to_path_buf());
+        let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
         let settings = AppSettings::default();
         store.save(&settings).expect("save");
         assert_eq!(store.load().expect("load"), settings);
         assert!(!dir.path().join("settings.json.tmp").exists());
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn unix_settings_permissions_remain_private_through_platform_adapter() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempdir().expect("tempdir");
+        let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
+        store.save(&AppSettings::default()).expect("save");
+        assert_eq!(
+            fs::metadata(dir.path()).unwrap().permissions().mode() & 0o777,
+            0o700
+        );
+        assert_eq!(
+            fs::metadata(dir.path().join(SETTINGS_FILE))
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777,
+            0o600
+        );
+    }
+
+    #[test]
+    fn stale_legacy_temporary_file_does_not_block_settings_updates() {
+        let dir = tempdir().expect("tempdir");
+        let legacy = dir.path().join("settings.json.tmp");
+        fs::write(&legacy, b"stale temporary file").expect("write stale temp");
+        let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
+        store
+            .save(&AppSettings::default())
+            .expect("save despite stale temp");
+        assert_eq!(store.load().expect("load"), AppSettings::default());
+        assert_eq!(
+            fs::read(&legacy).expect("read legacy temp"),
+            b"stale temporary file"
+        );
+        assert!(!dir.path().read_dir().unwrap().any(|entry| {
+            entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with("settings-")
+        }));
+    }
+
+    #[test]
+    fn failed_settings_replace_removes_partial_temporary_file() {
+        let dir = tempdir().expect("tempdir");
+        // A directory at the destination prevents replacement on all targets.
+        fs::create_dir(dir.path().join(SETTINGS_FILE)).expect("blocking destination");
+        let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
+        assert!(matches!(
+            store.save(&AppSettings::default()),
+            Err(AppError::SettingsWriteFailed)
+        ));
+        assert!(!dir.path().read_dir().unwrap().any(|entry| {
+            entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with("settings-")
+        }));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn stale_legacy_temporary_symlink_is_never_followed() {
+        use std::os::unix::fs::symlink;
+        let dir = tempdir().expect("tempdir");
+        let target = dir.path().join("unrelated-private-file");
+        fs::write(&target, b"must not be overwritten").expect("write target");
+        let legacy = dir.path().join("settings.json.tmp");
+        symlink(&target, &legacy).expect("create synthetic legacy symlink");
+        let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
+        store.save(&AppSettings::default()).expect("safe save");
+        assert_eq!(
+            fs::read(&target).expect("read target"),
+            b"must not be overwritten"
+        );
+        assert!(fs::symlink_metadata(&legacy)
+            .unwrap()
+            .file_type()
+            .is_symlink());
+        assert_eq!(store.load().expect("load"), AppSettings::default());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn save_rejects_existing_settings_symlink_without_changing_target() {
+        use std::os::unix::fs::symlink;
+        let dir = tempdir().expect("tempdir");
+        let target = dir.path().join("unrelated.txt");
+        fs::write(&target, b"unchanged").expect("write target");
+        let settings = dir.path().join(SETTINGS_FILE);
+        symlink(&target, &settings).expect("create symlink");
+        let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
+        assert!(matches!(
+            store.save(&AppSettings::default()),
+            Err(AppError::SettingsWriteFailed)
+        ));
+        assert_eq!(fs::read(&target).expect("read target"), b"unchanged");
+        assert!(settings.is_symlink());
+    }
+
+    #[test]
+    fn updating_settings_replaces_existing_file_and_reset_replaces_it_again() {
+        let dir = tempdir().expect("tempdir");
+        let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
+        let original = AppSettings::default();
+        store.save(&original).expect("initial save");
+        let mut changed = original.clone();
+        changed.preview_before_copy = !original.preview_before_copy;
+        store.save(&changed).expect("overwrite existing settings");
+        assert_eq!(store.load().expect("load replacement"), changed);
+        assert!(!dir.path().join("settings.json.tmp").exists());
+        assert_eq!(store.reset().expect("reset"), original);
+        assert_eq!(store.load().expect("load reset"), original);
+        assert!(!dir.path().join("settings.json.tmp").exists());
+    }
+
+    #[test]
+    fn oversized_settings_are_bounded_and_quarantined_without_content_leakage() {
+        let dir = tempdir().expect("tempdir");
+        let path = dir.path().join(SETTINGS_FILE);
+        fs::write(&path, vec![b'X'; MAX_SETTINGS_BYTES as usize + 1])
+            .expect("write oversized synthetic settings");
+        let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
+        let recovered = store.load_for_frontend().expect("recover safely");
+        assert_eq!(recovered.settings, AppSettings::default());
+        assert!(recovered.warning.is_some());
+        assert!(!path.exists());
+        assert!(dir.path().join("settings.corrupt.json").exists());
+        assert_eq!(store.load().expect("next load"), AppSettings::default());
+    }
+
     #[test]
     fn corrupt_settings_are_quarantined() {
         let dir = tempdir().expect("tempdir");
         fs::write(dir.path().join(SETTINGS_FILE), b"not json").expect("write corrupt settings");
-        let store = SettingsStore::new(dir.path().to_path_buf());
+        let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
         assert!(matches!(store.load(), Err(AppError::SettingsInvalid)));
         assert!(dir.path().join("settings.corrupt.json").exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn linked_settings_are_quarantined_without_changing_external_file() {
+        use std::os::unix::fs::symlink;
+        let dir = tempdir().expect("tempdir");
+        let outside = tempdir().expect("outside");
+        let target = outside.path().join("external.json");
+        fs::write(
+            &target,
+            serde_json::to_vec(&AppSettings::default()).expect("serialize"),
+        )
+        .expect("write external file");
+        let original = fs::read(&target).expect("original content");
+        symlink(&target, dir.path().join(SETTINGS_FILE)).expect("create settings link");
+        let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
+        assert!(matches!(store.load(), Err(AppError::SettingsInvalid)));
+        assert_eq!(fs::read(&target).expect("read external file"), original);
+        assert!(
+            fs::symlink_metadata(dir.path().join("settings.corrupt.json"))
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
+        assert_eq!(
+            store.load().expect("load after quarantine"),
+            AppSettings::default()
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn dangling_settings_link_is_not_treated_as_missing_configuration() {
+        use std::os::unix::fs::symlink;
+        let dir = tempdir().expect("tempdir");
+        symlink(dir.path().join("missing"), dir.path().join(SETTINGS_FILE))
+            .expect("create dangling settings link");
+        let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
+        assert!(matches!(store.load(), Err(AppError::SettingsInvalid)));
+        assert!(dir.path().join("settings.corrupt.json").is_symlink());
+        assert_eq!(
+            store.load().expect("load after quarantine"),
+            AppSettings::default()
+        );
     }
 
     #[test]
@@ -224,7 +437,7 @@ mod tests {
             serde_json::to_vec(&invalid).expect("serialize invalid settings"),
         )
         .expect("write invalid settings");
-        let store = SettingsStore::new(dir.path().to_path_buf());
+        let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
 
         // First read reports the problem and quarantines the file...
         assert!(matches!(store.load(), Err(AppError::SettingsInvalid)));
@@ -251,7 +464,7 @@ mod tests {
             serde_json::to_vec(&invalid).expect("serialize invalid settings"),
         )
         .expect("write invalid settings");
-        let store = SettingsStore::new(dir.path().to_path_buf());
+        let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
 
         let recovered = store.load_for_frontend().expect("frontend load");
         assert!(recovered.warning.is_some());
@@ -264,15 +477,34 @@ mod tests {
         let dir = tempdir().expect("tempdir");
         fs::write(
             dir.path().join(SETTINGS_FILE),
-            br#"{"secret":"SYNTHETIC_SECRET_9f33","path":"/tmp/private"}"#,
+            br#"{"secret":"FAKE_FIXTURE_MARKER_9f33","path":"/synthetic/fixture"}"#,
         )
         .expect("write corrupt settings");
-        let store = SettingsStore::new(dir.path().to_path_buf());
+        let store = SettingsStore::new(dir.path().to_path_buf(), crate::platform::current());
         let result = store.load_for_frontend().expect("recovery result");
         assert_eq!(result.settings, AppSettings::default());
         assert!(result.warning.is_some());
         let json = serde_json::to_string(&result).expect("serialize recovery result");
-        assert!(!json.contains("SYNTHETIC_SECRET_9f33"));
-        assert!(!json.contains("/tmp/private"));
+        assert!(!json.contains("FAKE_FIXTURE_MARKER_9f33"));
+        assert!(!json.contains("/synthetic/fixture"));
+    }
+
+    #[test]
+    fn linux_capture_preferences_remain_valid_for_cross_platform_profile_migration() {
+        for capture_backend in [
+            CaptureBackendPreference::Auto,
+            CaptureBackendPreference::Gnome,
+            CaptureBackendPreference::Portal,
+        ] {
+            let settings = AppSettings {
+                capture_backend,
+                ..AppSettings::default()
+            };
+            let serialized = serde_json::to_vec(&settings).expect("serialize settings");
+            let parsed: AppSettings =
+                serde_json::from_slice(&serialized).expect("parse migrated settings");
+            assert_eq!(parsed.capture_backend, capture_backend);
+            assert!(parsed.validate().is_ok());
+        }
     }
 }

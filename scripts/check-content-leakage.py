@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
-"""Fail closed on obvious first-party content-leaking debug surfaces.
+"""Fail closed on obvious first-party OCR-content logging surfaces.
 
-This is intentionally conservative and source-focused. It does not prove that OCR
-content can never leak, but it blocks accidental console logging, print macros,
-and debug macros in production/test source before a richer fault-injection suite
-exists.
+This is a conservative source guard, not a full information-flow proof.
+Report source locations and rule names only; never echo matching source lines.
 """
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 SOURCE_SUFFIXES = {".rs", ".ts", ".tsx", ".js", ".jsx"}
@@ -21,12 +20,36 @@ IGNORED_PARTS = {
     "playwright-report",
 }
 
-FORBIDDEN_PATTERNS = {
-    ".rs": ["dbg!(", "println!(", "eprintln!("],
-    ".ts": ["console.log(", "console.debug(", "console.info(", "console.warn(", "console.error("],
-    ".tsx": ["console.log(", "console.debug(", "console.info(", "console.warn(", "console.error("],
-    ".js": ["console.log(", "console.debug(", "console.info(", "console.warn(", "console.error("],
-    ".jsx": ["console.log(", "console.debug(", "console.info(", "console.warn(", "console.error("],
+RUST_OUTPUT = re.compile(r"\b(?:dbg|print|println|eprint|eprintln)\s*!\s*\(")
+# Also reject macros imported directly with `use tracing::info` or
+# `use log::warn`, not only their qualified invocation forms.
+RUST_LOG_OUTPUT = re.compile(
+    r"\b(?:(?:tracing|log)\s*::\s*)?(?:trace|debug|info|warn|error|event|log|span)\s*!\s*\("
+)
+# Console's diagnostic APIs can leak OCR, clipboard, or screenshot data
+# even when they do not use the familiar log/debug/info/warn/error methods.
+FRONTEND_LOG_METHODS = (
+    r"(?:log|debug|info|warn|error|trace|table|dir|dirxml|assert|"
+    r"count|countReset|group|groupCollapsed|groupEnd|time|timeEnd|timeLog)"
+)
+FRONTEND_OUTPUT = re.compile(
+    rf"\bconsole\s*(?:\?\.|\.)\s*{FRONTEND_LOG_METHODS}\s*(?:\?\.)?\s*\("
+)
+FRONTEND_BRACKET_OUTPUT = re.compile(
+    rf"""\bconsole\s*(?:\?\.)?\s*\[\s*['"]{FRONTEND_LOG_METHODS}['"]\s*\]\s*(?:\?\.)?\s*\("""
+)
+FORBIDDEN_RULES = {
+    ".rs": (
+        ("Rust debug/print macro", RUST_OUTPUT),
+        ("Rust structured logging macro", RUST_LOG_OUTPUT),
+    ),
+    **{
+        extension: (
+            ("frontend console call", FRONTEND_OUTPUT),
+            ("frontend bracket console call", FRONTEND_BRACKET_OUTPUT),
+        )
+        for extension in (".ts", ".tsx", ".js", ".jsx")
+    },
 }
 
 
@@ -38,23 +61,52 @@ def should_scan(path: Path) -> bool:
     )
 
 
-def main() -> int:
+def scan_tree(root: Path) -> list[str]:
+    # Never traverse a redirected checkout root or any linked parent. This
+    # is a privacy boundary, not merely a way to suppress false positives.
+    absolute_root = root.absolute()
+    if any(path.is_symlink() for path in (absolute_root, *absolute_root.parents)):
+        return ["source scan root traverses a symbolic link"]
     problems: list[str] = []
-    for path in Path(".").rglob("*"):
+    for path in sorted(root.rglob("*")):
+        # Path.is_file() follows symlinks. Fail closed before any read,
+        # including for linked source directories outside the checkout.
+        if (
+            not any(part in IGNORED_PARTS for part in path.parts)
+            and path.is_symlink()
+        ):
+            # Diagnostic reports may be retained as public CI artifacts.
+            # Emit only repository-relative paths, never private runner roots.
+            relative = path.relative_to(root).as_posix()
+            problems.append(f"{relative}: symbolic link in source scan")
+            continue
         if not should_scan(path):
             continue
-        patterns = FORBIDDEN_PATTERNS.get(path.suffix, [])
-        text = path.read_text(encoding="utf-8")
-        for line_number, line in enumerate(text.splitlines(), start=1):
-            for pattern in patterns:
-                if pattern in line:
-                    problems.append(f"{path}:{line_number}: forbidden debug/logging pattern {pattern!r}")
+        # Match against the whole file: source code can legally split macro
+        # names, member access and argument lists across multiple lines.
+        # Matching line-by-line silently misses those content-leakage paths.
+        relative = path.relative_to(root).as_posix()
+        try:
+            source = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            # Failed decoding or access must fail the guard without Python's
+            # traceback disclosing local runner paths or private file bytes.
+            problems.append(f"{relative}: unreadable first-party source")
+            continue
+        for description, pattern in FORBIDDEN_RULES[path.suffix]:
+            for match in pattern.finditer(source):
+                line_number = source.count("\n", 0, match.start()) + 1
+                # Never print raw matching source: it might include OCR text.
+                problems.append(f"{relative}:{line_number}: forbidden {description}")
+    return problems
 
+
+def main() -> int:
+    problems = scan_tree(Path("."))
     if problems:
         print("Content-leakage source guard failed:")
         print("\n".join(problems))
         return 1
-
     print("Content-leakage source guard passed.")
     return 0
 

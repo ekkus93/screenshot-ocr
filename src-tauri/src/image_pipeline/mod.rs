@@ -1,10 +1,9 @@
 use crate::error::AppError;
-use crate::models::{CaptureBackendId, CapturedImage, PreprocessingVariant};
+use crate::models::PreprocessingVariant;
 use image::imageops::FilterType;
-use image::{DynamicImage, ImageFormat, ImageReader};
+use image::{DynamicImage, ImageFormat};
 use std::io::Cursor;
 
-const MAX_ENCODED_BYTES: usize = 20 * 1024 * 1024;
 const MAX_WIDTH: u32 = 12_000;
 const MAX_HEIGHT: u32 = 12_000;
 const MAX_PIXELS: u64 = 60_000_000;
@@ -13,31 +12,6 @@ const MAX_PIXELS: u64 = 60_000_000;
 pub struct PreparedVariant {
     pub image: DynamicImage,
     pub id: PreprocessingVariant,
-}
-
-pub fn decode_captured_image(
-    bytes: &[u8],
-    backend: CaptureBackendId,
-) -> Result<CapturedImage, AppError> {
-    if bytes.is_empty() {
-        return Err(AppError::CaptureImageInvalid);
-    }
-    if bytes.len() > MAX_ENCODED_BYTES {
-        return Err(AppError::CaptureTooLarge);
-    }
-    let reader = ImageReader::new(Cursor::new(bytes))
-        .with_guessed_format()
-        .map_err(|_| AppError::CaptureImageInvalid)?;
-    let (width, height) = reader
-        .into_dimensions()
-        .map_err(|_| AppError::CaptureImageInvalid)?;
-    enforce_dimensions(width, height)?;
-    let image = image::load_from_memory(bytes).map_err(|_| AppError::CaptureImageInvalid)?;
-    Ok(CapturedImage {
-        image,
-        backend,
-        cleanup_failed: false,
-    })
 }
 
 pub fn prepare_variants(image: &DynamicImage) -> Vec<PreparedVariant> {
@@ -109,11 +83,7 @@ mod tests {
     use image::{ImageBuffer, Rgb};
 
     #[test]
-    fn rejects_empty_and_oversized_inputs() {
-        assert!(matches!(
-            decode_captured_image(&[], CaptureBackendId::GnomeScreenshot),
-            Err(AppError::CaptureImageInvalid)
-        ));
+    fn rejects_oversized_dimensions() {
         assert!(matches!(
             enforce_dimensions(20_000, 20_000),
             Err(AppError::CaptureTooLarge)

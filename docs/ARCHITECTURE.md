@@ -8,16 +8,40 @@ The React frontend presents state and submits typed requests. Rust owns capture,
 - `error.rs`: typed internal failures and stable public errors.
 - `state.rs`: single-capture ownership.
 - `actions.rs`: second-instance, tray, startup, and shortcut action routing.
-- `desktop.rs`: tray setup, direct shortcut registration, and desktop-integration diagnostics.
-- `capture/`: environment probing, GNOME helper backend, and portal capture review boundary.
+- `desktop.rs`: shared tray setup and registration of the shortcut selected by the platform service.
+- `capture/`: the portable capture-backend contract only.
+- `platform/`: the compile-time composition root and narrow `PlatformServices` contract.
+- `platform/linux/`: Linux environment probing, GNOME Screenshot, XDG Portal, Linux shortcut policy, and Linux OCR-runtime discovery.
+- `platform/windows/`: Windows capture, Windows shortcut policy, and packaged OCR-runtime discovery.
 - `image_pipeline/`: bounded decode and deterministic in-memory variants.
-- `ocr/`: Tesseract subprocess, bounded language probing, cleanup, and candidate scoring.
+- `ocr/`: platform-neutral Tesseract subprocess control, bounded language probing, cleanup, and candidate scoring. The platform layer supplies an internal `OcrRuntime` descriptor; the frontend never supplies executable paths.
 - `settings.rs`: schema validation, atomic persistence, corrupt-settings quarantine, and safe recovery DTOs.
 - `diagnostics.rs`: redacted capability report.
 - `app.rs`: orchestration service.
 - `commands.rs`: thin Tauri adapters.
 
 No frontend payload can contain an executable path, filesystem path, shell fragment, or arbitrary OCR configuration.
+
+### Portable-core dependency direction
+
+Shared application policy depends only on portable domain types and the `PlatformServices` capability contract. Concrete Linux and Windows adapters depend inward on those contracts; portable modules do not import concrete platform implementations.
+
+```text
+React / TypeScript UI
+        |
+Tauri commands and shared desktop actions
+        |
+Portable Rust orchestration
+        |
+PlatformServices capability contract
+      /   \
+ Linux     Windows
+ adapters  adapters
+```
+
+Platform adapters own mechanisms such as screen capture, desktop capability probing, target-specific shortcut selection, and OCR-runtime location. Shared code owns job reservation, cancellation, capture/OCR sequencing, image processing, candidate scoring, settings policy, clipboard recovery policy, public errors, and action routing.
+
+The repository-policy job runs `scripts/check-platform-boundaries.py` to reject known concrete platform imports and OS-probing patterns outside `src-tauri/src/platform/`. This is a regression guard, not a substitute for architecture review.
 
 ## Frontend boundary
 

@@ -1,4 +1,3 @@
-use crate::capture::EnvironmentInfo;
 use crate::error::ErrorCode;
 use serde::Serialize;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -53,14 +52,31 @@ impl RuntimeDiagnostics {
     }
 
     pub fn set_tray_status(&self, status: impl Into<String>) {
+        // Native status strings must not introduce unbounded OS error details.
+        let status = status.into();
+        let safe = match status.as_str() {
+            "available" | "unavailable; main window remains usable" | "not initialized" => {
+                status.as_str()
+            }
+            _ => "unavailable",
+        };
         if let Ok(mut tray_status) = self.tray_status.lock() {
-            *tray_status = status.into();
+            *tray_status = safe.into();
         }
     }
 
     pub fn set_shortcut_status(&self, status: impl Into<String>) {
+        let status = status.into();
+        let safe = match status.as_str() {
+            "registered"
+            | "registration failed; use the documented platform shortcut"
+            | "not registered; use the documented platform shortcut"
+            | "deferred; use the GNOME custom shortcut"
+            | "not initialized" => status.as_str(),
+            _ => "registration status unavailable",
+        };
         if let Ok(mut shortcut_status) = self.shortcut_status.lock() {
-            *shortcut_status = status.into();
+            *shortcut_status = safe.into();
         }
     }
 
@@ -88,16 +104,26 @@ impl RuntimeDiagnostics {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PlatformDiagnostics {
+    pub platform: String,
+    pub os_release: String,
+    pub desktop_environment: String,
+    pub session_type: String,
+    pub capture_summary: String,
+    pub ocr_runtime: String,
+}
+
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Diagnostics {
     pub app_version: String,
+    pub platform: String,
     pub os_release: String,
     pub desktop_environment: String,
     pub session_type: String,
-    pub portal_summary: String,
-    pub gnome_screenshot: String,
-    pub tesseract: String,
+    pub capture_summary: String,
+    pub ocr_runtime: String,
     pub installed_languages: Vec<String>,
     pub clipboard_status: String,
     pub tray_status: String,
@@ -108,20 +134,19 @@ pub struct Diagnostics {
 }
 
 impl Diagnostics {
-    pub fn from_environment(
-        environment: &EnvironmentInfo,
+    pub fn from_platform(
+        platform: PlatformDiagnostics,
         languages: Vec<String>,
-        portal_summary: String,
         runtime: RuntimeDiagnosticsSnapshot,
     ) -> Self {
         Self {
             app_version: env!("CARGO_PKG_VERSION").into(),
-            os_release: environment.os_release.clone(),
-            desktop_environment: environment.desktop_environment.clone(),
-            session_type: environment.session_type.clone(),
-            portal_summary,
-            gnome_screenshot: availability(environment.gnome_screenshot.is_some()),
-            tesseract: availability(environment.tesseract.is_some()),
+            platform: platform.platform,
+            os_release: platform.os_release,
+            desktop_environment: platform.desktop_environment,
+            session_type: platform.session_type,
+            capture_summary: platform.capture_summary,
+            ocr_runtime: platform.ocr_runtime,
             installed_languages: languages,
             clipboard_status: "available through Tauri clipboard manager".into(),
             tray_status: runtime.tray_status,
@@ -130,14 +155,6 @@ impl Diagnostics {
             last_error_code: runtime.last_error_code,
             cleanup_failure_count: runtime.cleanup_failure_count,
         }
-    }
-}
-
-fn availability(available: bool) -> String {
-    if available {
-        "available".into()
-    } else {
-        "unavailable".into()
     }
 }
 
@@ -151,24 +168,19 @@ fn serialized_error_code(code: ErrorCode) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
-
-    fn environment() -> EnvironmentInfo {
-        EnvironmentInfo {
-            os_release: "Ubuntu".into(),
-            desktop_environment: "GNOME".into(),
-            session_type: "wayland".into(),
-            gnome_screenshot: Some(PathBuf::from("/sensitive/path")),
-            tesseract: None,
-        }
-    }
 
     #[test]
-    fn diagnostics_never_include_executable_paths() {
-        let json = serde_json::to_string(&Diagnostics::from_environment(
-            &environment(),
+    fn diagnostics_use_only_safe_platform_summary_values() {
+        let json = serde_json::to_string(&Diagnostics::from_platform(
+            PlatformDiagnostics {
+                platform: "linux".into(),
+                os_release: "Ubuntu".into(),
+                desktop_environment: "GNOME".into(),
+                session_type: "wayland".into(),
+                capture_summary: "portal available; helper available".into(),
+                ocr_runtime: "available".into(),
+            },
             vec!["eng".into()],
-            "Screenshot v3; area target available".into(),
             RuntimeDiagnosticsSnapshot::default(),
         ))
         .expect("serialize");
@@ -191,6 +203,36 @@ mod tests {
                 tray_status: "available".into(),
                 shortcut_status: "registered".into(),
             }
+        );
+    }
+
+    #[test]
+    fn native_statuses_reject_unreviewed_platform_details() {
+        let runtime = RuntimeDiagnostics::default();
+        runtime.set_tray_status("synthetic-raw-path");
+        runtime.set_shortcut_status("synthetic-raw-error");
+        let snapshot = runtime.snapshot();
+        assert_eq!(snapshot.tray_status, "unavailable");
+        assert_eq!(snapshot.shortcut_status, "registration status unavailable");
+    }
+
+    #[test]
+    fn known_linux_and_windows_desktop_statuses_are_preserved() {
+        let runtime = RuntimeDiagnostics::default();
+        runtime.set_tray_status("unavailable; main window remains usable");
+        runtime.set_shortcut_status("deferred; use the GNOME custom shortcut");
+        assert_eq!(
+            runtime.snapshot().shortcut_status,
+            "deferred; use the GNOME custom shortcut"
+        );
+        assert_eq!(
+            runtime.snapshot().tray_status,
+            "unavailable; main window remains usable"
+        );
+        runtime.set_shortcut_status("registration failed; use the documented platform shortcut");
+        assert_eq!(
+            runtime.snapshot().shortcut_status,
+            "registration failed; use the documented platform shortcut"
         );
     }
 

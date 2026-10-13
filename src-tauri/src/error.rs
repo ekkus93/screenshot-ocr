@@ -7,6 +7,7 @@ pub enum ErrorCode {
     CaptureAlreadyActive,
     CaptureCancelled,
     CaptureBackendUnavailable,
+    CaptureFailed,
     CapturePermissionDenied,
     CaptureTimedOut,
     CaptureProcessFailed,
@@ -44,6 +45,10 @@ pub enum AppError {
     CaptureCancelled,
     #[error("capture backend is unavailable")]
     CaptureBackendUnavailable,
+    // Both platforms map native capture failures through one public error.
+    #[allow(dead_code)]
+    #[error("native screen capture failed")]
+    CaptureFailed,
     #[error("capture permission was denied")]
     CapturePermissionDenied,
     #[error("capture operation timed out")]
@@ -76,6 +81,8 @@ pub enum AppError {
     SettingsInvalid,
     #[error("settings write failed")]
     SettingsWriteFailed,
+    // The unsupported-platform adapter constructs this only on other targets.
+    #[allow(dead_code)]
     #[error("operating environment is unsupported")]
     UnsupportedEnvironment,
     #[error("internal operation failed")]
@@ -100,7 +107,13 @@ impl From<AppError> for PublicError {
             AppError::CaptureBackendUnavailable => (
                 ErrorCode::CaptureBackendUnavailable,
                 "No safe region-capture backend is available.",
-                "Install gnome-screenshot or use a portal that advertises area capture.",
+                "Check the platform capture support in safe diagnostics and try again.",
+                true,
+            ),
+            AppError::CaptureFailed => (
+                ErrorCode::CaptureFailed,
+                "Screen capture failed.",
+                "Try selecting the region again. The clipboard was unchanged.",
                 true,
             ),
             AppError::CapturePermissionDenied => (
@@ -130,7 +143,7 @@ impl From<AppError> for PublicError {
             AppError::CaptureResultUriInvalid => (
                 ErrorCode::CaptureResultUriInvalid,
                 "The screen-selection service returned an unsupported result.",
-                "Use the GNOME compatibility backend or inspect safe diagnostics.",
+                "Try another supported capture backend or inspect safe diagnostics.",
                 true,
             ),
             AppError::CaptureImageInvalid => (
@@ -154,13 +167,13 @@ impl From<AppError> for PublicError {
             AppError::OcrEngineUnavailable => (
                 ErrorCode::OcrEngineUnavailable,
                 "Tesseract is not available.",
-                "Install tesseract-ocr and tesseract-ocr-eng.",
+                "Install or repair the platform OCR runtime and English language data.",
                 true,
             ),
             AppError::OcrLanguageMissing => (
                 ErrorCode::OcrLanguageMissing,
                 "English OCR data is missing.",
-                "Install the tesseract-ocr-eng package.",
+                "Install or repair the English OCR language data.",
                 true,
             ),
             AppError::OcrTimedOut => (
@@ -202,7 +215,7 @@ impl From<AppError> for PublicError {
             AppError::UnsupportedEnvironment => (
                 ErrorCode::UnsupportedEnvironment,
                 "This desktop environment is not supported.",
-                "Use Ubuntu GNOME on Wayland or X11.",
+                "Use a supported Linux or Windows desktop environment.",
                 false,
             ),
             AppError::Internal => (
@@ -234,7 +247,7 @@ mod tests {
     }
 
     #[test]
-    fn portal_errors_have_stable_public_codes() {
+    fn platform_capture_errors_keep_stable_public_codes() {
         assert_eq!(
             PublicError::from(AppError::CapturePermissionDenied).code,
             ErrorCode::CapturePermissionDenied
@@ -247,6 +260,17 @@ mod tests {
             PublicError::from(AppError::CaptureResultUriInvalid).code,
             ErrorCode::CaptureResultUriInvalid
         );
+    }
+
+    #[test]
+    fn native_capture_failure_maps_to_safe_stable_public_error() {
+        let public = PublicError::from(AppError::CaptureFailed);
+        assert_eq!(public.code, ErrorCode::CaptureFailed);
+        assert!(public.retryable);
+        let json = serde_json::to_string(&public).expect("serialize public error");
+        assert!(!json.contains("C:\\\\Users"));
+        assert!(!json.contains("SYNTHETIC_SECRET_9f33"));
+        assert!(json.contains("clipboard was unchanged"));
     }
 
     #[test]

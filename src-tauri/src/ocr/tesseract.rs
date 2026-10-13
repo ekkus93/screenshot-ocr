@@ -1,9 +1,9 @@
 use crate::cancellation::CancellationToken;
-use crate::capture::EnvironmentInfo;
 use crate::error::AppError;
 use crate::image_pipeline::{encode_png, PreparedVariant};
 use crate::models::{OcrCandidate, OcrWarning, TextMode};
 use crate::ocr::cleanup::{cleanup_text, score_text};
+use crate::ocr::OcrRuntime;
 use std::process::Stdio;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -15,18 +15,58 @@ const LANGUAGE_PROBE_TIMEOUT: Duration = Duration::from_secs(5);
 const MAX_OCR_TEXT_BYTES: usize = 1_000_000;
 const MAX_LANGUAGE_LIST_BYTES: usize = 64 * 1024;
 
+// Packaged OCR must not inherit caller-controlled plugin, configuration, or
+// data search paths. This is defense in depth, not a substitute for auditing
+// Windows DLL search order, native dynamic loads, or file integrity.
+const PACKAGED_OCR_UNTRUSTED_ENV: &[&str] = &[
+    "PATH",
+    "GIO_EXTRA_MODULES",
+    "GIO_MODULE_DIR",
+    "GI_TYPELIB_PATH",
+    "GSETTINGS_SCHEMA_DIR",
+    "GTK_PATH",
+    "GTK_IM_MODULE_FILE",
+    "PANGO_RC_FILE",
+    "GDK_PIXBUF_MODULE_FILE",
+    "GDK_PIXBUF_MODULEDIR",
+    "FONTCONFIG_FILE",
+    "FONTCONFIG_PATH",
+    "OPENSSL_CONF",
+    "OPENSSL_MODULES",
+    "OPENSSL_ENGINES",
+    "ICU_DATA",
+    "QT_PLUGIN_PATH",
+    "QT_QPA_PLATFORM_PLUGIN_PATH",
+    "TESSDATA_PREFIX",
+];
+
 #[derive(Clone, Debug)]
 pub struct TesseractEngine {
-    executable: std::path::PathBuf,
+    runtime: OcrRuntime,
 }
 
 impl TesseractEngine {
-    pub fn from_environment(environment: &EnvironmentInfo) -> Result<Self, AppError> {
-        environment
-            .tesseract
-            .clone()
-            .map(|executable| Self { executable })
-            .ok_or(AppError::OcrEngineUnavailable)
+    pub fn new(runtime: OcrRuntime) -> Self {
+        Self { runtime }
+    }
+
+    fn command(&self) -> Command {
+        let mut command = Command::new(&self.runtime.executable);
+        if let Some(directory) = &self.runtime.working_directory {
+            command.current_dir(directory);
+            // An explicitly owned OCR working directory must not inherit the
+            // caller's executable/DLL search path. Windows resolves packaged
+            // native libraries beside the absolute Tesseract executable and
+            // system libraries from trusted OS directories. This also keeps
+            // fake Windows children independent of the developer's PATH.
+            for name in PACKAGED_OCR_UNTRUSTED_ENV {
+                command.env_remove(name);
+            }
+        }
+        if let Some(tessdata_dir) = &self.runtime.tessdata_dir {
+            command.env("TESSDATA_PREFIX", tessdata_dir);
+        }
+        command
     }
 
     pub async fn probe_english(
@@ -35,7 +75,8 @@ impl TesseractEngine {
     ) -> Result<Vec<String>, AppError> {
         cancellation.check()?;
         let deadline = Instant::now() + LANGUAGE_PROBE_TIMEOUT;
-        let mut child = Command::new(&self.executable)
+        let mut child = self
+            .command()
             .arg("--list-langs")
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
@@ -97,22 +138,7 @@ impl TesseractEngine {
         if !status.success() || output.len() > MAX_LANGUAGE_LIST_BYTES {
             return Err(AppError::OcrEngineUnavailable);
         }
-        let text = String::from_utf8_lossy(&output);
-        let languages: Vec<String> = text
-            .lines()
-            .map(str::trim)
-            .filter(|line| {
-                line.len() <= 32
-                    && line.chars().all(|character| {
-                        character.is_ascii_alphanumeric() || matches!(character, '_' | '-')
-                    })
-            })
-            .map(str::to_owned)
-            .collect();
-        if !languages.iter().any(|language| language == "eng") {
-            return Err(AppError::OcrLanguageMissing);
-        }
-        Ok(languages)
+        parse_languages(&output)
     }
 
     pub async fn recognize(
@@ -124,12 +150,14 @@ impl TesseractEngine {
         cancellation.check()?;
         let deadline = Instant::now() + OCR_TIMEOUT;
         let png = encode_png(&variant.image)?;
+        cancellation.check()?;
         let page_segmentation = match mode {
             TextMode::Terminal => "6",
             TextMode::Document => "3",
             TextMode::SingleLine => "7",
         };
-        let mut child = Command::new(&self.executable)
+        let mut child = self
+            .command()
             .args([
                 "stdin",
                 "stdout",
@@ -241,6 +269,25 @@ impl TesseractEngine {
     }
 }
 
+fn parse_languages(output: &[u8]) -> Result<Vec<String>, AppError> {
+    let text = String::from_utf8_lossy(output);
+    let languages: Vec<String> = text
+        .lines()
+        .map(str::trim)
+        .filter(|line| {
+            line.len() <= 32
+                && line.chars().all(|character| {
+                    character.is_ascii_alphanumeric() || matches!(character, '_' | '-')
+                })
+        })
+        .map(str::to_owned)
+        .collect();
+    if !languages.iter().any(|language| language == "eng") {
+        return Err(AppError::OcrLanguageMissing);
+    }
+    Ok(languages)
+}
+
 async fn terminate_child(child: &mut Child) -> Result<(), AppError> {
     match child.try_wait().map_err(|_| AppError::OcrFailed)? {
         Some(_) => Ok(()),
@@ -255,11 +302,186 @@ async fn terminate_child(child: &mut Child) -> Result<(), AppError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
     use crate::models::PreprocessingVariant;
+    #[cfg(unix)]
     use image::DynamicImage;
+    #[cfg(unix)]
     use std::fs;
+    #[cfg(unix)]
     use tempfile::tempdir;
+    #[cfg(unix)]
     use tokio::time::{sleep, timeout};
+
+    #[test]
+    fn packaged_ocr_child_rejects_inherited_native_configuration_paths() {
+        // Inspect the child command rather than changing process-global test
+        // environment variables, which could race with concurrent tests.
+        let engine = TesseractEngine::new(OcrRuntime {
+            executable: "fixture-tesseract".into(),
+            tessdata_dir: Some("fixture-tessdata".into()),
+            working_directory: Some("fixture-owned-ocr".into()),
+        });
+        let command = engine.command();
+        let overrides: std::collections::HashMap<String, Option<String>> = command
+            .as_std()
+            .get_envs()
+            .map(|(key, value)| {
+                (
+                    key.to_string_lossy().to_string(),
+                    value.map(|value| value.to_string_lossy().to_string()),
+                )
+            })
+            .collect();
+        for key in PACKAGED_OCR_UNTRUSTED_ENV {
+            if *key == "TESSDATA_PREFIX" {
+                assert_eq!(
+                    overrides.get(*key).and_then(|value| value.as_deref()),
+                    Some("fixture-tessdata")
+                );
+            } else {
+                assert_eq!(overrides.get(*key), Some(&None), "{key}");
+            }
+        }
+
+        // Linux system OCR retains its existing inherited environment; the
+        // packaged policy is selected by the platform runtime descriptor.
+        let system_engine =
+            TesseractEngine::new(OcrRuntime::new("fixture-system-tesseract".into(), None));
+        let system_command = system_engine.command();
+        assert_eq!(system_command.as_std().get_envs().count(), 0);
+    }
+
+    // Hosted Windows-only integration: unlike the direct executable smoke,
+    // this exercises the shared bounded OCR probe and recognition pipeline.
+    // The ignored test is invoked explicitly with a generated, public fixture.
+    #[cfg(windows)]
+    #[tokio::test]
+    #[ignore = "requires staged checksum-verified OCR runtime and synthetic fixture"]
+    async fn windows_staged_shared_engine_integration() {
+        use crate::models::PreprocessingVariant;
+        use std::path::PathBuf;
+
+        let fixture = std::env::var_os("SCREENSHOT_OCR_WINDOWS_OCR_SMOKE_IMAGE")
+            .map(PathBuf::from)
+            .expect("synthetic Windows OCR fixture path required");
+        // The ignored CI fixture may exercise the verified NSIS-extracted
+        // resource tree; normal application runtime resolution never reads
+        // this test-only environment variable.
+        let root = std::env::var_os("SCREENSHOT_OCR_WINDOWS_OCR_RUNTIME_ROOT")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| {
+                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("windows-ocr-runtime")
+            });
+        let executable = root.join("tesseract.exe");
+        let tessdata = root.join("tessdata");
+        assert!(executable.is_file() && tessdata.join("eng.traineddata").is_file());
+        let engine = TesseractEngine::new(OcrRuntime {
+            executable,
+            tessdata_dir: Some(tessdata),
+            working_directory: Some(root),
+        });
+        let cancellation = CancellationToken::new();
+        let languages = engine.probe_english(&cancellation).await.unwrap();
+        assert!(languages.iter().any(|language| language == "eng"));
+        let variant = PreparedVariant {
+            image: image::open(fixture).expect("load generated synthetic image"),
+            id: PreprocessingVariant::Original,
+        };
+        let candidate = engine
+            .recognize(&variant, TextMode::SingleLine, &cancellation)
+            .await
+            .unwrap();
+        let normalized = candidate
+            .text
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+            .to_ascii_uppercase();
+        assert!(normalized.contains("SAMPLE 123"), "synthetic OCR mismatch");
+    }
+
+    // Hosted Windows CI proves cancellation of an already-running native child.
+    #[cfg(windows)]
+    #[tokio::test]
+    #[ignore = "requires compiled synthetic Windows child fixture"]
+    async fn windows_staged_shared_engine_cancellation() {
+        use crate::models::PreprocessingVariant;
+        use image::DynamicImage;
+        use std::path::PathBuf;
+        use std::time::Duration;
+        use tokio::time::timeout;
+
+        let executable = PathBuf::from(
+            std::env::var_os("SCREENSHOT_OCR_WINDOWS_FAKE_TESSERACT")
+                .expect("synthetic Windows executable required"),
+        );
+        let marker_dir = PathBuf::from(
+            std::env::var_os("SCREENSHOT_OCR_WINDOWS_FAKE_MARKER_DIR")
+                .expect("synthetic Windows marker directory required"),
+        );
+        // The synthetic child fails before its readiness marker unless the
+        // shared engine pins the child CWD to this app-controlled directory.
+        let engine = TesseractEngine::new(OcrRuntime {
+            executable,
+            tessdata_dir: None,
+            working_directory: Some(marker_dir.clone()),
+        });
+
+        let cancellation = CancellationToken::new();
+        let token = cancellation.clone();
+        let probe_engine = engine.clone();
+        let probe = tokio::spawn(async move { probe_engine.probe_english(&token).await });
+        wait_for_windows_fake_start(&marker_dir.join("probe.started")).await;
+        // Hold the exact child handle before cancellation so a reused PID
+        // cannot make the process-exit assertion falsely pass.
+        let probe_handle =
+            crate::platform::native_child_test::fake_process_handle(&marker_dir, "probe");
+        cancellation.cancel();
+        let probe_result = timeout(Duration::from_secs(4), probe)
+            .await
+            .expect("Windows language-probe cancellation timed out")
+            .expect("Windows language-probe task panicked");
+        assert!(matches!(probe_result, Err(AppError::CaptureCancelled)));
+        crate::platform::native_child_test::assert_fake_process_exited(&probe_handle);
+
+        let cancellation = CancellationToken::new();
+        let token = cancellation.clone();
+        let variant = PreparedVariant {
+            image: DynamicImage::new_rgb8(64, 32),
+            id: PreprocessingVariant::Original,
+        };
+        let recognition = tokio::spawn(async move {
+            engine
+                .recognize(&variant, TextMode::SingleLine, &token)
+                .await
+        });
+        wait_for_windows_fake_start(&marker_dir.join("recognize.started")).await;
+        let recognition_handle =
+            crate::platform::native_child_test::fake_process_handle(&marker_dir, "recognize");
+        cancellation.cancel();
+        let recognition_result = timeout(Duration::from_secs(4), recognition)
+            .await
+            .expect("Windows OCR cancellation timed out")
+            .expect("Windows OCR task panicked");
+        assert!(matches!(
+            recognition_result,
+            Err(AppError::CaptureCancelled)
+        ));
+        crate::platform::native_child_test::assert_fake_process_exited(&recognition_handle);
+    }
+
+    #[cfg(windows)]
+    async fn wait_for_windows_fake_start(marker: &std::path::Path) {
+        use std::time::Duration;
+        use tokio::time::{sleep, Instant};
+
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !marker.is_file() {
+            assert!(Instant::now() < deadline, "child did not start");
+            sleep(Duration::from_millis(20)).await;
+        }
+    }
 
     #[cfg(unix)]
     fn write_executable(path: &std::path::Path, body: &str) {
@@ -269,20 +491,12 @@ mod tests {
         fs::set_permissions(path, fs::Permissions::from_mode(0o700)).expect("make executable");
     }
 
-    #[cfg(unix)]
-    #[tokio::test]
-    async fn language_probe_filters_output_and_requires_english() {
-        let directory = tempdir().expect("tempdir");
-        let executable = directory.path().join("fake-tesseract");
-        write_executable(
-            &executable,
-            "#!/bin/sh\nif [ \"$1\" = \"--list-langs\" ]; then printf 'List of available languages\neng\nosd\nbad/name\n'; exit 0; fi\nexit 1\n",
-        );
-        let engine = TesseractEngine { executable };
-        let languages = engine
-            .probe_english(&CancellationToken::new())
-            .await
-            .expect("probe language list");
+    #[test]
+    fn language_probe_filters_output_and_requires_english() {
+        // Parsing is deterministic; the separate subprocess tests exercise
+        // bounded execution, missing languages, and timeouts.
+        let languages = parse_languages(b"List of available languages\neng\nosd\nbad/name\n")
+            .expect("parse synthetic language list");
         assert!(languages.iter().any(|language| language == "eng"));
         assert!(languages.iter().any(|language| language == "osd"));
         assert!(!languages.iter().any(|language| language == "bad/name"));
@@ -297,7 +511,7 @@ mod tests {
             &executable,
             "#!/bin/sh\nif [ \"$1\" = \"--list-langs\" ]; then printf 'osd\n'; exit 0; fi\nexit 1\n",
         );
-        let engine = TesseractEngine { executable };
+        let engine = TesseractEngine::new(OcrRuntime::new(executable, None));
         assert!(matches!(
             engine.probe_english(&CancellationToken::new()).await,
             Err(AppError::OcrLanguageMissing)
@@ -313,7 +527,7 @@ mod tests {
             &executable,
             "#!/bin/sh\nif [ \"$1\" = \"--list-langs\" ]; then head -c 70000 /dev/zero | tr '\\000' a; exit 0; fi\nexit 1\n",
         );
-        let engine = TesseractEngine { executable };
+        let engine = TesseractEngine::new(OcrRuntime::new(executable, None));
         assert!(matches!(
             engine.probe_english(&CancellationToken::new()).await,
             Err(AppError::OcrEngineUnavailable)
@@ -327,9 +541,9 @@ mod tests {
         let executable = directory.path().join("fake-tesseract");
         write_executable(
             &executable,
-            "#!/bin/sh\nif [ \"$1\" = \"--list-langs\" ]; then sleep 30; fi\nexit 1\n",
+            "#!/bin/sh\nif [ \"$1\" = \"--list-langs\" ]; then exec sleep 30; fi\nexit 1\n",
         );
-        let engine = TesseractEngine { executable };
+        let engine = TesseractEngine::new(OcrRuntime::new(executable, None));
         let result = timeout(
             LANGUAGE_PROBE_TIMEOUT + Duration::from_secs(2),
             engine.probe_english(&CancellationToken::new()),
@@ -341,13 +555,34 @@ mod tests {
 
     #[tokio::test]
     async fn pre_cancelled_language_probe_exits_before_spawn_requirements() {
-        let engine = TesseractEngine {
-            executable: std::path::PathBuf::from("/definitely/missing/tesseract"),
-        };
+        let engine = TesseractEngine::new(OcrRuntime::new(
+            std::path::PathBuf::from("/definitely/missing/tesseract"),
+            None,
+        ));
         let cancellation = CancellationToken::new();
         cancellation.cancel();
         assert!(matches!(
             engine.probe_english(&cancellation).await,
+            Err(AppError::CaptureCancelled)
+        ));
+    }
+
+    #[tokio::test]
+    async fn pre_cancelled_recognition_never_requires_an_ocr_executable() {
+        let engine = TesseractEngine::new(OcrRuntime::new(
+            std::path::PathBuf::from("missing-ocr-fixture-executable"),
+            None,
+        ));
+        let variant = PreparedVariant {
+            image: image::DynamicImage::new_rgb8(2, 2),
+            id: crate::models::PreprocessingVariant::Original,
+        };
+        let cancellation = CancellationToken::new();
+        cancellation.cancel();
+        assert!(matches!(
+            engine
+                .recognize(&variant, TextMode::SingleLine, &cancellation)
+                .await,
             Err(AppError::CaptureCancelled)
         ));
     }
@@ -357,8 +592,18 @@ mod tests {
     async fn cancellation_terminates_ocr_process() {
         let directory = tempdir().expect("tempdir");
         let executable = directory.path().join("slow-tesseract");
-        write_executable(&executable, "#!/bin/sh\nsleep 30\n");
-        let engine = TesseractEngine { executable };
+        // Synchronize with the synthetic process instead of relying on a
+        // host-scheduler-dependent delay. Use exec so no shell descendant can
+        // keep redirected pipe handles open after the child is terminated.
+        write_executable(
+            &executable,
+            "#!/bin/sh\nprintf ready > ready.marker\nexec sleep 30\n",
+        );
+        let engine = TesseractEngine::new(OcrRuntime {
+            executable,
+            tessdata_dir: None,
+            working_directory: Some(directory.path().to_path_buf()),
+        });
         let variant = PreparedVariant {
             image: DynamicImage::new_luma8(1, 1),
             id: PreprocessingVariant::Original,
@@ -370,12 +615,28 @@ mod tests {
                 .recognize(&variant, TextMode::Terminal, &task_token)
                 .await
         });
-        sleep(Duration::from_millis(50)).await;
+        // Hosted Linux runners may schedule this test alongside several
+        // blocking process tests. A five-second startup bound is too tight
+        // under contention; still fail promptly if OCR exited before ready.
+        timeout(Duration::from_secs(15), async {
+            while !directory.path().join("ready.marker").exists() {
+                assert!(
+                    !task.is_finished(),
+                    "synthetic OCR task exited before the synthetic startup marker was written"
+                );
+                sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("synthetic OCR process did not report startup");
         cancellation.cancel();
         let result = timeout(Duration::from_secs(2), task)
             .await
             .expect("OCR cancellation timed out")
             .expect("OCR task failed");
-        assert!(matches!(result, Err(AppError::CaptureCancelled)));
+        assert!(
+            matches!(result, Err(AppError::CaptureCancelled)),
+            "unexpected cancellation result: {result:?}"
+        );
     }
 }

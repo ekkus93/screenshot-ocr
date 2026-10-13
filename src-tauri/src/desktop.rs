@@ -1,5 +1,6 @@
 use crate::actions::{spawn_dispatch, ActivationSource, AppAction};
 use crate::app::AppServices;
+use crate::platform::PlatformServices;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::TrayIconBuilder,
@@ -18,7 +19,17 @@ pub fn setup(app: &mut App) {
 
     services
         .runtime_diagnostics
-        .set_shortcut_status(register_direct_shortcut(app));
+        .set_shortcut_status(register_direct_shortcut(app, services.platform.as_ref()));
+}
+
+fn tray_action_from_id(id: &str) -> Option<AppAction> {
+    match id {
+        "capture" => Some(AppAction::StartCapture),
+        "cancel" => Some(AppAction::CancelCapture),
+        "show" => Some(AppAction::ShowMainWindow),
+        "quit" => Some(AppAction::Quit),
+        _ => None,
+    }
 }
 
 fn build_tray(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
@@ -33,14 +44,7 @@ fn build_tray(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         .show_menu_on_left_click(true)
         .tooltip("Screenshot OCR")
         .on_menu_event(|app, event| {
-            let action = match event.id.as_ref() {
-                "capture" => Some(AppAction::StartCapture),
-                "cancel" => Some(AppAction::CancelCapture),
-                "show" => Some(AppAction::ShowMainWindow),
-                "quit" => Some(AppAction::Quit),
-                _ => None,
-            };
-            if let Some(action) = action {
+            if let Some(action) = tray_action_from_id(event.id.as_ref()) {
                 spawn_dispatch(app.clone(), action, ActivationSource::Tray);
             }
         });
@@ -52,9 +56,9 @@ fn build_tray(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn register_direct_shortcut(app: &App) -> &'static str {
-    let Some(shortcut) = direct_shortcut() else {
-        return "deferred; use the GNOME custom shortcut";
+fn register_direct_shortcut(app: &App, platform: &dyn PlatformServices) -> &'static str {
+    let Some(shortcut) = platform.direct_shortcut() else {
+        return platform.shortcut_unavailable_status();
     };
     match app.global_shortcut().register(shortcut) {
         Ok(()) => "registered",
@@ -62,42 +66,24 @@ fn register_direct_shortcut(app: &App) -> &'static str {
     }
 }
 
-#[cfg(target_os = "linux")]
-fn direct_shortcut() -> Option<&'static str> {
-    direct_shortcut_for_session(std::env::var("XDG_SESSION_TYPE").ok().as_deref())
-}
-
-#[cfg(target_os = "linux")]
-fn direct_shortcut_for_session(session: Option<&str>) -> Option<&'static str> {
-    match session {
-        Some(session) if session.eq_ignore_ascii_case("x11") => Some("Super+Shift+O"),
-        _ => None,
-    }
-}
-
-#[cfg(any(target_os = "windows", target_os = "macos"))]
-fn direct_shortcut() -> Option<&'static str> {
-    Some("CmdOrCtrl+Shift+O")
-}
-
-#[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
-fn direct_shortcut() -> Option<&'static str> {
-    None
-}
-
 #[cfg(test)]
 mod tests {
-    #[cfg(target_os = "linux")]
-    use super::direct_shortcut_for_session;
+    use super::*;
 
-    #[cfg(target_os = "linux")]
     #[test]
-    fn linux_direct_shortcut_is_x11_only() {
+    fn tray_actions_route_only_the_four_approved_commands() {
         assert_eq!(
-            direct_shortcut_for_session(Some("x11")),
-            Some("Super+Shift+O")
+            tray_action_from_id("capture"),
+            Some(AppAction::StartCapture)
         );
-        assert_eq!(direct_shortcut_for_session(Some("wayland")), None);
-        assert_eq!(direct_shortcut_for_session(None), None);
+        assert_eq!(
+            tray_action_from_id("cancel"),
+            Some(AppAction::CancelCapture)
+        );
+        assert_eq!(tray_action_from_id("show"), Some(AppAction::ShowMainWindow));
+        assert_eq!(tray_action_from_id("quit"), Some(AppAction::Quit));
+        for unrecognized in ["", "toggle", "Capture", "capture --quit", "../quit"] {
+            assert_eq!(tray_action_from_id(unrecognized), None);
+        }
     }
 }

@@ -22,6 +22,7 @@ function ReservedCheckbox({ checked, label }: { checked: boolean; label: string 
 
 export function SettingsPanel({ controller }: Props) {
   const [section, setSection] = useState<Section>("general");
+  const isWindows = controller.diagnostics?.platform === "windows";
   const patch = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
     controller.changeSettings({ ...controller.settings, [key]: value });
   };
@@ -121,26 +122,45 @@ export function SettingsPanel({ controller }: Props) {
             <label className="space-y-1">
               <span className="text-sm font-medium">Capture backend</span>
               <select
-                value={controller.settings.captureBackend}
+                value={isWindows ? "auto" : controller.settings.captureBackend}
+                disabled={isWindows}
                 onChange={(event) => {
                   patch("captureBackend", event.target.value as AppSettings["captureBackend"]);
                 }}
                 className="w-full rounded-md border border-steel-200 bg-transparent px-2 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-phosphor-500 dark:border-ink-700"
               >
-                <option value="auto">Auto</option>
-                <option value="gnome">GNOME screenshot helper</option>
-                <option value="portal">Portal (capability required)</option>
+                <option value="auto">{isWindows ? "Windows native (automatic)" : "Auto"}</option>
+                {!isWindows && <option value="gnome">GNOME screenshot helper</option>}
+                {!isWindows && <option value="portal">Portal (capability required)</option>}
               </select>
             </label>
           </div>
 
-          <p className="text-sm text-steel-600 dark:text-steel-400">
-            GNOME shortcut: assign{" "}
-            <kbd className="rounded border border-steel-200 px-1.5 py-0.5 font-mono text-xs dark:border-ink-700">
-              Super+Shift+O
-            </kbd>{" "}
-            to <code className="font-mono">screenshot-ocr capture</code>.
-          </p>
+          {isWindows ? (
+            <>
+              <p className="text-sm text-steel-600 dark:text-steel-400">
+                Windows shortcut:{" "}
+                <kbd className="rounded border border-steel-200 px-1.5 py-0.5 font-mono text-xs dark:border-ink-700">
+                  Ctrl+Shift+O
+                </kbd>{" "}
+                is registered by the app when available.
+              </p>
+              {controller.settings.captureBackend !== "auto" && (
+                <p className="text-xs text-steel-600 dark:text-steel-400">
+                  The saved Linux capture preference is ignored on Windows. Windows native capture
+                  is selected automatically; your saved preference is preserved for Linux.
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-steel-600 dark:text-steel-400">
+              GNOME shortcut: assign{" "}
+              <kbd className="rounded border border-steel-200 px-1.5 py-0.5 font-mono text-xs dark:border-ink-700">
+                Super+Shift+O
+              </kbd>{" "}
+              to <code className="font-mono">screenshot-ocr capture</code>.
+            </p>
+          )}
 
           <p className="font-mono text-xs text-steel-500 dark:text-steel-600">
             Local processing only — no network calls.

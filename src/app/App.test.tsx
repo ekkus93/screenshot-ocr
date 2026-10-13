@@ -39,9 +39,9 @@ const diagnostics = {
   osRelease: "test",
   desktopEnvironment: "test",
   sessionType: "test",
-  portalSummary: "test",
-  gnomeScreenshot: "test",
-  tesseract: "test",
+  platform: "linux",
+  captureSummary: "test",
+  ocrRuntime: "test",
   installedLanguages: ["eng"],
   clipboardStatus: "available",
   trayStatus: "available",
@@ -232,4 +232,75 @@ test("reserved settings controls are visible but not active", async () => {
   expect(screen.getAllByText(/Not implemented in this pre-release build/).length).toBeGreaterThan(
     0,
   );
+});
+
+test("Windows UI shows its shortcut and hides Linux-only backend choices", async () => {
+  const user = userEvent.setup();
+  mocks.getDiagnostics.mockResolvedValueOnce({ ...diagnostics, platform: "windows" });
+  mocks.getSettings.mockResolvedValueOnce({
+    settings: { ...settings, captureBackend: "portal" },
+    warning: null,
+  });
+
+  render(<App />);
+  expect(await screen.findByText("Ctrl + Shift + O")).toBeVisible();
+  expect(screen.queryByText("Super + Shift + O")).not.toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: /settings/i }));
+  expect(screen.getByText("Ctrl+Shift+O")).toBeVisible();
+  expect(screen.queryByText(/GNOME shortcut/)).not.toBeInTheDocument();
+  expect(screen.getByLabelText("Capture backend")).toBeDisabled();
+  expect(screen.getByLabelText("Capture backend")).toHaveValue("auto");
+  expect(screen.getByText("Windows native (automatic)")).toBeInTheDocument();
+  expect(screen.queryByText("GNOME screenshot helper")).not.toBeInTheDocument();
+  expect(screen.queryByText("Portal (capability required)")).not.toBeInTheDocument();
+  expect(screen.getByText(/saved Linux capture preference is ignored/)).toBeVisible();
+  expect(mocks.updateSettings).not.toHaveBeenCalled();
+});
+
+test("Linux UI retains selectable GNOME and portal capture backends", async () => {
+  const user = userEvent.setup();
+  render(<App />);
+  await screen.findByText("Ready to capture");
+  await user.click(screen.getByRole("button", { name: /settings/i }));
+  expect(screen.getByLabelText("Capture backend")).toBeEnabled();
+  expect(screen.getByText("GNOME screenshot helper")).toBeInTheDocument();
+  expect(screen.getByText("Portal (capability required)")).toBeInTheDocument();
+  expect(screen.getByText("Super+Shift+O")).toBeVisible();
+});
+
+test("Windows capture cancellation restores the UI without copying", async () => {
+  const user = userEvent.setup();
+  mocks.getDiagnostics.mockResolvedValueOnce({ ...diagnostics, platform: "windows" });
+  let rejectCapture: ((reason?: unknown) => void) | undefined;
+  mocks.startCapture.mockImplementationOnce(
+    () =>
+      new Promise((_resolve, reject) => {
+        rejectCapture = reject;
+      }),
+  );
+  mocks.cancelCapture.mockResolvedValue(undefined);
+
+  render(<App />);
+  await screen.findByText("Ready to capture");
+  await user.click(screen.getByRole("button", { name: "Capture text from screen" }));
+  expect(await screen.findByText("Select a region; OCR continues after selection")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Scanning…" })).toBeDisabled();
+
+  await user.click(screen.getByRole("button", { name: "Cancel capture" }));
+  expect(mocks.cancelCapture).toHaveBeenCalledWith(expect.any(String));
+  expect(await screen.findByText("Cancelling capture")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Cancelling…" })).toBeDisabled();
+
+  expect(rejectCapture).toBeTypeOf("function");
+  rejectCapture?.({
+    code: "capture_cancelled",
+    message: "Capture cancelled.",
+    guidance: "Try again.",
+    retryable: true,
+  });
+  expect(await screen.findByText("Capture cancelled")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Capture text from screen" })).toBeEnabled();
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(mocks.copyText).not.toHaveBeenCalled();
 });

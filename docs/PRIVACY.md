@@ -15,3 +15,11 @@ The clipboard changes only after an explicit copy action in preview mode or afte
 Automated OCR cleanup fixtures are synthetic text only. Private screenshots, real OCR output, clipboard text, temporary paths, portal result URIs, and helper stdout/stderr from a real machine must not be committed as test fixtures or uploaded as CI artifacts.
 
 System components involved are GNOME screenshot facilities, Tesseract, the desktop clipboard, and Tauri/WebKitGTK. Their operating-system behavior remains outside the application's direct control and is covered by the required platform validation matrix.
+
+## Windows candidate privacy boundary
+
+The experimental Windows adapter selects a region with an application-owned Win32 overlay, captures pixels into memory with GDI, and passes the image to the same local preprocessing and OCR pipeline. The selector does not invoke external screenshot utilities, write image files, or send captured pixels over the network. Cancellation and capture failures must release native handles and restore the application window; physical desktop acceptance is still pending.
+
+The packaged Windows Tesseract candidate runs from the application's own `resources/ocr/` directory with English trained data alongside it. Its path is resolved internally, not supplied by frontend input or discovered from PATH. Runtime discovery and recognition errors map to stable public codes rather than raw Windows error text, filesystem paths, or process output.
+
+Build-time CI may download a checksum-pinned Tesseract distribution and extract it to inspect or stage a candidate installer; this is separate from application runtime and must not upload private captures. Transitive native dependency/license review, installer publication approval, and offline physical acceptance remain incomplete.
